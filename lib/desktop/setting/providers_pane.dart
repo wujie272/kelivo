@@ -960,6 +960,7 @@ class _DesktopProviderDetailPaneState
   final TextEditingController _proxyPortCtrl = TextEditingController();
   final TextEditingController _proxyUserCtrl = TextEditingController();
   final TextEditingController _proxyPassCtrl = TextEditingController();
+  final TextEditingController _balanceHeadersCtrl = TextEditingController();
   bool _balanceLoading = false;
 
   void _syncCtrl(TextEditingController c, String newText) {
@@ -998,6 +999,10 @@ class _DesktopProviderDetailPaneState
             displayName: widget.displayName,
           ).balanceResultPath ??
           'data.total_usage',
+    );
+    _syncCtrl(
+      _balanceHeadersCtrl,
+      _balanceHeadersToText(cfg.balanceHeaders),
     );
   }
 
@@ -1052,7 +1057,33 @@ class _DesktopProviderDetailPaneState
     _proxyPortCtrl.dispose();
     _proxyUserCtrl.dispose();
     _proxyPassCtrl.dispose();
+    _balanceHeadersCtrl.dispose();
     super.dispose();
+  }
+
+  /// Convert a Map<String, String> to multi-line "Key: Value" text.
+  static String _balanceHeadersToText(Map<String, String>? headers) {
+    if (headers == null || headers.isEmpty) return '';
+    return headers.entries
+        .map((e) => '${e.key}: ${e.value}')
+        .join('\n');
+  }
+
+  /// Parse multi-line "Key: Value" text back to Map<String, String>.
+  static Map<String, String> _balanceHeadersFromText(String text) {
+    final map = <String, String>{};
+    for (final line in text.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+      final colon = trimmed.indexOf(':');
+      if (colon <= 0) continue;
+      final key = trimmed.substring(0, colon).trim();
+      final value = trimmed.substring(colon + 1).trim();
+      if (key.isNotEmpty && value.isNotEmpty) {
+        map[key] = value;
+      }
+    }
+    return map;
   }
 
   Future<String?> _inputDialog(
@@ -2210,6 +2241,7 @@ class _DesktopProviderDetailPaneState
       final updated = old.copyWith(
         balanceApiPath: _balanceApiPathCtrl.text.trim(),
         balanceResultPath: _balanceResultPathCtrl.text.trim(),
+        balanceHeaders: _balanceHeadersFromText(_balanceHeadersCtrl.text),
       );
       await sp.setProviderConfig(widget.providerKey, updated);
       ProviderBalanceBadge.clearCacheFor(widget.providerKey);
@@ -2330,6 +2362,10 @@ class _DesktopProviderDetailPaneState
                   cfgNow.balanceResultPath ??
                       balanceDefaults.balanceResultPath ??
                       '',
+                );
+                syncCtrl(
+                  _balanceHeadersCtrl,
+                  _balanceHeadersToText(cfgNow.balanceHeaders),
                 );
                 final kindNow =
                     cfgNow.providerType ??
@@ -2924,6 +2960,73 @@ class _DesktopProviderDetailPaneState
                                           },
                                         ),
                                       ),
+                                      const SizedBox(height: 8),
+                                      // Custom balance headers
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              l10n
+                                                  .providerDetailPageBalanceHeadersLabel,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: cs.onSurface
+                                                    .withValues(alpha: 0.8),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          SizedBox(
+                                            width: 260,
+                                            child: TextField(
+                                              controller: _balanceHeadersCtrl,
+                                              maxLines: 3,
+                                              minLines: 2,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontFamily: 'monospace',
+                                              ),
+                                              decoration:
+                                                  _proxyInputDecoration(ctx)
+                                                      .copyWith(
+                                                hintText:
+                                                    'x-api-key: your-key\nAuthorization: Bearer xxx',
+                                              ),
+                                              onChanged: (_) async {
+                                                if (_balanceHeadersCtrl
+                                                    .value
+                                                    .composing
+                                                    .isValid) {
+                                                  return;
+                                                }
+                                                final old = spWatch
+                                                    .getProviderConfig(
+                                                      widget.providerKey,
+                                                      defaultName:
+                                                          widget.displayName,
+                                                    );
+                                                await spWatch
+                                                    .setProviderConfig(
+                                                      widget.providerKey,
+                                                      old.copyWith(
+                                                        balanceHeaders:
+                                                            _balanceHeadersFromText(
+                                                          _balanceHeadersCtrl
+                                                              .text,
+                                                        ),
+                                                      ),
+                                                    );
+                                                ProviderBalanceBadge
+                                                    .clearCacheFor(
+                                                      widget.providerKey,
+                                                    );
+                                              },
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                       const SizedBox(height: 4),
                                       row(
                                         l10n.providerDetailPageBalanceTitle,
@@ -2973,6 +3076,13 @@ class _DesktopProviderDetailPaneState
                                                             .balanceResultPath ??
                                                         '',
                                                   );
+                                                  _syncControllerText(
+                                                    _balanceHeadersCtrl,
+                                                    _balanceHeadersToText(
+                                                      balanceDefaults
+                                                          .balanceHeaders,
+                                                    ),
+                                                  );
                                                   final old = spWatch
                                                       .getProviderConfig(
                                                         widget.providerKey,
@@ -2994,6 +3104,11 @@ class _DesktopProviderDetailPaneState
                                                           _balanceResultPathCtrl
                                                               .text
                                                               .trim(),
+                                                      balanceHeaders:
+                                                          _balanceHeadersFromText(
+                                                        _balanceHeadersCtrl
+                                                            .text,
+                                                      ),
                                                     ),
                                                   );
                                                   ProviderBalanceBadge.clearCacheFor(

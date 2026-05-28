@@ -3261,6 +3261,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get providerDetailPageBalanceResultPathLabel => 'Result JSON Path';
+  String get providerDetailPageBalanceHeadersLabel => 'Custom Headers';
 
   @override
   String get providerDetailPageBalanceQueryButton => 'Check Balance';
