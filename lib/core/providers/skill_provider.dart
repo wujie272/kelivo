@@ -81,8 +81,8 @@ class SkillProvider extends ChangeNotifier {
 
     // 路径穿越保护
     try {
-      final canonicalDir = skillDir.canonicalFile().path;
-      final canonicalFile = file.canonicalFile().path;
+      final canonicalDir = skillDir.resolveSymbolicLinksSync();
+      final canonicalFile = file.resolveSymbolicLinksSync();
       if (!canonicalFile.startsWith(canonicalDir)) return null;
     } catch (_) {
       return null;
