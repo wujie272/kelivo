@@ -14,6 +14,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/skill.dart';
@@ -24,20 +25,44 @@ class SkillProvider extends ChangeNotifier {
 
   List<Skill> _skills = [];
   bool _initialized = false;
+  String _skillsBasePath = ''; // 缓存路径，initialize() 时初始化
 
   List<Skill> get skills => List.unmodifiable(_skills);
   bool get initialized => _initialized;
 
-  /// 获取技能文件系统根目录 ~/skills/
+  /// 技能根目录路径（缓存优先，未初始化时 fallback）
   String _skillsDirPath() {
-    final home = Platform.environment['HOME'] ?? '/data/data/com.termux/files/home';
-    return '$home/skills';
+    if (_skillsBasePath.isNotEmpty) return _skillsBasePath;
+    // 备用：initialize() 被调用前直接访问时使用
+    final home = Platform.environment['HOME'];
+    if (home != null && home.isNotEmpty) return '$home/skills';
+    return '${Directory.systemTemp.path}/skills';
   }
 
   Directory get skillsDir => Directory(_skillsDirPath());
   String get skillsDirPath => _skillsDirPath();
 
-  /// 确保 ~/skills/ 存在
+  /// 解析技能根目录路径
+  ///
+  /// 优先级：
+  /// 1. `HOME` 环境变量（Termux 环境）
+  /// 2. `getApplicationDocumentsDirectory()`（标准 Android/iOS/桌面 app）
+  /// 3. 系统临时目录（最后保底）
+  Future<void> _resolveSkillsBasePath() async {
+    final home = Platform.environment['HOME'];
+    if (home != null && home.isNotEmpty) {
+      _skillsBasePath = '$home/skills';
+      return;
+    }
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      _skillsBasePath = '${appDir.path}/skills';
+    } catch (_) {
+      _skillsBasePath = '${Directory.systemTemp.path}/skills';
+    }
+  }
+
+  /// 确保技能根目录存在
   Future<Directory> ensureSkillsDir() async {
     final dir = Directory(_skillsDirPath());
     if (!await dir.exists()) {
@@ -131,8 +156,9 @@ class SkillProvider extends ChangeNotifier {
 
   Future<void> initialize() async {
     if (_initialized) return;
-    await _load();            // 文件系统 → 缓存
-    await _importBuiltIns();  // 内置技能写入文件系统
+    await _resolveSkillsBasePath(); // 先确定技能根目录路径
+    await _load();                  // 文件系统 → 缓存
+    await _importBuiltIns();        // 内置技能写入文件系统
     _initialized = true;
     notifyListeners();
   }
