@@ -1,7 +1,7 @@
 /// SkillProvider — 技能管理（Phase 3: 多文件 + GitHub + 原子保存）
 ///
 /// 持久化策略：
-/// - 主存储：~/skills/<name>/（文件系统，含 SKILL.md + 子文件）
+/// - 主存储：~/skills/&lt;name&gt;/（文件系统，含 SKILL.md + 子文件）
 /// - 写入方式：原子写入（temp dir → rename，防止写一半崩溃）
 /// - 缓存：SharedPreferences（savedSkills_v1，加速启动、离线回退）
 /// - 绑定方式：Assistant.enabledSkills（技能名称集合）
@@ -266,10 +266,10 @@ class SkillProvider extends ChangeNotifier {
     }
   }
 
-  /// 🔐 原子写入：将技能完整写入 ~/skills/<name>/（含 SKILL.md + 子文件）
+  /// 🔐 原子写入：将技能完整写入 ~/skills/&lt;name&gt;/（含 SKILL.md + 子文件）
   ///
   /// 策略：
-  /// 1. 先写 ~/skills/.tmp_<name>_<timestamp>/
+  /// 1. 先写 ~/skills/.tmp_&lt;name&gt;_&lt;timestamp&gt;/
   /// 2. fsync 所有文件
   /// 3. rename(tmp → target) — 原子操作（POSIX 保证）
   /// 4. rename 失败时回退到直接覆盖
@@ -292,7 +292,7 @@ class SkillProvider extends ChangeNotifier {
       await _writeSubFiles(skill.files, tmpDir.path);
 
       // 4. fsync 目录（确保数据落盘）
-      await tmpSkillMd.parent.resolveSymbolicLinksSync();
+      tmpSkillMd.parent.resolveSymbolicLinksSync();
 
       // 5. 原子 rename：tmp → target
       if (await targetDir.exists()) {
