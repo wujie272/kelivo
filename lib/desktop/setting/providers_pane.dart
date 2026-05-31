@@ -1015,7 +1015,7 @@ class _DesktopProviderDetailPaneState
     super.dispose();
   }
 
-  /// Convert a Map<String, String> to multi-line "Key: Value" text.
+  /// Convert a `Map<String, String>` to multi-line "Key: Value" text.
   static String _balanceHeadersToText(Map<String, String>? headers) {
     if (headers == null || headers.isEmpty) return '';
     return headers.entries
@@ -1023,7 +1023,7 @@ class _DesktopProviderDetailPaneState
         .join('\n');
   }
 
-  /// Parse multi-line "Key: Value" text back to Map<String, String>.
+  /// Parse multi-line "Key: Value" text back to `Map<String, String>`.
   static Map<String, String> _balanceHeadersFromText(String text) {
     final map = <String, String>{};
     for (final line in text.split('\n')) {
