@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../../core/models/skill.dart';
 import '../../../core/providers/assistant_provider.dart';
 import '../../../core/providers/skill_provider.dart';
-import '../../../core/services/haptics.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 
@@ -36,14 +35,6 @@ class _SkillDetailPageState extends State<SkillDetailPage> {
     createdAt: DateTime.now(),
     updatedAt: DateTime.now(),
   );
-
-  void _refresh() {
-    final provider = context.read<SkillProvider>();
-    final updated = provider.getByName(widget.skillName);
-    if (updated != null) {
-      setState(() => _skill = updated);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {

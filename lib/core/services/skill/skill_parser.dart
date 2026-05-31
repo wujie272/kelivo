@@ -129,7 +129,6 @@ class SkillParser {
     String version = '1.0.0';
     String author = '';
     List<String> triggers = [];
-    int priority = 100;
 
     for (final line in yaml.split('\n')) {
       final trimmed = line.trim();
@@ -158,9 +157,6 @@ class SkillParser {
         case 'triggers':
           triggers = _parseYamlList(valueRaw);
           break;
-        case 'priority':
-          priority = int.tryParse(valueRaw) ?? 100;
-          break;
       }
     }
 
@@ -170,7 +166,6 @@ class SkillParser {
       version: version,
       author: author,
       triggers: triggers,
-      priority: priority,
     );
   }
 
