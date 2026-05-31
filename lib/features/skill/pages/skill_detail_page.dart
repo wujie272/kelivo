@@ -140,6 +140,7 @@ class _SkillDetailPageState extends State<SkillDetailPage> {
     );
 
     if (path != null && path.trim().isNotEmpty) {
+      if (!context.mounted) return;
       final skillProvider = context.read<SkillProvider>();
       final ok = await skillProvider.exportToFile(skillName, path.trim());
       if (context.mounted) {

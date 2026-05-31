@@ -1,6 +1,6 @@
 /// Skill 数据模型 — 简化版
 ///
-/// 源自 RikkaHub 的设计：技能存储在 ~/skills/<name>/SKILL.md
+/// 源自 RikkaHub 的设计：技能存储在 ~/skills/&lt;name&gt;/SKILL.md
 /// - 用 name 作为唯一键（同时也是目录名）
 /// - 没有 UUID id（简化）
 /// - 没有 assistantIds（绑到 Assistant.enabledSkills）

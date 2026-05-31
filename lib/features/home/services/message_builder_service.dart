@@ -638,10 +638,9 @@ class MessageBuilderService {
   ) async {
     try {
       final skillProvider = contextProvider.read<SkillProvider>();
+      final assistantProvider = contextProvider.read<AssistantProvider>();
       await skillProvider.initialize();
 
-      // 通过 AssistantProvider 获取当前 assistant 的 enabledSkills
-      final assistantProvider = contextProvider.read<AssistantProvider>();
       final allAssistants = assistantProvider.assistants;
       final assistant = allAssistants.where((a) => a.id == assistantId).isNotEmpty
           ? allAssistants.firstWhere((a) => a.id == assistantId)
