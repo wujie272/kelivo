@@ -50,6 +50,8 @@ class Assistant {
   final List<PresetMessage> presetMessages;
   // Regex replacement rules
   final List<AssistantRegex> regexRules;
+  // Skills enabled for this assistant (skill names from ~/skills/ directory)
+  final List<String> enabledSkills;
 
   const Assistant({
     required this.id,
@@ -79,6 +81,7 @@ class Assistant {
     this.recentChatsSummaryMessageCount = defaultRecentChatsSummaryMessageCount,
     this.presetMessages = const <PresetMessage>[],
     this.regexRules = const <AssistantRegex>[],
+    this.enabledSkills = const <String>[],
   });
 
   Assistant copyWith({
@@ -109,6 +112,7 @@ class Assistant {
     int? recentChatsSummaryMessageCount,
     List<PresetMessage>? presetMessages,
     List<AssistantRegex>? regexRules,
+    List<String>? enabledSkills,
     bool clearChatModel = false,
     bool clearAvatar = false,
     bool clearTemperature = false,
@@ -151,6 +155,7 @@ class Assistant {
           recentChatsSummaryMessageCount ?? this.recentChatsSummaryMessageCount,
       presetMessages: presetMessages ?? this.presetMessages,
       regexRules: regexRules ?? this.regexRules,
+      enabledSkills: enabledSkills ?? this.enabledSkills,
     );
   }
 
@@ -182,6 +187,7 @@ class Assistant {
     'recentChatsSummaryMessageCount': recentChatsSummaryMessageCount,
     'presetMessages': PresetMessage.encodeList(presetMessages),
     'regexRules': regexRules.map((e) => e.toJson()).toList(),
+    'enabledSkills': enabledSkills,
   };
 
   static Assistant fromJson(Map<String, dynamic> json) => Assistant(
@@ -263,6 +269,10 @@ class Assistant {
             .toList();
       }
       return const <AssistantRegex>[];
+    })(),
+    enabledSkills: (() {
+      final raw = json['enabledSkills'];
+      return (raw is List) ? raw.cast<String>() : const <String>[];
     })(),
   );
 
