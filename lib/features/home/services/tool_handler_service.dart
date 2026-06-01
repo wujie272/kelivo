@@ -140,18 +140,6 @@ class ToolHandlerService {
   static Map<String, dynamic> _deepCloneMap(Map<String, dynamic> input) {
     return jsonDecode(jsonEncode(input)) as Map<String, dynamic>;
   }
-/// Known required parameters for built-in tools.
-  /// Used by the unified pre-check to catch missing params before dispatch.
-  static const Map<String, List<String>> _builtinToolRequiredParams = {
-    SearchToolService.toolName: ['query'],
-    'create_memory': ['content'],
-    'edit_memory': ['id', 'content'],
-    'delete_memory': ['id'],
-    'use_skill': ['name'],
-    LocalToolNames.clipboard: ['action'],
-    LocalToolNames.textToSpeech: ['text'],
-    LocalToolNames.askUser: ['questions'],
-  };
 
   // ============================================================================
   // Tool Definitions Builder
@@ -414,30 +402,6 @@ class ToolHandlerService {
 
     return (name, args, {toolCallId}) async {
       try {
-        // 🔍 Unified parameter pre-check for ALL tools
-        // Catches missing required params before any dispatching.
-        {
-          final required = _builtinToolRequiredParams[name] ?? const [];
-          if (required.isNotEmpty) {
-            final missing =
-                required.where((p) => !args.containsKey(p)).toList();
-            if (missing.isNotEmpty) {
-              return jsonEncode({
-                'type': 'tool_error',
-                'error': 'missing_required_params',
-                'message':
-                    'Missing required parameters: ${missing.join(", ")}',
-                'tool': name,
-                'missing': missing,
-                'instruction':
-                    'The following required parameters are missing: ${missing.join(", ")}. '
-                    'Please provide all required parameters and try again.',
-              });
-            }
-          }
-        }
-
-
         // Search tool
         if (name == SearchToolService.toolName &&
             assistant?.searchEnabled == true) {

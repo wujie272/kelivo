@@ -1451,8 +1451,13 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
             final name = (f['name'] ?? '').toString();
             Map<String, dynamic> args;
             try {
-              args = (jsonDecode((f['arguments'] ?? '{}').toString()) as Map)
-                  .cast<String, dynamic>();
+              dynamic rawArgs = f['arguments'];
+              if (rawArgs is Map) {
+                args = Map<String, dynamic>.from(rawArgs);
+              } else {
+                args = (jsonDecode((rawArgs ?? '{}').toString()) as Map)
+                    .cast<String, dynamic>();
+              }
             } catch (_) {
               args = <String, dynamic>{};
             }
@@ -2094,7 +2099,13 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                         final id = t['id'] as String?;
                         final func = t['function'] as Map<String, dynamic>?;
                         final name = func?['name'] as String?;
-                        final argsDelta = func?['arguments'] as String?;
+                        dynamic rawArgs = func?['arguments'];
+                        String? argsDelta;
+                        if (rawArgs is String) {
+                          argsDelta = rawArgs;
+                        } else if (rawArgs is Map) {
+                          argsDelta = jsonEncode(rawArgs);
+                        }
                         final entry = toolAcc2.putIfAbsent(
                           idx,
                           () => {'id': '', 'name': '', 'args': ''},
@@ -2974,7 +2985,13 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                   final id = t['id'] as String?;
                   final func = t['function'] as Map<String, dynamic>?;
                   final name = func?['name'] as String?;
-                  final argsDelta = func?['arguments'] as String?;
+                  dynamic rawArgs = func?['arguments'];
+                  String? argsDelta;
+                  if (rawArgs is String) {
+                    argsDelta = rawArgs;
+                  } else if (rawArgs is Map) {
+                    argsDelta = jsonEncode(rawArgs);
+                  }
                   final entry = toolAcc.putIfAbsent(
                     idx,
                     () => {'id': '', 'name': '', 'args': ''},
@@ -3521,7 +3538,13 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                         final id = t['id'] as String?;
                         final func = t['function'] as Map<String, dynamic>?;
                         final name = func?['name'] as String?;
-                        final argsDelta = func?['arguments'] as String?;
+                        dynamic rawArgs = func?['arguments'];
+                        String? argsDelta;
+                        if (rawArgs is String) {
+                          argsDelta = rawArgs;
+                        } else if (rawArgs is Map) {
+                          argsDelta = jsonEncode(rawArgs);
+                        }
                         final entry = toolAcc2.putIfAbsent(
                           idx,
                           () => {'id': '', 'name': '', 'args': ''},
@@ -4078,7 +4101,13 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                             final id = t['id'] as String?;
                             final func = t['function'] as Map<String, dynamic>?;
                             final name = func?['name'] as String?;
-                            final argsDelta = func?['arguments'] as String?;
+                            dynamic rawArgs = func?['arguments'];
+                            String? argsDelta;
+                            if (rawArgs is String) {
+                              argsDelta = rawArgs;
+                            } else if (rawArgs is Map) {
+                              argsDelta = jsonEncode(rawArgs);
+                            }
                             final entry = toolAcc2.putIfAbsent(
                               idx,
                               () => {'id': '', 'name': '', 'args': ''},
