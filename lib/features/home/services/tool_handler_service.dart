@@ -432,7 +432,37 @@ class ToolHandlerService {
           if (content == null) {
             return jsonEncode({'error': 'skill "$skillName"${path.isNotEmpty ? '/$path' : ''} not found'});
           }
-          return content;
+
+          // 使用统计
+          unawaited(skillProvider.recordUsage(skillName));
+
+          // 依赖自动加载
+          String result = content;
+          if (path.isEmpty) {
+            final skill = skillProvider.getByName(skillName);
+            if (skill != null && skill.dependencies.isNotEmpty) {
+              final deps = skillProvider.resolveDependencies(skill);
+              if (deps.isNotEmpty) {
+                final buf = StringBuffer();
+                buf.writeln('## Skills Dependencies');
+                buf.writeln('This skill has the following dependencies that are automatically loaded:');
+                buf.writeln();
+                for (final dep in deps) {
+                  buf.writeln('---');
+                  buf.writeln('### ${dep.name}');
+                  if (dep.description.isNotEmpty) {
+                    buf.writeln('> ${dep.description}');
+                    buf.writeln();
+                  }
+                  buf.writeln(dep.content.trim());
+                  buf.writeln();
+                  unawaited(skillProvider.recordUsage(dep.name));
+                }
+                result = '${buf.toString()}\n---\n## Requested Skill: $skillName\n\n$content';
+              }
+            }
+          }
+          return result;
         }
 
         // Memory tools

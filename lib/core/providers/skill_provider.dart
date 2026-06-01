@@ -1,11 +1,8 @@
-/// SkillProvider — 技能管理（Phase 3: 多文件 + GitHub + 原子保存）
+/// SkillProvider — 技能管理器
 ///
-/// 持久化策略：
-/// - 主存储：~/skills/&lt;name&gt;/（文件系统，含 SKILL.md + 子文件）
-/// - 写入方式：原子写入（temp dir → rename，防止写一半崩溃）
-/// - 缓存：SharedPreferences（savedSkills_v1，加速启动、离线回退）
-/// - 绑定方式：Assistant.enabledSkills（技能名称集合）
-/// - 导入来源：剪贴板、文件、目录、GitHub
+/// 持久化：文件系统为主（~/skills/<name>/），SharedPreferences 缓存加速启动。
+/// 写入：原子写入（tmp → rename），避免写半崩溃。
+/// 绑定：Assistant.enabledSkills。
 library;
 
 import 'dart:convert';
@@ -19,21 +16,47 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/skill.dart';
 import '../services/skill/skill_parser.dart';
+import '../../utils/app_directories.dart';
+
+/// 内存缓存，mtime 自动失效
+class _CacheEntry {
+  final String content;
+  final DateTime fileModifiedAt;
+  const _CacheEntry({required this.content, required this.fileModifiedAt});
+}
+
+/// 技能使用统计
+class SkillUsage {
+  int totalCalls;
+  DateTime lastUsed;
+  Map<String, int> dailyCalls;
+
+  SkillUsage({
+    this.totalCalls = 0,
+    DateTime? lastUsed,
+    Map<String, int>? dailyCalls,
+  }) : lastUsed = lastUsed ?? DateTime.now(),
+       dailyCalls = dailyCalls ?? {};
+}
 
 class SkillProvider extends ChangeNotifier {
   static const String _prefsKey = 'savedSkills_v1';
 
   List<Skill> _skills = [];
   bool _initialized = false;
-  String _skillsBasePath = ''; // 缓存路径，initialize() 时初始化
+  String _skillsBasePath = ''; // 由 initialize() 初始化
+
+  // ── 内容缓存（避免重复读盘） ──
+  final Map<String, _CacheEntry> _bodyCache = {};
+  final Map<String, Map<String, _CacheEntry>> _fileCache = {};
 
   List<Skill> get skills => List.unmodifiable(_skills);
   bool get initialized => _initialized;
 
-  /// 技能根目录路径（缓存优先，未初始化时 fallback）
+  /// 技能根目录路径
   String _skillsDirPath() {
     if (_skillsBasePath.isNotEmpty) return _skillsBasePath;
-    // 备用：initialize() 被调用前直接访问时使用
+    // 备用路径
     final home = Platform.environment['HOME'];
     if (home != null && home.isNotEmpty) return '$home/skills';
     return '${Directory.systemTemp.path}/skills';
@@ -42,27 +65,22 @@ class SkillProvider extends ChangeNotifier {
   Directory get skillsDir => Directory(_skillsDirPath());
   String get skillsDirPath => _skillsDirPath();
 
-  /// 解析技能根目录路径
-  ///
-  /// 优先级：
-  /// 1. `HOME` 环境变量（Termux 环境）
-  /// 2. `getApplicationDocumentsDirectory()`（标准 Android/iOS/桌面 app）
-  /// 3. 系统临时目录（最后保底）
+  /// 解析技能根目录路径（HOME → AppDocuments → tmp）
   Future<void> _resolveSkillsBasePath() async {
-    final home = Platform.environment['HOME'];
-    if (home != null && home.isNotEmpty) {
-      _skillsBasePath = '$home/skills';
-      return;
-    }
     try {
-      final appDir = await getApplicationDocumentsDirectory();
-      _skillsBasePath = '${appDir.path}/skills';
+      final skillsDir = await AppDirectories.getSkillsDirectory();
+      _skillsBasePath = skillsDir.path;
     } catch (_) {
+      // 回退：HOME 环境变量（Termux）
+      final home = Platform.environment['HOME'];
+      if (home != null && home.isNotEmpty) {
+        _skillsBasePath = '$home/skills';
+        return;
+      }
       _skillsBasePath = '${Directory.systemTemp.path}/skills';
     }
   }
 
-  /// 确保技能根目录存在
   Future<Directory> ensureSkillsDir() async {
     final dir = Directory(_skillsDirPath());
     if (!await dir.exists()) {
@@ -75,10 +93,24 @@ class SkillProvider extends ChangeNotifier {
   // 工具支持方法（供 use_skill tool 调用）
   // ============================================================================
 
-  /// 读取技能正文（不含 frontmatter），供 use_skill 工具。
-  /// 优先级：文件系统 → SharedPreferences 缓存
+  /// 读技能正文（不含 frontmatter），供 use_skill
+  /// 优先级：内存缓存(mtime) → 文件系统 → SharedPreferences
   String? readSkillBody(String name) {
-    // 1. 文件系统（主源）
+    // 1. 查内存缓存
+    final cached = _bodyCache[name];
+    if (cached != null) {
+      final file = File('${_skillsDirPath()}/$name/SKILL.md');
+      if (file.existsSync()) {
+        try {
+          final mtime = file.statSync().modified;
+          if (cached.fileModifiedAt == mtime) {
+            return cached.content;
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 2. 读文件系统（主源）
     final skillDir = Directory('${_skillsDirPath()}/$name');
     final file = File('${skillDir.path}/SKILL.md');
     if (file.existsSync()) {
@@ -86,21 +118,41 @@ class SkillProvider extends ChangeNotifier {
         final raw = file.readAsStringSync();
         final result = SkillParser.parseString(raw, sourcePath: file.path);
         if (result.isSuccess && result.meta.name == name) {
+          final mtime = file.statSync().modified;
+          _bodyCache[name] = _CacheEntry(content: result.content, fileModifiedAt: mtime);
           return result.content;
         }
       } catch (_) {}
     }
 
-    // 2. 回退到缓存
-    final cached = _skills.cast<Skill?>().firstWhere(
+    // 3. 回退到 SharedPreferences 缓存
+    final fallback = _skills.cast<Skill?>().firstWhere(
       (s) => s?.name == name,
       orElse: () => null,
     );
-    return cached?.content;
+    return fallback?.content;
   }
 
-  /// 读取技能目录中的子文件，供 use_skill 工具。
+  /// 读技能子文件，供 use_skill
   String? readSkillFile(String name, String relativePath) {
+    // 1. 先查内存缓存
+    final fileCache = _fileCache[name];
+    if (fileCache != null) {
+      final cached = fileCache[relativePath];
+      if (cached != null) {
+        final file = File('${_skillsDirPath()}/$name/$relativePath');
+        if (file.existsSync()) {
+          try {
+            final mtime = file.statSync().modified;
+            if (cached.fileModifiedAt == mtime) {
+              return cached.content;
+            }
+          } catch (_) {}
+        }
+      }
+    }
+
+    // 2. 读文件系统
     final skillDir = Directory('${_skillsDirPath()}/$name');
     final file = File('${skillDir.path}/$relativePath');
 
@@ -115,13 +167,16 @@ class SkillProvider extends ChangeNotifier {
 
     if (!file.existsSync()) return null;
     try {
-      return file.readAsStringSync();
+      final content = file.readAsStringSync();
+      final mtime = file.statSync().modified;
+      _fileCache.putIfAbsent(name, () => {})[relativePath] = _CacheEntry(content: content, fileModifiedAt: mtime);
+      return content;
     } catch (_) {
       return null;
     }
   }
 
-  /// 列出已启用的技能元数据（供 use_skill 的 systemPrompt 生成）
+  /// 列出已启用的技能元数据（供 systemPrompt 生成）
   List<({String name, String description})> listEnabledMetadata(
     Set<String> enabledSkillNames,
   ) {
@@ -150,24 +205,142 @@ class SkillProvider extends ChangeNotifier {
     return result;
   }
 
-  // ============================================================================
-  // 加载与持久化（Phase 2: 文件系统 = 源）
-  // ============================================================================
+  /// 使内存缓存失效
+  void _invalidateCache(String name) {
+    _bodyCache.remove(name);
+    _fileCache.remove(name);
+  }
+
+  // =========================== 使用统计 ===========================
+
+  static const String _usagePrefsKey = 'skillUsage_v1';
+  final Map<String, SkillUsage> _usageRecords = {};
+
+  /// 记录一次技能使用
+  Future<void> recordUsage(String skillName) async {
+    final now = DateTime.now();
+    final today = _todayKey(now);
+
+    final record = _usageRecords.putIfAbsent(skillName, () => SkillUsage());
+    record.totalCalls++;
+    record.lastUsed = now;
+    record.dailyCalls[today] = (record.dailyCalls[today] ?? 0) + 1;
+
+    await _persistUsage();
+    notifyListeners();
+  }
+
+  /// 获取技能使用统计
+  SkillUsage? getSkillUsage(String skillName) => _usageRecords[skillName];
+
+  /// 获取所有技能的总调用次数
+  int get totalUsageCalls =>
+      _usageRecords.values.fold(0, (sum, r) => sum + r.totalCalls);
+
+  /// 获取使用最多的技能（前 N）
+  List<(String name, int calls)> mostUsedSkills({int limit = 5}) {
+    final sorted = _usageRecords.entries.toList()
+      ..sort((a, b) => b.value.totalCalls.compareTo(a.value.totalCalls));
+    return sorted.take(limit).map((e) => (e.key, e.value.totalCalls)).toList();
+  }
+
+  String _todayKey(DateTime d) {
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '${d.year}-$m-$day';
+  }
+
+  Future<void> _persistUsage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonData = <String, Map<String, dynamic>>{};
+      for (final e in _usageRecords.entries) {
+        jsonData[e.key] = {
+          'totalCalls': e.value.totalCalls,
+          'lastUsed': e.value.lastUsed.toIso8601String(),
+          'dailyCalls': e.value.dailyCalls,
+        };
+      }
+      await prefs.setString(_usagePrefsKey, jsonEncode(jsonData));
+    } catch (e) {
+      debugPrint('[SkillProvider] persist usage error: $e');
+    }
+  }
+
+  Future<void> _loadUsage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_usagePrefsKey);
+      if (raw == null || raw.isEmpty) return;
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      for (final entry in decoded.entries) {
+        final data = entry.value as Map<String, dynamic>;
+        final dc = <String, int>{};
+        if (data['dailyCalls'] is Map) {
+          for (final de in (data['dailyCalls'] as Map).entries) {
+            dc[de.key.toString()] = (de.value as num).toInt();
+          }
+        }
+        _usageRecords[entry.key] = SkillUsage(
+          totalCalls: (data['totalCalls'] as num?)?.toInt() ?? 0,
+          lastUsed: DateTime.tryParse(data['lastUsed']?.toString() ?? '') ?? DateTime.now(),
+          dailyCalls: dc,
+        );
+      }
+    } catch (e) {
+      debugPrint('[SkillProvider] load usage error: $e');
+    }
+  }
+
+  // ======================== 技能依赖解析 ========================
+
+  /// 解析依赖链（BFS 防环）
+  List<Skill> resolveDependencies(Skill skill, {Set<String>? visited}) {
+    visited ??= <String>{};
+    final result = <Skill>[];
+    final queue = List<String>.from(skill.dependencies);
+    visited!.add(skill.name);
+
+    while (queue.isNotEmpty) {
+      final depName = queue.removeAt(0);
+      if (visited.contains(depName)) {
+        debugPrint('[SkillProvider] circular dependency detected: $depName');
+        continue;
+      }
+      visited.add(depName);
+      final dep = getByName(depName);
+      if (dep == null) continue;
+      result.add(dep);
+      for (final subDep in dep.dependencies) {
+        if (!visited.contains(subDep)) {
+          queue.add(subDep);
+        }
+      }
+    }
+    return result;
+  }
+
+  /// 查找反向依赖
+  List<Skill> findDependents(String skillName) {
+    return _skills.where((s) => s.dependencies.contains(skillName)).toList();
+  }
+
+  // ======================== 加载与持久化 ========================
 
   Future<void> initialize() async {
     if (_initialized) return;
     await _resolveSkillsBasePath(); // 先确定技能根目录路径
+    await _loadUsage();              // 加载使用统计
     await _load();                  // 文件系统 → 缓存
     await _importBuiltIns();        // 内置技能写入文件系统
     _initialized = true;
     notifyListeners();
   }
 
-  /// 加载：文件系统为主，SharedPreferences 缓存为辅
   Future<void> _load() async {
     _skills = [];
 
-    // 1. 主源：扫描 ~/skills/*/SKILL.md
+    // 1. 扫描 ~/skills/*/SKILL.md
     final dir = Directory(_skillsDirPath());
     if (await dir.exists()) {
       try {
@@ -208,7 +381,7 @@ class SkillProvider extends ChangeNotifier {
       }
     }
 
-    // 2. 补集：从 SharedPreferences 加载缓存中缺失的技能
+    // 2. 从缓存加载缺失技能
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_prefsKey);
@@ -230,11 +403,10 @@ class SkillProvider extends ChangeNotifier {
       debugPrint('[SkillProvider] load from prefs error: $e');
     }
 
-    // 3. 持久化缓存
     await _persist();
   }
 
-  /// 首次启动时从 assets 导入内置技能 → 写入文件系统
+  /// 首次启动时导入内置技能
   Future<void> _importBuiltIns() async {
     final builtInSkillDirs = [
       'obsidian-knowledge-worker',
@@ -292,13 +464,7 @@ class SkillProvider extends ChangeNotifier {
     }
   }
 
-  /// 🔐 原子写入：将技能完整写入 ~/skills/&lt;name&gt;/（含 SKILL.md + 子文件）
-  ///
-  /// 策略：
-  /// 1. 先写 ~/skills/.tmp_&lt;name&gt;_&lt;timestamp&gt;/
-  /// 2. fsync 所有文件
-  /// 3. rename(tmp → target) — 原子操作（POSIX 保证）
-  /// 4. rename 失败时回退到直接覆盖
+  /// 🔐 原子写入：tmp → rename → 回退直接覆盖
   Future<void> _atomicWriteToFileSystem(Skill skill) async {
     final targetDir = Directory('${_skillsDirPath()}/${skill.name}');
     final tmpName = '.tmp_${skill.name}_${DateTime.now().millisecondsSinceEpoch}';
@@ -363,13 +529,13 @@ class SkillProvider extends ChangeNotifier {
     }
   }
 
-  /// [旧] 保留别名以确保兼容（内部调用优先用 _atomicWriteToFileSystem）
   Future<void> _writeToFileSystem(Skill skill) async {
     await _atomicWriteToFileSystem(skill);
   }
 
-  /// 从文件系统重读单个技能并更新缓存
+  /// 从文件系统重读并更新缓存
   Future<void> _reloadFromFileSystem(String name) async {
+    _invalidateCache(name);
     final skillDir = Directory('${_skillsDirPath()}/$name');
     final skillMd = File('${skillDir.path}/SKILL.md');
     if (!await skillMd.exists()) return;
@@ -411,13 +577,13 @@ class SkillProvider extends ChangeNotifier {
     }
   }
 
-  // ============================================================================
-  // 手动刷新（用户主动触发）
-  // ============================================================================
+  // ========================== 手动刷新 ==========================
 
-  /// 手动重扫文件系统 ~/skills/，重建缓存。
-  /// 用于用户手动编辑了 ~/skills/ 中的文件后调用。
+  /// 手动重扫 ~/skills/，重建缓存
   Future<void> refreshFromFileSystem() async {
+    _bodyCache.clear();
+    _fileCache.clear();
+
     // 保存已有技能的 created_at 信息
     final creationDates = <String, DateTime>{
       for (final s in _skills) s.name: s.createdAt,
@@ -473,11 +639,9 @@ class SkillProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ============================================================================
-  // 导入（Phase 2: 写入文件系统为主）
-  // ============================================================================
+  // ============================== 导入 ==============================
 
-  /// 从 SKILL.md 文件导入单个技能
+  /// 从文件导入单个技能
   Future<Skill?> importFromFile(String filePath) async {
     try {
       final result = SkillParser.parseFile(filePath);
@@ -492,7 +656,7 @@ class SkillProvider extends ChangeNotifier {
     }
   }
 
-  /// 从 SKILL.md 字符串导入
+  /// 从字符串导入
   Future<Skill?> importFromString(String raw, {String? filePath}) async {
     try {
       final result = SkillParser.parseString(raw, sourcePath: filePath);
@@ -504,19 +668,14 @@ class SkillProvider extends ChangeNotifier {
     }
   }
 
-  // ============================================================================
-  // Phase 3: GitHub 导入 + 目录导入（多文件）
-  // ============================================================================
+  // ===================== GitHub + 目录导入 =====================
 
-  /// 支持的 GitHub URL 格式：
-  ///   https://github.com/user/repo
-  ///   https://github.com/user/repo/tree/branch
-  ///   https://github.com/user/repo/blob/branch/path/to/SKILL.md
+  /// 支持的 GitHub URL 格式：/user/repo  /user/repo/tree/branch  /user/repo/blob/branch/path/to/SKILL.md
   static final RegExp _gitHubRe = RegExp(
     r'^https?://github\.com/([^/]+)/([^/]+?)(?:/tree/([^/]+))?(?:/blob/([^/]+)/(.+))?$',
   );
 
-  /// 从 GitHub 仓库导入 SKILL.md（含子文件发现）
+  /// 从 GitHub 仓库导入（含子文件）
   Future<Skill?> importFromGitHub(String url) async {
     final match = _gitHubRe.firstMatch(url.trim());
     if (match == null) return null;
@@ -610,15 +769,6 @@ class SkillProvider extends ChangeNotifier {
   }
 
   /// 从目录导入为单个技能（含子文件）
-  ///
-  /// 目录结构：
-  ///   my-skill/
-  ///   ├── SKILL.md          ← 主文件（必须）
-  ///   ├── README.md         ← 被识别为子文件
-  ///   ├── examples/
-  ///   │   └── basic.md      ← 被识别为子文件（相对路径保留）
-  ///   └── templates/
-  ///       └── prompt.md     ← 被识别为子文件
   Future<Skill?> importFromDirectoryAsSkill(String dirPath) async {
     final dir = Directory(dirPath);
     if (!await dir.exists()) return null;
@@ -729,9 +879,7 @@ class SkillProvider extends ChangeNotifier {
     return getByName(result.meta.name);
   }
 
-  // ============================================================================
-  // CRUD
-  // ============================================================================
+  // =============================== CRUD ===============================
 
   Skill? getByName(String name) {
     try {
@@ -741,7 +889,6 @@ class SkillProvider extends ChangeNotifier {
     }
   }
 
-  /// 更新技能（写入文件系统）
   Future<void> update(Skill updated) async {
     final idx = _skills.indexWhere((s) => s.name == updated.name);
     if (idx == -1) return;
@@ -749,6 +896,7 @@ class SkillProvider extends ChangeNotifier {
     _skills[idx] = updated.copyWith(updatedAt: DateTime.now());
 
     // 写入文件系统
+    _invalidateCache(updated.name);
     await _writeToFileSystem(_skills[idx]);
 
     // 重读文件系统（获取子文件）
@@ -758,9 +906,10 @@ class SkillProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 删除技能（删除文件系统 + 缓存）
+  /// 删除技能
   Future<void> delete(String name) async {
     _skills.removeWhere((s) => s.name == name);
+    _invalidateCache(name);
 
     // 删除文件系统目录
     final skillDir = Directory('${_skillsDirPath()}/$name');
@@ -786,18 +935,15 @@ class SkillProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ============================================================================
-  // 导出
-  // ============================================================================
+  // ============================== 导出 ==============================
 
-  /// 导出为 SKILL.md 格式的字符串
+  /// 导出为 Markdown 字符串
   String exportToMarkdown(String name) {
     final skill = getByName(name);
     if (skill == null) return '';
     return skill.toMarkdown();
   }
 
-  /// 导出到文件
   Future<bool> exportToFile(String name, String outputPath) async {
     final md = exportToMarkdown(name);
     if (md.isEmpty) return false;

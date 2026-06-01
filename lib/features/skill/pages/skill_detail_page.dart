@@ -11,6 +11,7 @@ import '../../../core/providers/assistant_provider.dart';
 import '../../../core/providers/skill_provider.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../shared/widgets/ios_tactile.dart';
+import 'skill_editor_page.dart';
 
 /// 技能详情页 — 预览/编辑/导出
 class SkillDetailPage extends StatefulWidget {
@@ -59,6 +60,23 @@ class _SkillDetailPageState extends State<SkillDetailPage> {
             icon: _showRaw ? Lucide.Eye : Lucide.FileText,
             onTap: () => setState(() => _showRaw = !_showRaw),
           ),
+          // 编辑
+          IosIconButton(
+            icon: Lucide.Pencil,
+            onTap: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => SkillEditorPage(skillName: widget.skillName),
+                ),
+              );
+              // 返回后刷新
+              if (mounted) {
+                final provider = context.read<SkillProvider>();
+                final refreshed = provider.getByName(widget.skillName);
+                if (refreshed != null) setState(() => _skill = refreshed);
+              }
+            },
+          ),
           // 导出
           IosIconButton(
             icon: Lucide.Download,
@@ -74,6 +92,33 @@ class _SkillDetailPageState extends State<SkillDetailPage> {
           children: [
             // ===== 元数据卡片 =====
             _MetaCard(skill: skill, cs: cs, isDark: isDark),
+
+            const SizedBox(height: 16),
+
+            // ===== 使用统计卡片 =====
+            _UsageCard(
+              skillName: skill.name,
+              cs: cs,
+              isDark: isDark,
+            ),
+
+            const SizedBox(height: 16),
+
+            // ===== 技能依赖卡片 =====
+            _DependencyCard(
+              skill: skill,
+              cs: cs,
+              isDark: isDark,
+            ),
+
+            const SizedBox(height: 16),
+
+            // ===== 反向依赖卡片 =====
+            _DependentsCard(
+              skillName: skill.name,
+              cs: cs,
+              isDark: isDark,
+            ),
 
             const SizedBox(height: 16),
 
@@ -256,6 +301,249 @@ class _MetaCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 使用统计卡片
+class _UsageCard extends StatelessWidget {
+  const _UsageCard({
+    required this.skillName,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final String skillName;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final skillProvider = context.watch<SkillProvider>();
+    final usage = skillProvider.getSkillUsage(skillName);
+    final hasData = usage != null && usage.totalCalls > 0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white10 : Colors.white.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.1 : 0.08),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Lucide.BarChart3, size: 18, color: cs.primary),
+              const SizedBox(width: 8),
+              Text(
+                '使用统计',
+                style: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurface),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (!hasData)
+            Text(
+              '尚未被调用 — 在对话中与 AI 聊天时，AI 会自动调用此技能',
+              style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.5)),
+            )
+          else
+            Row(
+              children: [
+                _statItem('总调用', '${usage!.totalCalls}', cs),
+                const SizedBox(width: 24),
+                _statItem('今日', '${usage.dailyCalls[_todayKey(DateTime.now())] ?? 0}', cs),
+                const SizedBox(width: 24),
+                _statItem('上次使用', _formatTimeAgo(usage.lastUsed), cs),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statItem(String label, String value, ColorScheme cs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(value, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18, color: cs.onSurface)),
+        Text(label, style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.5))),
+      ],
+    );
+  }
+
+  String _todayKey(DateTime d) {
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '${d.year}-$m-$day';
+  }
+
+  String _formatTimeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return '刚刚';
+    if (diff.inHours < 1) return '${diff.inMinutes} 分钟前';
+    if (diff.inDays < 1) return '${diff.inHours} 小时前';
+    if (diff.inDays < 7) return '${diff.inDays} 天前';
+    return '${dt.month}/${dt.day}';
+  }
+}
+
+/// 技能依赖卡片
+class _DependencyCard extends StatelessWidget {
+  const _DependencyCard({
+    required this.skill,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final Skill skill;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    if (skill.dependencies.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white10 : Colors.white.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.1 : 0.08),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Lucide.GitBranch, size: 18, color: Colors.orange),
+              const SizedBox(width: 8),
+              Text(
+                '依赖技能 (${skill.dependencies.length})',
+                style: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurface),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...skill.dependencies.map((depName) {
+            final dep = context.read<SkillProvider>().getByName(depName);
+            final exists = dep != null;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: GestureDetector(
+                onTap: exists ? () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => SkillDetailPage(skillName: depName),
+                    ),
+                  );
+                } : null,
+                child: Row(
+                  children: [
+                    Icon(exists ? Lucide.CheckCircle : Lucide.AlertCircle,
+                      size: 14, color: exists ? Colors.green : cs.error),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(depName,
+                        style: TextStyle(fontSize: 13,
+                          color: exists ? cs.primary : cs.error,
+                          decoration: exists ? TextDecoration.underline : null),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                    if (exists) ...[
+                      const SizedBox(width: 4),
+                      Text('v${dep!.version}',
+                        style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.4))),
+                    ],
+                    if (!exists)
+                      Text('未安装',
+                        style: TextStyle(fontSize: 11, color: cs.error.withValues(alpha: 0.7))),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+/// 反向依赖卡片（谁依赖了这个技能）
+class _DependentsCard extends StatelessWidget {
+  const _DependentsCard({
+    required this.skillName,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final String skillName;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final dependents = context.watch<SkillProvider>().findDependents(skillName);
+    if (dependents.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white10 : Colors.white.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.1 : 0.08),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Lucide.GitPullRequest, size: 18, color: Colors.blue),
+              const SizedBox(width: 8),
+              Text(
+                '被依赖 (${dependents.length})',
+                style: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurface),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...dependents.map((dep) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: GestureDetector(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => SkillDetailPage(skillName: dep.name),
+                  ),
+                );
+              },
+              child: Row(
+                children: [
+                  Icon(Lucide.ArrowRight, size: 14, color: cs.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(dep.name,
+                      style: TextStyle(fontSize: 13, color: cs.primary,
+                        decoration: TextDecoration.underline),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                ],
+              ),
+            ),
+          )),
+        ],
+      ),
     );
   }
 }

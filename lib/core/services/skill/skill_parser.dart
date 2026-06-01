@@ -129,6 +129,7 @@ class SkillParser {
     String version = '1.0.0';
     String author = '';
     List<String> triggers = [];
+    List<String> dependencies = [];
 
     for (final line in yaml.split('\n')) {
       final trimmed = line.trim();
@@ -157,6 +158,11 @@ class SkillParser {
         case 'triggers':
           triggers = _parseYamlList(valueRaw);
           break;
+        case 'dependencies':
+        case 'depends':
+        case 'depends_on':
+          dependencies = _parseYamlList(valueRaw);
+          break;
       }
     }
 
@@ -166,6 +172,7 @@ class SkillParser {
       version: version,
       author: author,
       triggers: triggers,
+      dependencies: dependencies,
     );
   }
 

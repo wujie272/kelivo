@@ -5,6 +5,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -148,6 +149,7 @@ class DataSync {
       final uploadDirPath = (await _getUploadDir()).path;
       final avatarsDirPath = (await _getAvatarsDir()).path;
       final imagesDirPath = (await _getImagesDir()).path;
+      final skillsDirPath = (await AppDirectories.getSkillsDirectory()).path;
       final settingsPath = settingsTmp.path;
       final chatsPath = chatsTmp?.path;
       final includeFiles = cfg.includeFiles;
@@ -162,6 +164,7 @@ class DataSync {
           uploadDirPath: uploadDirPath,
           avatarsDirPath: avatarsDirPath,
           imagesDirPath: imagesDirPath,
+          skillsDirPath: skillsDirPath,
         );
       });
 
@@ -232,6 +235,7 @@ class DataSync {
     required String uploadDirPath,
     required String avatarsDirPath,
     required String imagesDirPath,
+    required String skillsDirPath,
   }) {
     final writer = _StreamingZipWriter(outPath);
     try {
@@ -248,6 +252,7 @@ class DataSync {
         _addDirectoryToZip(writer, uploadDirPath, 'upload');
         _addDirectoryToZip(writer, avatarsDirPath, 'avatars');
         _addDirectoryToZip(writer, imagesDirPath, 'images');
+        _addDirectoryToZip(writer, skillsDirPath, 'skills');
       }
 
       writer.closeSync();
@@ -1136,6 +1141,26 @@ class DataSync {
               }
             }
           }
+
+          // Restore skills directory
+          final skillsSrc = Directory(p.join(extractDir.path, 'skills'));
+          if (await skillsSrc.exists()) {
+            final dst = (await AppDirectories.getSkillsDirectory());
+            if (await dst.exists()) {
+              try {
+                await dst.delete(recursive: true);
+              } catch (_) {}
+            }
+            await dst.create(recursive: true);
+            for (final ent in skillsSrc.listSync(recursive: true)) {
+              if (ent is File) {
+                final rel = p.relative(ent.path, from: skillsSrc.path);
+                final target = File(p.join(dst.path, rel));
+                await target.parent.create(recursive: true);
+                await ent.copy(target.path);
+              }
+            }
+          }
         } else {
           // Merge mode: Only copy non-existing files
           // Merge upload directory
@@ -1186,6 +1211,25 @@ class DataSync {
             for (final ent in avatarsSrc.listSync(recursive: true)) {
               if (ent is File) {
                 final rel = p.relative(ent.path, from: avatarsSrc.path);
+                final target = File(p.join(dst.path, rel));
+                if (!await target.exists()) {
+                  await target.parent.create(recursive: true);
+                  await ent.copy(target.path);
+                }
+              }
+            }
+          }
+
+          // Merge skills directory
+          final skillsSrc = Directory(p.join(extractDir.path, 'skills'));
+          if (await skillsSrc.exists()) {
+            final dst = (await AppDirectories.getSkillsDirectory());
+            if (!await dst.exists()) {
+              await dst.create(recursive: true);
+            }
+            for (final ent in skillsSrc.listSync(recursive: true)) {
+              if (ent is File) {
+                final rel = p.relative(ent.path, from: skillsSrc.path);
                 final target = File(p.join(dst.path, rel));
                 if (!await target.exists()) {
                   await target.parent.create(recursive: true);
