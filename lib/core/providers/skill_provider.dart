@@ -1,6 +1,6 @@
 /// SkillProvider — 技能管理器
 ///
-/// 持久化：文件系统为主（~/skills/<name>/），SharedPreferences 缓存加速启动。
+/// 持久化：文件系统为主（~/skills/`<name>`/），SharedPreferences 缓存加速启动。
 /// 写入：原子写入（tmp → rename），避免写半崩溃。
 /// 绑定：Assistant.enabledSkills。
 library;
