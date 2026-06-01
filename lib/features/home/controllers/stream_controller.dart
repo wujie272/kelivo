@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../../../core/models/chat_message.dart';
 import '../../../core/models/token_usage.dart';
 import '../../../core/providers/settings_provider.dart';
@@ -401,16 +402,9 @@ class StreamController {
       reasoningCounts: List<int>.of(data.reasoningCounts.take(length)),
       toolCounts: List<int>.of(data.toolCounts.take(length)),
     );
-  }
-
-  // Simple JSON encode/decode to avoid importing dart:convert in this file
-  String _encodeJson(dynamic obj) {
-    return _jsonEncode(obj);
-  }
-
-  dynamic _decodeJson(String json) {
-    return _jsonDecode(json);
-  }
+// JSON helpers using dart:convert
+String _encodeJson(dynamic obj) => jsonEncode(obj);
+dynamic _decodeJson(String json) => jsonDecode(json);
 
   // ============================================================================
   // Tool Parts Deduplication
@@ -1508,189 +1502,4 @@ class _StreamSmoothState {
 
     return math.max(minCount, (backlog * effectivePickRate).round());
   }
-}
-
-// ============================================================================
-// JSON Helpers (to avoid circular imports)
-// ============================================================================
-
-String _jsonEncode(dynamic obj) {
-  // Simple implementation without importing dart:convert here
-  // The actual import is at the top level
-  return _JsonEncoder.encode(obj);
-}
-
-dynamic _jsonDecode(String json) {
-  return _JsonDecoder.decode(json);
-}
-
-class _JsonEncoder {
-  static String encode(dynamic obj) {
-    if (obj == null) return 'null';
-    if (obj is bool) return obj.toString();
-    if (obj is num) return obj.toString();
-    if (obj is String) return '"${_escapeString(obj)}"';
-    if (obj is List) {
-      final items = obj.map((e) => encode(e)).join(',');
-      return '[$items]';
-    }
-    if (obj is Map) {
-      final entries = obj.entries
-          .map((e) => '"${_escapeString(e.key.toString())}":${encode(e.value)}')
-          .join(',');
-      return '{$entries}';
-    }
-    return '"${_escapeString(obj.toString())}"';
-  }
-
-  static String _escapeString(String s) {
-    return s
-        .replaceAll('\\', '\\\\')
-        .replaceAll('"', '\\"')
-        .replaceAll('\n', '\\n')
-        .replaceAll('\r', '\\r')
-        .replaceAll('\t', '\\t');
-  }
-}
-
-class _JsonDecoder {
-  static dynamic decode(String json) {
-    final trimmed = json.trim();
-    if (trimmed.isEmpty) return null;
-    return _parseValue(trimmed, _Position(0)).value;
-  }
-
-  static _ParseResult _parseValue(String json, _Position pos) {
-    _skipWhitespace(json, pos);
-    if (pos.index >= json.length) return _ParseResult(null, pos.index);
-
-    final c = json[pos.index];
-    if (c == '{') return _parseObject(json, pos);
-    if (c == '[') return _parseArray(json, pos);
-    if (c == '"') return _parseString(json, pos);
-    if (c == 't' || c == 'f') return _parseBool(json, pos);
-    if (c == 'n') return _parseNull(json, pos);
-    return _parseNumber(json, pos);
-  }
-
-  static _ParseResult _parseObject(String json, _Position pos) {
-    pos.index++; // skip {
-    final map = <String, dynamic>{};
-    _skipWhitespace(json, pos);
-    while (pos.index < json.length && json[pos.index] != '}') {
-      _skipWhitespace(json, pos);
-      final keyResult = _parseString(json, pos);
-      final key = keyResult.value as String;
-      _skipWhitespace(json, pos);
-      if (json[pos.index] == ':') pos.index++;
-      _skipWhitespace(json, pos);
-      final valueResult = _parseValue(json, pos);
-      map[key] = valueResult.value;
-      _skipWhitespace(json, pos);
-      if (json[pos.index] == ',') pos.index++;
-    }
-    if (pos.index < json.length) pos.index++; // skip }
-    return _ParseResult(map, pos.index);
-  }
-
-  static _ParseResult _parseArray(String json, _Position pos) {
-    pos.index++; // skip [
-    final list = <dynamic>[];
-    _skipWhitespace(json, pos);
-    while (pos.index < json.length && json[pos.index] != ']') {
-      final result = _parseValue(json, pos);
-      list.add(result.value);
-      _skipWhitespace(json, pos);
-      if (json[pos.index] == ',') pos.index++;
-    }
-    if (pos.index < json.length) pos.index++; // skip ]
-    return _ParseResult(list, pos.index);
-  }
-
-  static _ParseResult _parseString(String json, _Position pos) {
-    pos.index++; // skip opening "
-    final buffer = StringBuffer();
-    while (pos.index < json.length) {
-      final c = json[pos.index];
-      if (c == '"') {
-        pos.index++;
-        break;
-      }
-      if (c == '\\' && pos.index + 1 < json.length) {
-        pos.index++;
-        final escaped = json[pos.index];
-        switch (escaped) {
-          case 'n':
-            buffer.write('\n');
-            break;
-          case 'r':
-            buffer.write('\r');
-            break;
-          case 't':
-            buffer.write('\t');
-            break;
-          case '\\':
-            buffer.write('\\');
-            break;
-          case '"':
-            buffer.write('"');
-            break;
-          default:
-            buffer.write(escaped);
-        }
-      } else {
-        buffer.write(c);
-      }
-      pos.index++;
-    }
-    return _ParseResult(buffer.toString(), pos.index);
-  }
-
-  static _ParseResult _parseNumber(String json, _Position pos) {
-    final start = pos.index;
-    while (pos.index < json.length &&
-        (json[pos.index].contains(RegExp(r'[\d.eE+-]')))) {
-      pos.index++;
-    }
-    final numStr = json.substring(start, pos.index);
-    if (numStr.contains('.') || numStr.contains('e') || numStr.contains('E')) {
-      return _ParseResult(double.parse(numStr), pos.index);
-    }
-    return _ParseResult(int.parse(numStr), pos.index);
-  }
-
-  static _ParseResult _parseBool(String json, _Position pos) {
-    if (json.substring(pos.index).startsWith('true')) {
-      pos.index += 4;
-      return _ParseResult(true, pos.index);
-    }
-    pos.index += 5;
-    return _ParseResult(false, pos.index);
-  }
-
-  static _ParseResult _parseNull(String json, _Position pos) {
-    pos.index += 4;
-    return _ParseResult(null, pos.index);
-  }
-
-  static void _skipWhitespace(String json, _Position pos) {
-    while (pos.index < json.length &&
-        (json[pos.index] == ' ' ||
-            json[pos.index] == '\n' ||
-            json[pos.index] == '\r' ||
-            json[pos.index] == '\t')) {
-      pos.index++;
-    }
-  }
-}
-
-class _Position {
-  _Position(this.index);
-  int index;
-}
-
-class _ParseResult {
-  _ParseResult(this.value, this.endIndex);
-  final dynamic value;
-  final int endIndex;
 }
