@@ -5136,8 +5136,7 @@ class _AskUserInlineBodyState extends State<_AskUserInlineBody> {
       // (e.g. by tool_handler_service for AI consumption).
       // Only parse the JSON object before the first newline.
       final trimmed = content.trim();
-      final nl = trimmed.indexOf('
-');
+      final nl = trimmed.indexOf('\n');
       final jsonStr = nl > 0 ? trimmed.substring(0, nl) : trimmed;
       final payload = jsonDecode(jsonStr) as Map<String, dynamic>;
       final answers = payload['answers'];
