@@ -1,4 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -109,48 +113,72 @@ class _SkillDetailPageState extends State<SkillDetailPage> {
   }
 
   Future<void> _exportSkill(BuildContext context) async {
+    final skillProvider = context.read<SkillProvider>();
     final skillName = widget.skillName;
-    final home = Platform.environment['HOME'] ?? '/data/data/com.termux/files/home';
-    final defaultPath = '$home/$skillName.skill.md';
-
-    final controller = TextEditingController(text: defaultPath);
-    final path = await showDialog<String>(
-      context: context,
-      builder: (dctx) => AlertDialog(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        title: const Text('导出 SKILL.md'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            labelText: '保存路径',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dctx).pop(),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dctx).pop(controller.text),
-            child: const Text('导出'),
-          ),
-        ],
-      ),
-    );
-
-    if (path != null && path.trim().isNotEmpty) {
-      if (!context.mounted) return;
-      final skillProvider = context.read<SkillProvider>();
-      final ok = await skillProvider.exportToFile(skillName, path.trim());
+    final md = skillProvider.exportToMarkdown(skillName);
+    if (md.isEmpty) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(ok ? '已导出到: $path' : '导出失败'),
-            backgroundColor: ok ? Colors.green : Colors.red,
+          const SnackBar(
+            content: Text('技能内容为空，无法导出'),
+            backgroundColor: Colors.orange,
             behavior: SnackBarBehavior.floating,
           ),
         );
+      }
+      return;
+    }
+
+    try {
+      // 策略 1：选目录 + 自动命名（和导入一样的体验）
+      final dirPath = await FilePicker.platform.getDirectoryPath(
+        dialogTitle: '选择保存目录',
+      );
+      if (dirPath == null || dirPath.isEmpty) return;
+
+      final outputPath = '$dirPath/$skillName.skill.md';
+      await File(outputPath).writeAsString(md);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('已导出到: $outputPath'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      // 策略 2：目录写入失败 → 用 FilePicker.saveFile 带 bytes
+      debugPrint('[SkillDetail] 目录导出失败, 回退到 saveFile: $e');
+      try {
+        final bytes = Uint8List.fromList(utf8.encode(md));
+        final savePath = await FilePicker.platform.saveFile(
+          dialogTitle: '导出 SKILL.md',
+          fileName: '$skillName.skill.md',
+          type: FileType.custom,
+          allowedExtensions: ['md'],
+          bytes: bytes,
+        );
+        if (savePath == null || savePath.isEmpty) return;
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('已导出到: $savePath'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e2) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('导出失败: $e2'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     }
   }
