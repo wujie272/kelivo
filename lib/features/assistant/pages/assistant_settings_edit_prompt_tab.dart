@@ -210,15 +210,18 @@ Future<void> _exportSystemPrompt() async {
       );
       return;
     }
-    try {
+try {
+      // FilePicker.saveFile 在 Android/iOS 上需要传 bytes，
+      // 它会自动把内容写入用户选择的位置
+      final bytes = Uint8List.fromList(utf8.encode(text));
       final outputPath = await FilePicker.platform.saveFile(
         dialogTitle: '导出系统提示词',
         fileName: 'system_prompt_${widget.assistantId.substring(0, 8)}.md',
         type: FileType.custom,
         allowedExtensions: ['md', 'txt'],
+        bytes: bytes,
       );
       if (outputPath == null || outputPath.isEmpty) return;
-      await File(outputPath).writeAsString(text);
       if (!mounted) return;
       showAppSnackBar(
         context,
