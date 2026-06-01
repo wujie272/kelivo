@@ -67,6 +67,12 @@ class AppDirectories {
     return await getApplicationCacheDirectory();
   }
 
+  /// Gets the directory for skill files (SKILL.md + sub-files).
+  static Future<Directory> getSkillsDirectory() async {
+    final root = await getAppDataDirectory();
+    return Directory('${root.path}/skills');
+  }
+
   /// Gets the directory for avatar cache files.
   static Future<Directory> getAvatarCacheDirectory() async {
     final root = await getAppDataDirectory();

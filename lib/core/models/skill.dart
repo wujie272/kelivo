@@ -1,15 +1,11 @@
-/// Skill 数据模型 — 简化版
+/// Skill 数据模型
 ///
-/// 源自 RikkaHub 的设计：技能存储在 ~/skills/&lt;name&gt;/SKILL.md
-/// - 用 name 作为唯一键（同时也是目录名）
-/// - 没有 UUID id（简化）
-/// - 没有 assistantIds（绑到 Assistant.enabledSkills）
-/// - triggers 仅作元数据说明（不再用于匹配）
+/// 技能文件位于 ~/skills/<name>/SKILL.md，name 为唯一键+目录名。
 library;
 
 /// 技能文件（支持多文件技能目录）
 class SkillFile {
-  final String relativePath; // 相对路径，如 "SKILL.md" 或 "examples/basic.md"
+  final String relativePath; // 相对路径，如 SKILL.md / examples/basic.md
   final String content;
   final int sizeBytes;
 
@@ -34,12 +30,13 @@ class SkillFile {
 
 /// 技能元数据（对应 SKILL.md 的 YAML frontmatter）
 class SkillMeta {
-  final String name; // 唯一键 + 目录名
+  final String name; // 唯一键+目录名
   final String description;
   final String version;
   final String author;
-  final String compatibility; // 兼容性标注（如 "obsidian-plugin-dev"）
-  final List<String> triggers; // 仅作元数据，不再用于匹配
+  final String compatibility; // 兼容性标签
+  final List<String> triggers; // 仅元数据，不参与匹配
+  final List<String> dependencies; // 依赖技能名列表
 
   const SkillMeta({
     required this.name,
@@ -48,6 +45,7 @@ class SkillMeta {
     this.author = '',
     this.compatibility = '',
     this.triggers = const [],
+    this.dependencies = const [],
   });
 
   Map<String, dynamic> toJson() => {
@@ -57,6 +55,8 @@ class SkillMeta {
     'author': author,
     'compatibility': compatibility,
     'triggers': triggers,
+    'dependencies': dependencies,
+    'dependencies': dependencies,
   };
 
   factory SkillMeta.fromJson(Map<String, dynamic> json) => SkillMeta(
@@ -66,6 +66,7 @@ class SkillMeta {
     author: (json['author'] as String?)?.trim() ?? '',
     compatibility: (json['compatibility'] as String?)?.trim() ?? '',
     triggers: _parseStringList(json['triggers'] ?? json['trigger']),
+    dependencies: _parseStringList(json['dependencies']),
   );
 
   static List<String> _parseStringList(dynamic raw) {
@@ -78,15 +79,15 @@ class SkillMeta {
 
 /// 完整的 Skill 对象
 class Skill {
-  final String name; // 唯一键（同时也是 ~/skills/<name>/ 目录名）
+  final String name; // 唯一键+目录名
   final String description;
   final String version;
   final String author;
   final String compatibility;
   final List<String> triggers;
   final String content; // SKILL.md 正文（不含 frontmatter）
-  final List<SkillFile> files; // 子文件列表
-  final String? filePath; // SKILL.md 源文件路径
+  final List<SkillFile> files; // 子文件
+  final String? filePath; // 源文件路径
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -97,6 +98,7 @@ class Skill {
     this.author = '',
     this.compatibility = '',
     this.triggers = const [],
+    this.dependencies = const [],
     this.content = '',
     this.files = const [],
     this.filePath,
@@ -104,7 +106,6 @@ class Skill {
     required this.updatedAt,
   });
 
-  /// 从 SKILL.md 解析结果构建
   factory Skill.fromMeta({
     required SkillMeta meta,
     required String content,
@@ -121,6 +122,7 @@ class Skill {
       author: meta.author,
       compatibility: meta.compatibility,
       triggers: meta.triggers,
+      dependencies: meta.dependencies,
       content: content,
       files: files,
       filePath: filePath,
@@ -129,7 +131,7 @@ class Skill {
     );
   }
 
-  /// 获取 SKILL.md 完整格式（含 frontmatter）
+  /// 转 SKILL.md 完整格式
   String toMarkdown() {
     final buf = StringBuffer();
     buf.writeln('---');
@@ -140,6 +142,9 @@ class Skill {
     if (compatibility.isNotEmpty) buf.writeln('compatibility: $compatibility');
     if (triggers.isNotEmpty) {
       buf.writeln('trigger: [${triggers.join(', ')}]');
+    }
+    if (dependencies.isNotEmpty) {
+      buf.writeln('dependencies: [${dependencies.join(', ')}]');
     }
     buf.writeln('---');
     buf.writeln();
@@ -154,6 +159,7 @@ class Skill {
     String? author,
     String? compatibility,
     List<String>? triggers,
+    List<String>? dependencies,
     String? content,
     List<SkillFile>? files,
     String? filePath,
@@ -167,6 +173,7 @@ class Skill {
       author: author ?? this.author,
       compatibility: compatibility ?? this.compatibility,
       triggers: triggers ?? this.triggers,
+      dependencies: dependencies ?? this.dependencies,
       content: content ?? this.content,
       files: files ?? this.files,
       filePath: filePath ?? this.filePath,
@@ -197,6 +204,7 @@ class Skill {
       author: (json['author'] as String?)?.trim() ?? '',
       compatibility: (json['compatibility'] as String?)?.trim() ?? '',
       triggers: _parseStringList(json['triggers'] ?? json['trigger']),
+      dependencies: _parseStringList(json['dependencies']),
       content: (json['content'] as String?) ?? '',
       files: (() {
         final raw = json['files'];
@@ -224,12 +232,10 @@ class Skill {
   }
 
   @override
-  String toString() => 'Skill(name: $name, v$version)';
+  String toString() => 'Skill($name v$version)';
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) || (other is Skill && other.name == name);
-
+  bool operator ==(Object other) => identical(this, other) || (other is Skill && other.name == name);
   @override
   int get hashCode => name.hashCode;
 }

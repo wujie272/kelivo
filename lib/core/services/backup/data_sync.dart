@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
@@ -250,7 +251,7 @@ class DataSync {
       final uploadDirPath = (await _getUploadDir()).path;
       final avatarsDirPath = (await _getAvatarsDir()).path;
       final imagesDirPath = (await _getImagesDir()).path;
-      final fontsDirPath = (await _getFontsDir()).path;
+      final skillsDirPath = (await AppDirectories.getSkillsDirectory()).path;
       final manifestPath = manifestFile.path;
       final settingsPath = settingsFile.path;
       final databasePath = databaseTmp?.path;
@@ -272,7 +273,7 @@ class DataSync {
           uploadDirPath: uploadDirPath,
           avatarsDirPath: avatarsDirPath,
           imagesDirPath: imagesDirPath,
-          fontsDirPath: fontsDirPath,
+          skillsDirPath: skillsDirPath,
         );
         final verifyDir = Directory(verifyDirPath);
         try {
@@ -364,7 +365,7 @@ class DataSync {
     required String uploadDirPath,
     required String avatarsDirPath,
     required String imagesDirPath,
-    required String fontsDirPath,
+    required String skillsDirPath,
   }) {
     if (includeChats != (databasePath != null && snapshotInfo != null)) {
       throw StateError('backup_database_component');
@@ -415,8 +416,8 @@ class DataSync {
         );
         _addDirectoryToZip(
           writer,
-          fontsDirPath,
-          'fonts',
+          skillsDirPath,
+          'skills',
           entries,
           collisionKeys,
         );
@@ -1746,6 +1747,26 @@ class DataSync {
               }
             }
           }
+
+          // Restore skills directory
+          final skillsSrc = Directory(p.join(extractDir.path, 'skills'));
+          if (await skillsSrc.exists()) {
+            final dst = (await AppDirectories.getSkillsDirectory());
+            if (await dst.exists()) {
+              try {
+                await dst.delete(recursive: true);
+              } catch (_) {}
+            }
+            await dst.create(recursive: true);
+            for (final ent in skillsSrc.listSync(recursive: true)) {
+              if (ent is File) {
+                final rel = p.relative(ent.path, from: skillsSrc.path);
+                final target = File(p.join(dst.path, rel));
+                await target.parent.create(recursive: true);
+                await ent.copy(target.path);
+              }
+            }
+          }
         } else {
           // Merge mode: Only copy non-existing files
           // Merge upload directory
@@ -1823,6 +1844,25 @@ class DataSync {
                 final target = File(p.join(dst.path, rel));
                 if (!await target.exists()) {
                   await _copyRestoredFile(ent, target);
+                }
+              }
+            }
+          }
+
+          // Merge skills directory
+          final skillsSrc = Directory(p.join(extractDir.path, 'skills'));
+          if (await skillsSrc.exists()) {
+            final dst = (await AppDirectories.getSkillsDirectory());
+            if (!await dst.exists()) {
+              await dst.create(recursive: true);
+            }
+            for (final ent in skillsSrc.listSync(recursive: true)) {
+              if (ent is File) {
+                final rel = p.relative(ent.path, from: skillsSrc.path);
+                final target = File(p.join(dst.path, rel));
+                if (!await target.exists()) {
+                  await target.parent.create(recursive: true);
+                  await ent.copy(target.path);
                 }
               }
             }
