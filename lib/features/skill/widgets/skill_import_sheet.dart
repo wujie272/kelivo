@@ -259,6 +259,7 @@ class _SkillImportSheetState extends State<SkillImportSheet> {
 
       setState(() => _importing = true);
       try {
+        // 策略 1：选中目录本身就是一个技能（直接含 SKILL.md）
         final skill = await skillProvider.importFromDirectoryAsSkill(result);
         if (skill != null && context.mounted) {
           _showSnack(
@@ -269,8 +270,21 @@ class _SkillImportSheetState extends State<SkillImportSheet> {
             Colors.green,
           );
           Navigator.of(context).pop();
+          return;
+        }
+
+        // 策略 2：选中目录是技能合集（子目录中含 SKILL.md）
+        final count = await skillProvider.importFromDirectory(result);
+        if (count > 0 && context.mounted) {
+          _showSnack(context, '已批量导入 $count 个技能', Colors.green);
+          Navigator.of(context).pop();
         } else if (context.mounted) {
-          _showSnack(context, '目录中未找到 SKILL.md', Colors.red);
+          _showSnack(
+            context,
+            '未找到 SKILL.md：请选择含 SKILL.md 的目录，'
+            '或选择技能合集目录（含多个子技能）',
+            Colors.red,
+          );
         }
       } catch (e) {
         if (context.mounted) _showSnack(context, '导入失败: $e', Colors.red);
