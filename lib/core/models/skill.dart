@@ -85,6 +85,7 @@ class Skill {
   final String author;
   final String compatibility;
   final List<String> triggers;
+  final List<String> dependencies;
   final String content; // SKILL.md 正文（不含 frontmatter）
   final List<SkillFile> files; // 子文件
   final String? filePath; // 源文件路径
@@ -189,6 +190,7 @@ class Skill {
     'author': author,
     'compatibility': compatibility,
     'triggers': triggers,
+    'dependencies': dependencies,
     'content': content,
     'files': files.map((f) => f.toJson()).toList(),
     'filePath': filePath,

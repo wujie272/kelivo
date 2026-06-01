@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -161,7 +160,7 @@ class _SkillEditorPageState extends State<SkillEditorPage> {
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         final shouldPop = await _onWillPop();
-        if (shouldPop && mounted) Navigator.of(context).pop();
+        if (shouldPop) { if (!context.mounted) return; Navigator.of(context).pop(); }
       },
       child: Scaffold(
         appBar: AppBar(
@@ -170,6 +169,7 @@ class _SkillEditorPageState extends State<SkillEditorPage> {
             onTap: () async {
               if (_hasChanges) {
                 final shouldPop = await _onWillPop();
+                if (!context.mounted) return;
                 if (shouldPop) Navigator.of(context).maybePop();
               } else {
                 Navigator.of(context).maybePop();
@@ -189,7 +189,7 @@ class _SkillEditorPageState extends State<SkillEditorPage> {
                     ),
                   )
                 : IosIconButton(
-                    icon: _hasChanges ? Lucide.Save : Lucide.Save,
+                    icon: _hasChanges ? Lucide.Check : Lucide.Check,
                     onTap: _hasChanges ? _save : null,
                     color: _hasChanges ? null : cs.onSurface.withValues(alpha: 0.3),
                   ),
@@ -206,7 +206,7 @@ class _SkillEditorPageState extends State<SkillEditorPage> {
               cs: cs,
               isDark: isDark,
               label: '技能名称',
-              icon: Lucide.Tag,
+              icon: Lucide.Hash,
               controller: _nameCtrl,
             ),
             const SizedBox(height: 10),
