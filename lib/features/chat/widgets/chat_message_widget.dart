@@ -5132,7 +5132,14 @@ class _AskUserInlineBodyState extends State<_AskUserInlineBody> {
 
   Map<dynamic, dynamic> _answeredValues(String content) {
     try {
-      final payload = jsonDecode(content) as Map<String, dynamic>;
+      // The content may have extra summary text appended after the JSON
+      // (e.g. by tool_handler_service for AI consumption).
+      // Only parse the JSON object before the first newline.
+      final trimmed = content.trim();
+      final nl = trimmed.indexOf('
+');
+      final jsonStr = nl > 0 ? trimmed.substring(0, nl) : trimmed;
+      final payload = jsonDecode(jsonStr) as Map<String, dynamic>;
       final answers = payload['answers'];
       if (answers is Map) return answers;
     } catch (_) {}
