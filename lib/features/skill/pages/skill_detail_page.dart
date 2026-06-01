@@ -70,11 +70,10 @@ class _SkillDetailPageState extends State<SkillDetailPage> {
                 ),
               );
               // 返回后刷新
-              if (mounted) {
-                final provider = context.read<SkillProvider>();
-                final refreshed = provider.getByName(widget.skillName);
-                if (refreshed != null) setState(() => _skill = refreshed);
-              }
+              if (!context.mounted) return;
+              final provider = context.read<SkillProvider>();
+              final refreshed = provider.getByName(widget.skillName);
+              if (refreshed != null) setState(() => _skill = refreshed);
             },
           ),
           // 导出
@@ -338,7 +337,7 @@ class _UsageCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Lucide.BarChart3, size: 18, color: cs.primary),
+              Icon(Lucide.ChartColumnBig, size: 18, color: cs.primary),
               const SizedBox(width: 8),
               Text(
                 '使用统计',
@@ -355,7 +354,7 @@ class _UsageCard extends StatelessWidget {
           else
             Row(
               children: [
-                _statItem('总调用', '${usage!.totalCalls}', cs),
+                _statItem('总调用', '${usage.totalCalls}', cs),
                 const SizedBox(width: 24),
                 _statItem('今日', '${usage.dailyCalls[_todayKey(DateTime.now())] ?? 0}', cs),
                 const SizedBox(width: 24),
@@ -424,7 +423,7 @@ class _DependencyCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Lucide.GitBranch, size: 18, color: Colors.orange),
+              Icon(Lucide.GitFork, size: 18, color: Colors.orange),
               const SizedBox(width: 8),
               Text(
                 '依赖技能 (${skill.dependencies.length})',
@@ -448,7 +447,7 @@ class _DependencyCard extends StatelessWidget {
                 } : null,
                 child: Row(
                   children: [
-                    Icon(exists ? Lucide.CheckCircle : Lucide.AlertCircle,
+                    Icon(exists ? Lucide.CheckCircle : Lucide.CircleX,
                       size: 14, color: exists ? Colors.green : cs.error),
                     const SizedBox(width: 8),
                     Expanded(
@@ -460,7 +459,7 @@ class _DependencyCard extends StatelessWidget {
                     ),
                     if (exists) ...[
                       const SizedBox(width: 4),
-                      Text('v${dep!.version}',
+                      Text('v${dep.version}',
                         style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.4))),
                     ],
                     if (!exists)
@@ -509,7 +508,7 @@ class _DependentsCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Lucide.GitPullRequest, size: 18, color: Colors.blue),
+              Icon(Lucide.Link, size: 18, color: Colors.blue),
               const SizedBox(width: 8),
               Text(
                 '被依赖 (${dependents.length})',
@@ -530,7 +529,7 @@ class _DependentsCard extends StatelessWidget {
               },
               child: Row(
                 children: [
-                  Icon(Lucide.ArrowRight, size: 14, color: cs.primary),
+                  Icon(Lucide.ChevronRight, size: 14, color: cs.primary),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(dep.name,

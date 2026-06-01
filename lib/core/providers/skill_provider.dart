@@ -11,7 +11,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/skill.dart';
@@ -299,7 +298,7 @@ class SkillProvider extends ChangeNotifier {
     visited ??= <String>{};
     final result = <Skill>[];
     final queue = List<String>.from(skill.dependencies);
-    visited!.add(skill.name);
+    visited.add(skill.name);
 
     while (queue.isNotEmpty) {
       final depName = queue.removeAt(0);
