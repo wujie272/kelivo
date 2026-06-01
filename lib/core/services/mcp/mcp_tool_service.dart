@@ -30,6 +30,25 @@ class McpToolService extends ChangeNotifier {
     return mcpProvider.getEnabledToolsForServers(selected);
   }
 
+  /// Find a tool config by name across all cached/available tools.
+  /// Returns null if the tool is not found or not available.
+  McpToolConfig? findToolInfo(
+    McpProvider mcpProvider,
+    AssistantProvider assistants,
+    String? assistantId,
+    String toolName,
+  ) {
+    final tools = listAvailableToolsForAssistant(
+      mcpProvider,
+      assistants,
+      assistantId,
+    );
+    for (final t in tools) {
+      if (t.name == toolName) return t;
+    }
+    return null;
+  }
+
   Future<mcp.CallToolResult?> callToolForConversation(
     McpProvider mcpProvider,
     ChatService chat, {
