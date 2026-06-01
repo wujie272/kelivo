@@ -1,6 +1,6 @@
 /// Skill 数据模型
 ///
-/// 技能文件位于 ~/skills/<name>/SKILL.md，name 为唯一键+目录名。
+/// 技能文件位于 ~/skills/`<name>`/SKILL.md，name 为唯一键+目录名。
 library;
 
 /// 技能文件（支持多文件技能目录）
@@ -55,7 +55,6 @@ class SkillMeta {
     'author': author,
     'compatibility': compatibility,
     'triggers': triggers,
-    'dependencies': dependencies,
     'dependencies': dependencies,
   };
 
