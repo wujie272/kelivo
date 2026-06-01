@@ -1,4 +1,4 @@
-name: Test
+name: CI
 
 env:
   FLUTTER_VERSION: '3.38.5'
