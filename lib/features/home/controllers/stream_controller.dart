@@ -131,6 +131,21 @@ class StreamController {
 
   /// Delay before sanitizing inline base64 images.
   static const Duration _inlineImageSanitizeDelay = Duration(milliseconds: 120);
+  /// Tool call coalescing buffer and timer per message.
+  /// When handleToolCallsChunk arrives, buffer the calls instead of immediately
+  /// showing loading state. If handleToolResultsChunk arrives within the coalesce
+  /// window, merge them together and skip the loading flash entirely.
+  static const Duration _toolCoalesceDelay = Duration(milliseconds: 400);
+
+  /// Per-message pending tool calls (buffered, not yet shown to UI).
+  final Map<String, _PendingToolCoalesce> _pendingToolCoalesce =
+      <String, _PendingToolCoalesce>{};
+
+  /// Per-message coalesce fallback timer.
+  /// Fires after _toolCoalesceDelay if results haven't arrived yet,
+  /// flushing the buffered calls as loading state.
+  final Map<String, Timer?> _toolCoalesceTimers = <String, Timer?>{};
+
 
   /// Timers for inline image sanitization per message.
   final Map<String, Timer?> _inlineImageSanitizeTimers = <String, Timer?>{};
@@ -217,6 +232,9 @@ class StreamController {
     _contentSplits.remove(messageId);
     _toolParts.remove(messageId);
     _geminiThoughtSigs.remove(messageId);
+    _pendingToolCoalesce.remove(messageId);
+    _toolCoalesceTimers[messageId]?.cancel();
+    _toolCoalesceTimers.remove(messageId);
     _cleanupStreamTimers(messageId);
   }
 
@@ -227,6 +245,9 @@ class StreamController {
     _contentSplits.clear();
     _toolParts.clear();
     _geminiThoughtSigs.clear();
+    _pendingToolCoalesce.clear();
+    for (final t in _toolCoalesceTimers.values) { t?.cancel(); }
+    _toolCoalesceTimers.clear();
     _cancelAllTimers();
     streamingContentNotifier.clear();
   }
@@ -646,6 +667,9 @@ dynamic _decodeJson(String json) => jsonDecode(json);
     _inlineImageSanitizeTimers[messageId]?.cancel();
     _inlineImageSanitizeTimers.remove(messageId);
     _inlineImageSanitizing.remove(messageId);
+    _pendingToolCoalesce.remove(messageId);
+    _toolCoalesceTimers[messageId]?.cancel();
+    _toolCoalesceTimers.remove(messageId);
   }
 
   /// Clean up timers for a message (public API).
@@ -675,6 +699,11 @@ dynamic _decodeJson(String json) => jsonDecode(json);
     }
     _inlineImageSanitizeTimers.clear();
     _inlineImageSanitizing.clear();
+    _pendingToolCoalesce.clear();
+    for (final timer in _toolCoalesceTimers.values) {
+      timer?.cancel();
+    }
+    _toolCoalesceTimers.clear();
   }
 
   // ============================================================================
@@ -839,6 +868,10 @@ dynamic _decodeJson(String json) => jsonDecode(json);
   }
 
   /// Process tool calls chunk from stream.
+  ///
+  /// Buffers tool calls with a short coalesce delay before updating the UI.
+  /// If handleToolResultsChunk arrives within the window, they are merged
+  /// and shown together, skipping the loading flash entirely.
   Future<void> handleToolCallsChunk(
     ChatStreamChunk chunk,
     StreamingState state, {
@@ -887,30 +920,27 @@ dynamic _decodeJson(String json) => jsonDecode(json);
       );
     }
 
-    // Add tool call placeholders
-    final existing = List<ToolUIPart>.of(_toolParts[messageId] ?? const []);
-    for (final c in chunk.toolCalls!) {
-      existing.add(
-        ToolUIPart(
-          id: c.id,
-          toolName: c.name,
-          arguments: c.arguments,
-          loading: true,
-        ),
-      );
-    }
-    if (getCurrentConversationId() == conversationId) {
-      _toolParts[messageId] = dedupeToolPartsList(existing);
-      // Notify via StreamingContentNotifier for real-time UI updates
-      streamingContentNotifier.notifyToolPartsUpdated(
-        messageId,
-        contentSplitOffsets: state.contentSplitOffsets,
-        reasoningCountAtSplit: state.reasoningCountAtSplit,
-        toolCountAtSplit: state.toolCountAtSplit,
-      );
-    }
+    // Buffer tool calls instead of immediately showing loading state.
+    // Start a coalesce timer; if results arrive before it fires, they'll
+    // merge and skip the loading flash entirely.
+    _pendingToolCoalesce[messageId] = _PendingToolCoalesce(
+      calls: chunk.toolCalls!,
+      chunk: chunk,
+      state: state,
+    );
 
-    // Persist tool events
+    // Cancel any existing timer and set a new one
+    _toolCoalesceTimers[messageId]?.cancel();
+    _toolCoalesceTimers[messageId] = Timer(
+      _toolCoalesceDelay,
+      () => _flushToolCoalesce(messageId, state, chunk, 
+        updateReasoningSegmentsInDb: updateReasoningSegmentsInDb,
+        setToolEventsInDb: setToolEventsInDb,
+        getToolEventsFromDb: getToolEventsFromDb,
+      ),
+    );
+
+    // Persist tool events immediately (needed for DB, loading state can wait)
     try {
       final prev = getToolEventsFromDb(messageId);
       final newEvents = <Map<String, dynamic>>[
@@ -929,7 +959,67 @@ dynamic _decodeJson(String json) => jsonDecode(json);
     } catch (_) {}
   }
 
+  /// Flush buffered tool calls to the UI as loading state.
+  /// Called when the coalesce timer fires (tool results didn't arrive in time).
+  void _flushToolCoalesce(
+    String messageId,
+    StreamingState state,
+    ChatStreamChunk chunk, {
+    required Future<void> Function(String messageId, String json)
+    updateReasoningSegmentsInDb,
+    required Future<void> Function(
+      String messageId,
+      List<Map<String, dynamic>> events,
+    )
+    setToolEventsInDb,
+    required List<Map<String, dynamic>> Function(String messageId)
+    getToolEventsFromDb,
+  }) {
+    // Only flush if still pending (not already merged by handleToolResultsChunk)
+    if (!_pendingToolCoalesce.containsKey(messageId)) return;
+    _pendingToolCoalesce.remove(messageId);
+    _toolCoalesceTimers.remove(messageId);
+
+    final conversationId = state.conversationId;
+    final existing = List<ToolUIPart>.of(_toolParts[messageId] ?? const []);
+    
+    // Check if these calls already have results (edge case where results arrived
+    // after timer was scheduled but before it fired)
+    bool allResolved = true;
+    for (final c in chunk.toolCalls!) {
+      final hasResult = existing.any((p) =>
+        !p.loading &&
+        (p.id == c.id || (p.id.isEmpty && p.toolName == c.name)));
+      if (!hasResult) {
+        allResolved = false;
+        existing.add(
+          ToolUIPart(
+            id: c.id,
+            toolName: c.name,
+            arguments: c.arguments,
+            loading: true,
+          ),
+        );
+      }
+    }
+    if (allResolved) return; // All already have results, nothing to show
+
+    if (getCurrentConversationId() == conversationId) {
+      _toolParts[messageId] = dedupeToolPartsList(existing);
+      streamingContentNotifier.notifyToolPartsUpdated(
+        messageId,
+        contentSplitOffsets: state.contentSplitOffsets,
+        reasoningCountAtSplit: state.reasoningCountAtSplit,
+        toolCountAtSplit: state.toolCountAtSplit,
+      );
+    }
+  }
+
   /// Process tool results chunk from stream.
+  ///
+  /// If there are buffered (coalesced) tool calls, this merges results with them
+  /// immediately, skipping the loading flash entirely. If no buffer exists,
+  /// falls through to the normal update-by-id path.
   Future<void> handleToolResultsChunk(
     ChatStreamChunk chunk,
     StreamingState state, {
@@ -948,6 +1038,63 @@ dynamic _decodeJson(String json) => jsonDecode(json);
     final messageId = state.messageId;
     final conversationId = state.conversationId;
 
+    // If we have buffered tool calls, merge results directly (skip loading).
+    // The buffer is populated by handleToolCallsChunk when using coalesce delay.
+    // Cancel the fallback timer first.
+    final buffered = _pendingToolCoalesce.remove(messageId);
+    _toolCoalesceTimers[messageId]?.cancel();
+    _toolCoalesceTimers.remove(messageId);
+
+    if (buffered != null) {
+      // Buffered coalesce path: create parts with results directly.
+      final parts = List<ToolUIPart>.of(_toolParts[messageId] ?? const []);
+      for (final r in chunk.toolResults!) {
+        // Check if we already have this result (shouldn't happen, but be safe)
+        final existing = parts.any((p) =>
+          !p.loading && (p.id == r.id || (p.id.isEmpty && p.toolName == r.name)));
+        if (existing) continue;
+
+        parts.add(
+          ToolUIPart(
+            id: r.id,
+            toolName: r.name,
+            arguments: r.arguments.isNotEmpty
+                ? Map<String, dynamic>.from(r.arguments)
+                : r.arguments,
+            content: r.content,
+            loading: false,
+          ),
+        );
+      }
+
+      try {
+        for (final r in chunk.toolResults!) {
+          final args = Map<String, dynamic>.from(r.arguments);
+          await upsertToolEventInDb(
+            messageId,
+            id: r.id,
+            name: r.name,
+            arguments: args,
+            content: r.content,
+            metadata: r.metadata,
+          );
+        }
+      } catch (_) {}
+
+      if (getCurrentConversationId() == conversationId) {
+        _toolParts[messageId] = dedupeToolPartsList(parts);
+        final splits = _contentSplits[messageId];
+        streamingContentNotifier.notifyToolPartsUpdated(
+          messageId,
+          contentSplitOffsets: splits?.offsets,
+          reasoningCountAtSplit: splits?.reasoningCounts,
+          toolCountAtSplit: splits?.toolCounts,
+        );
+      }
+      return;
+    }
+
+    // Normal path (no buffered calls): update loading parts by id
     final parts = List<ToolUIPart>.of(_toolParts[messageId] ?? const []);
     for (final r in chunk.toolResults!) {
       int idx = -1;
@@ -1398,6 +1545,21 @@ class ContentSplitData {
   final List<int> offsets;
   final List<int> reasoningCounts;
   final List<int> toolCounts;
+}
+
+
+/// Pending tool call coalesce buffer entry.
+/// Holds buffered tool calls that have not yet been shown to the UI.
+class _PendingToolCoalesce {
+  final List<ToolCallInfo> calls;
+
+  /// The ChatStreamChunk data that arrived via handleToolCallsChunk.
+  /// We need the state fields (contentSplitOffsets etc.) when we flush.
+  ChatStreamChunk? chunk;
+
+  StreamingState? state;
+
+  _PendingToolCoalesce({required this.calls, this.chunk, this.state});
 }
 
 class _StreamSmoothState {
