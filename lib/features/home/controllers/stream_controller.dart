@@ -888,7 +888,6 @@ dynamic _decodeJson(String json) => jsonDecode(json);
     if ((chunk.toolCalls ?? const []).isEmpty) return;
 
     final messageId = state.messageId;
-    final conversationId = state.conversationId;
     state.hadThinkingBlock = true;
     _contentSplits[messageId] = _normalizeContentSplitData(
       ContentSplitData(
