@@ -206,9 +206,12 @@ class McpPage extends StatelessWidget {
                 style: TextStyle(color: cs.onSurface.withValues(alpha: 0.6)),
               ),
             )
-          : ListView.builder(
+          : ReorderableListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
               itemCount: servers.length,
+              onReorder: (oldIndex, newIndex) {
+                mcp.reorderServers(oldIndex, newIndex);
+              },
               itemBuilder: (context, index) {
                 final s = servers[index];
                 final st = mcp.statusFor(s.id);
