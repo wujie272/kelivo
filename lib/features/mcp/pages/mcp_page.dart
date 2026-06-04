@@ -445,6 +445,7 @@ class McpPage extends StatelessWidget {
                 );
 
                 return Padding(
+                  key: ValueKey('mcp-pad-${s.id}'),
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Slidable(
                     key: ValueKey('mcp-${s.id}'),
