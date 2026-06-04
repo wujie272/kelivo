@@ -209,7 +209,7 @@ class McpPage extends StatelessWidget {
           : ReorderableListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
               itemCount: servers.length,
-              onReorder: (oldIndex, newIndex) {
+              onReorderItem: (oldIndex, newIndex) {
                 mcp.reorderServers(oldIndex, newIndex);
               },
               itemBuilder: (context, index) {
