@@ -5,7 +5,7 @@ import '../../providers/settings_provider.dart';
 
 class SearchToolService {
   static const String toolName = 'search_web';
-  static const String toolDescription = 'Search the web for up-to-date information. Use this when you need current facts, recent news, or verification. You MUST provide a specific, non-empty query string. Do NOT call this tool without a query.';
+  static const String toolDescription = 'Search the web for information';
 
   static final RegExp _schemeRe = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*:');
 
@@ -39,7 +39,7 @@ class SearchToolService {
           'properties': {
             'query': {
               'type': 'string',
-              'description': 'REQUIRED: The search query to look up online. Must be a non-empty string with focused keywords.',
+              'description': 'The search query to look up online',
             },
           },
           'required': ['query'],
@@ -99,13 +99,6 @@ class SearchToolService {
 ## search_web 工具使用说明
 
 当用户询问需要实时信息或最新数据的问题时，使用 search_web 工具进行搜索。
-
-### ⚠️ 重要规则
-- **调用 search_web 时必须提供 query 参数，且 query 不能为空字符串**
-- **如果你没有具体的搜索关键词，不要调用 search_web**
-- 先理解用户的问题，提炼出关键搜索词，再调用工具
-- 如果用户只是寒暄或提问不需要搜索的问题，不要调用 search_web
-- 错误的调用示例：`search_web(query="")` 会被直接拒绝并返回错误
 
 ### 引用格式
 - 搜索结果中会包含index(搜索结果序号)和id(搜索结果唯一标识符)，引用格式为：
