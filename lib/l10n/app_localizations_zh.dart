@@ -36,10 +36,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsPageColorMode => '颜色模式';
 
   @override
-  String get settingsPageDisplay => '显示设置';
+  String get settingsPageDisplay => '偏好设置';
 
   @override
-  String get settingsPageDisplaySubtitle => '界面主题与字号等外观设置';
+  String get settingsPageDisplaySubtitle => '外观、行为与交互偏好';
 
   @override
   String get settingsPageAssistant => '助手';
@@ -2035,6 +2035,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get chatMessageWidgetWriteClipboard => '写入剪切板';
+
+  @override
+  String get chatMessageWidgetSpeakingTitle => '正在朗读:';
 
   @override
   String chatMessageWidgetSpeakText(String text) {
@@ -5095,7 +5098,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String askUserCardQuestionCount(int count) {
-    return '询问 $count 个问题';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '询问 $count 个问题',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -5239,10 +5247,10 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get settingsPageColorMode => '颜色模式';
 
   @override
-  String get settingsPageDisplay => '显示设置';
+  String get settingsPageDisplay => '偏好设置';
 
   @override
-  String get settingsPageDisplaySubtitle => '界面主题与字号等外观设置';
+  String get settingsPageDisplaySubtitle => '外观、行为与交互偏好';
 
   @override
   String get settingsPageAssistant => '助手';
@@ -7238,6 +7246,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get chatMessageWidgetWriteClipboard => '写入剪切板';
+
+  @override
+  String get chatMessageWidgetSpeakingTitle => '正在朗读:';
 
   @override
   String chatMessageWidgetSpeakText(String text) {
@@ -10296,7 +10307,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String askUserCardQuestionCount(int count) {
-    return '询问 $count 个问题';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '询问 $count 个问题',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -10440,10 +10456,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get settingsPageColorMode => '顏色模式';
 
   @override
-  String get settingsPageDisplay => '顯示設定';
+  String get settingsPageDisplay => '偏好設定';
 
   @override
-  String get settingsPageDisplaySubtitle => '介面主題與字號等外觀設定';
+  String get settingsPageDisplaySubtitle => '外觀、行為與互動偏好';
 
   @override
   String get settingsPageAssistant => '助理';
@@ -12438,6 +12454,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get chatMessageWidgetWriteClipboard => '寫入剪貼簿';
+
+  @override
+  String get chatMessageWidgetSpeakingTitle => '正在朗讀:';
 
   @override
   String chatMessageWidgetSpeakText(String text) {
@@ -15498,7 +15517,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String askUserCardQuestionCount(int count) {
-    return '詢問 $count 個問題';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '詢問 $count 個問題',
+    );
+    return '$_temp0';
   }
 
   @override
