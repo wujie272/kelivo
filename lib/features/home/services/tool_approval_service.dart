@@ -1,31 +1,17 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 
-/// Possible outcomes of a tool approval request.
-enum ToolApprovalAction { approved, denied, answered }
-
 /// Result of a tool approval request.
 class ToolApprovalResult {
-  final ToolApprovalAction action;
-  final String? message; // denyReason for denied, answer text for answered
+  final bool approved;
+  final String? denyReason;
 
-  bool get approved => action == ToolApprovalAction.approved;
-  bool get denied => action == ToolApprovalAction.denied;
-  bool get answered => action == ToolApprovalAction.answered;
-  String? get denyReason => denied ? message : null;
-  String? get answerText => answered ? message : null;
-
-  const ToolApprovalResult._({
-    required this.action,
-    this.message,
-  });
+  const ToolApprovalResult({required this.approved, this.denyReason});
 
   factory ToolApprovalResult.approved() =>
-      const ToolApprovalResult._(action: ToolApprovalAction.approved);
+      const ToolApprovalResult(approved: true);
   factory ToolApprovalResult.denied([String? reason]) =>
-      ToolApprovalResult._(action: ToolApprovalAction.denied, message: reason);
-  factory ToolApprovalResult.answered(String answer) =>
-      ToolApprovalResult._(action: ToolApprovalAction.answered, message: answer);
+      ToolApprovalResult(approved: false, denyReason: reason);
 }
 
 /// A pending approval request for an MCP tool call.

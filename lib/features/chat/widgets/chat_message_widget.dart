@@ -110,68 +110,8 @@ IconData _toolIconFor(String name, [Map<String, dynamic> args = const {}]) {
     case 'builtin_search':
       return Lucide.Search;
     default:
-      return _mcpToolIconFor(name);
+      return Lucide.Wrench;
   }
-}
-
-/// Heuristic icon for MCP tools based on naming patterns.
-IconData _mcpToolIconFor(String name) {
-  final lower = name.toLowerCase();
-  if (lower.startsWith('read') || lower.startsWith('get') ||
-      lower.startsWith('list') || lower.startsWith('find') ||
-      lower.startsWith('search') || lower.startsWith('query')) {
-    return Lucide.Search;
-  }
-  if (lower.startsWith('write') || lower.startsWith('create') ||
-      lower.startsWith('add') || lower.startsWith('set') ||
-      lower.startsWith('insert')) {
-    return Lucide.Pencil;
-  }
-  if (lower.startsWith('delete') || lower.startsWith('remove') ||
-      lower.startsWith('del') || lower.startsWith('clear')) {
-    return Lucide.Trash2;
-  }
-  if (lower.startsWith('edit') || lower.startsWith('update') ||
-      lower.startsWith('modify') || lower.startsWith('patch')) {
-    return Lucide.Edit;
-  }
-  if (lower.startsWith('exec') || lower.startsWith('run') ||
-      lower.startsWith('invoke') || lower.startsWith('call')) {
-    return Lucide.Zap;
-  }
-  if (lower.startsWith('fetch') || lower.startsWith('download') ||
-      lower.startsWith('scrape')) {
-    return Lucide.Download;
-  }
-  if (lower.startsWith('upload') || lower.startsWith('push')) {
-    return Lucide.Upload;
-  }
-  if (lower.contains('file') || lower.contains('fs') ||
-      lower.contains('dir')) {
-    return Lucide.FileText;
-  }
-  if (lower.contains('note') || lower.contains('wiki') ||
-      lower.contains('doc') || lower.contains('page')) {
-    return Lucide.FileText;
-  }
-  if (lower.contains('memory') || lower.contains('chat') ||
-      lower.contains('conversation') || lower.contains('message')) {
-    return Lucide.MessageSquare;
-  }
-  if (lower.contains('code') || lower.contains('compile') ||
-      lower.contains('build') || lower.contains('lint')) {
-    return Lucide.Code;
-  }
-  if (lower.contains('image') || lower.contains('photo') ||
-      lower.contains('picture') || lower.contains('screenshot') ||
-      lower.contains('screencap')) {
-    return Lucide.Image;
-  }
-  if (lower.contains('browser') || lower.contains('page') ||
-      lower.contains('navigate') || lower.contains('url')) {
-    return Lucide.Globe;
-  }
-  return Lucide.Wrench;
 }
 
 IconData? _localToolIconFor(String name, Map<String, dynamic> args) {
@@ -3943,30 +3883,14 @@ class _ChainOfThoughtToolStepState extends State<_ChainOfThoughtToolStep> {
 
   String _argsSummary(Map<String, dynamic> args) {
     if (args.isEmpty) return '';
-    final meaningful = args.entries
-        .where((e) {
-          final v = e.value?.toString() ?? '';
-          return v.isNotEmpty && v != '0' && v != 'false';
-        })
-        .toList();
-    if (meaningful.isEmpty) {
-      final first = args.entries.first;
-      final v = first.value?.toString() ?? '';
-      return v.length > 40 ? '${v.substring(0, 40)}...' : v;
-    }
-    meaningful.sort((a, b) {
-      final priority = ['query', 'content', 'text', 'name', 'id', 'action'];
-      final pa = priority.indexOf(a.key);
-      final pb = priority.indexOf(b.key);
-      if (pa != pb) return pa.compareTo(pb);
-      return 0;
+    final entries = args.entries.take(2).map((entry) {
+      final value = entry.value?.toString() ?? '';
+      final truncated = value.length > 40
+          ? '${value.substring(0, 40)}...'
+          : value;
+      return '${entry.key}: $truncated';
     });
-    final entries = meaningful.take(2).map((e) {
-      final v = e.value?.toString() ?? '';
-      final truncated = v.length > 40 ? '${v.substring(0, 40)}...' : v;
-      return '${e.key}: $truncated';
-    });
-    final suffix = meaningful.length > 2 ? ' ...' : '';
+    final suffix = args.length > 2 ? ' ...' : '';
     return entries.join(', ') + suffix;
   }
 
@@ -4252,33 +4176,13 @@ class _ToolCallItemState extends State<_ToolCallItem> {
   /// Build a short argument summary for display in the approval card.
   String _argsSummary(Map<String, dynamic> args) {
     if (args.isEmpty) return '';
-    // Filter out empty/null values, show meaningful params first
-    final meaningful = args.entries
-        .where((e) {
-          final v = e.value?.toString() ?? '';
-          return v.isNotEmpty && v != '0' && v != 'false';
-        })
-        .toList();
-    if (meaningful.isEmpty) {
-      // Fallback to first param
-      final first = args.entries.first;
-      final v = first.value?.toString() ?? '';
-      return v.length > 40 ? '${v.substring(0, 40)}...' : v;
-    }
-    // Show first 2 meaningful params, prioritize 'query' and 'content'
-    meaningful.sort((a, b) {
-      final priority = ['query', 'content', 'text', 'name', 'id', 'action'];
-      final pa = priority.indexOf(a.key);
-      final pb = priority.indexOf(b.key);
-      if (pa != pb) return pa.compareTo(pb);
-      return 0;
-    });
-    final entries = meaningful.take(2).map((e) {
+    // Show first 1-2 key=value pairs, truncated
+    final entries = args.entries.take(2).map((e) {
       final v = e.value?.toString() ?? '';
       final truncated = v.length > 40 ? '${v.substring(0, 40)}...' : v;
       return '${e.key}: $truncated';
     });
-    final suffix = meaningful.length > 2 ? ' ...' : '';
+    final suffix = args.length > 2 ? ' ...' : '';
     return entries.join(', ') + suffix;
   }
 

@@ -140,18 +140,6 @@ class ToolHandlerService {
   static Map<String, dynamic> _deepCloneMap(Map<String, dynamic> input) {
     return jsonDecode(jsonEncode(input)) as Map<String, dynamic>;
   }
-/// Known required parameters for built-in tools.
-  /// Used by the unified pre-check to catch missing params before dispatch.
-  static const Map<String, List<String>> _builtinToolRequiredParams = {
-    SearchToolService.toolName: ['query'],
-    'create_memory': ['content'],
-    'edit_memory': ['id', 'content'],
-    'delete_memory': ['id'],
-    'use_skill': ['name'],
-    LocalToolNames.clipboard: ['action'],
-    LocalToolNames.textToSpeech: ['text'],
-    LocalToolNames.askUser: ['questions'],
-  };
 
   // ============================================================================
   // Tool Definitions Builder
@@ -529,9 +517,7 @@ class ToolHandlerService {
                   : '${name}_${DateTime.now().microsecondsSinceEpoch}',
               arguments: args,
             );
-            final jsonResult = result.toJsonString();
-            // Append natural-language summary for easier AI consumption
-            return '$jsonResult\n\n${result.toSummaryText()}';
+            return result.toJsonString();
           } on AskUserInvalidRequestException catch (e) {
             return jsonEncode({
               'type': 'tool_error',
@@ -551,18 +537,7 @@ class ToolHandlerService {
             toolName: name,
             arguments: args,
           );
-          if (result.answered) {
-            // User answered directly instead of approve/deny.
-            // Return answer as tool result; AI will continue the loop.
-            return jsonEncode({
-              'type': 'tool_result',
-              'data': result.answerText ?? '',
-              'instruction':
-                  'The user answered instead of approving the tool call. '
-                  'Use this answer to respond accordingly.',
-            });
-          }
-          if (result.denied) {
+          if (!result.approved) {
             return jsonEncode({
               'type': 'tool_error',
               'error': 'approval_denied',
@@ -570,7 +545,6 @@ class ToolHandlerService {
               'tool': name,
             });
           }
-          // approved: fall through to execute
         }
 
         // MCP tools
@@ -612,22 +586,18 @@ class ToolHandlerService {
 
       if (name == 'create_memory') {
         final content = (args['content'] ?? '').toString();
-        if (content.isEmpty) return jsonEncode({'error': 'content is required for create_memory'});
+        if (content.isEmpty) return '';
         final m = await mp.add(assistantId: assistant!.id, content: content);
         return m.content;
       } else if (name == 'edit_memory') {
         final id = (args['id'] as num?)?.toInt() ?? -1;
         final content = (args['content'] ?? '').toString();
-        if (id <= 0 || content.isEmpty) {
-          return jsonEncode({'error': 'id and content are required for edit_memory'});
-        }
+        if (id <= 0 || content.isEmpty) return '';
         final m = await mp.update(id: id, content: content);
         return m?.content ?? '';
       } else if (name == 'delete_memory') {
         final id = (args['id'] as num?)?.toInt() ?? -1;
-        if (id <= 0) {
-          return jsonEncode({'error': 'id is required for delete_memory'});
-        }
+        if (id <= 0) return '';
         final ok = await mp.delete(id: id);
         return ok ? 'deleted' : '';
       }

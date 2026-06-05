@@ -110,18 +110,6 @@ class AskUserResult {
       ),
     });
   }
-
-  /// Build a natural-language summary of the user's answers.
-  /// The AI can use this instead of parsing the structured JSON.
-  String toSummaryText() {
-    if (answers.isEmpty) return 'User provided no answers.';
-    return answers.entries.map((e) {
-      final a = e.value;
-      if (a.skipped) return '- ${e.key}: skipped';
-      final val = a.value;
-      return '- ${e.key}: $val${a.custom ? ' (custom answer)' : ''}';
-    }).join('\n');
-  }
 }
 
 class AskUserRequest {
