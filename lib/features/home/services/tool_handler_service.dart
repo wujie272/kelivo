@@ -140,6 +140,18 @@ class ToolHandlerService {
   static Map<String, dynamic> _deepCloneMap(Map<String, dynamic> input) {
     return jsonDecode(jsonEncode(input)) as Map<String, dynamic>;
   }
+/// Known required parameters for built-in tools.
+  /// Used by the unified pre-check to catch missing params before dispatch.
+  static const Map<String, List<String>> _builtinToolRequiredParams = {
+    SearchToolService.toolName: ['query'],
+    'create_memory': ['content'],
+    'edit_memory': ['id', 'content'],
+    'delete_memory': ['id'],
+    'use_skill': ['name'],
+    LocalToolNames.clipboard: ['action'],
+    LocalToolNames.textToSpeech: ['text'],
+    LocalToolNames.askUser: ['questions'],
+  };
 
   // ============================================================================
   // Tool Definitions Builder
