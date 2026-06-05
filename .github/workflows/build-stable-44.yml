@@ -14,6 +14,13 @@ on:
         default: true
         type: boolean
 
+      # 自定义包名（构建时替换 applicationId）
+      application_id:
+        description: '自定义包名（如 com.jaye.kelivo，留空使用默认）'
+        required: false
+        default: ''
+        type: string
+
       build_ios:
         description: '构建 iOS'
         required: false
@@ -117,6 +124,8 @@ jobs:
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
           echo "✅ 签名配置已写入"
       - name: 🏗️ 构建 APK
+        env:
+          APPLICATION_ID: ${{ github.event.inputs.application_id }}
         run: flutter build apk --release --split-per-abi
 
       - name: 📦 重命名 APK

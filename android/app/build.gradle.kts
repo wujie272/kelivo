@@ -18,10 +18,10 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.psyche.kelivo"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        // 构建时替换: APPLICATION_ID 环境变量 → 动态 applicationId
+        // 用法: APPLICATION_ID=com.jaye.kelivo flutter build apk --release
+        val customAppId = System.getenv("APPLICATION_ID")?.takeIf { it.isNotEmpty() }
+        applicationId = customAppId ?: "com.psyche.kelivo"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

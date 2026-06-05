@@ -96,6 +96,8 @@ jobs:
           echo "✅ Signing config written"
 
       - name: 🏗️ Build APK
+        env:
+          APPLICATION_ID: ${{ github.event.inputs.application_id || '' }}
         run: flutter build apk --release --split-per-abi
 
       - name: 📦 Rename APKs
