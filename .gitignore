@@ -64,3 +64,8 @@ internationalization.md
 /.agents/
 /skills-lock.json
 /.scratch/
+
+# Android signing keys (DO NOT COMMIT)
+/android/key.properties
+/android/app/key.jks
+/android/app/upload-keystore.jks
