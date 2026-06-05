@@ -955,68 +955,6 @@ class McpProvider extends ChangeNotifier {
     return null;
   }
 
-  /// Validate that all required parameters are present before sending to server.
-  /// Returns null if valid, or an error message string if validation fails.
-  String? _validateArgsForTool(String serverId, String toolName, Map<String, dynamic> args) {
-    final cfg = _toolConfig(serverId, toolName);
-    if (cfg == null) return null;
-
-    final missing = <String>[];
-
-    // Check 1: from McpParamSpec.required (extracted from server's tool schema)
-    for (final p in cfg.params) {
-      if (p.required && (!args.containsKey(p.name) || args[p.name] == null)) {
-        missing.add(p.name);
-      }
-    }
-
-    // Check 2: from raw schema.required (extra safety net)
-    final schema = cfg.schema;
-    if (schema != null && schema['required'] is List) {
-      final schemaRequired = (schema['required'] as List)
-          .map((e) => e.toString())
-          .toSet();
-      for (final r in schemaRequired) {
-        if (!args.containsKey(r) || args[r] == null) {
-          if (!missing.contains(r)) missing.add(r);
-        }
-      }
-    }
-
-    if (missing.isEmpty) return null;
-
-    // Build helpful error message with type hints
-    final buf = StringBuffer();
-    buf.writeln('Missing required parameters: ${missing.join(", ")}');
-    buf.writeln();
-    for (final name in missing) {
-      final param = cfg.params.cast<McpParamSpec?>().firstWhere(
-        (p) => p?.name == name,
-        orElse: () => null,
-      );
-      if (param != null && param.type != null) {
-        buf.writeln('  - $name (${param.type})');
-      } else if (schema != null && schema['properties'] is Map) {
-        final props = (schema['properties'] as Map).cast<String, dynamic>();
-        if (props[name] is Map) {
-          final prop = (props[name] as Map).cast<String, dynamic>();
-          if (prop['type'] != null) buf.writeln('  - $name (${prop['type']})');
-          if (prop['description'] != null) {
-            buf.writeln('    ${prop['description']}');
-          }
-        }
-      }
-    }
-    if (args.isNotEmpty) {
-      buf.writeln();
-      buf.writeln('Received arguments: ${jsonEncode(args)}');
-    }
-    buf.writeln();
-    buf.writeln('Revise arguments to satisfy the schema and call the same tool again.');
-
-    return buf.toString();
-  }
-
   Map<String, dynamic> _normalizeArgsForTool(
     String serverId,
     String toolName,
@@ -1381,12 +1319,6 @@ class McpProvider extends ChangeNotifier {
     Map<String, dynamic> args,
   ) async {
     try {
-      // Pre-validate required parameters before calling the server
-      final validationError = _validateArgsForTool(serverId, toolName, args);
-      if (validationError != null) {
-        _errors[serverId] = validationError;
-        return null;
-      }
       await ensureConnected(serverId);
       var client = _clients[serverId];
       if (client == null) return null;
