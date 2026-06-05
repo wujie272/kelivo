@@ -388,49 +388,6 @@ class ToolHandlerService {
     }).toList();
   }
 
-  /// Validate built-in tool calls against their known schemas.
-  /// Returns a structured error JSON if required params are missing, or null if valid.
-  String? _validateBuiltinToolCall(String name, Map<String, dynamic> args, Assistant? assistant) {
-    try {
-      List<String> required = [];
-
-      if (name == SearchToolService.toolName && assistant?.searchEnabled == true) {
-        required = ['query'];
-      } else if (name == 'create_memory' && assistant?.enableMemory == true) {
-        required = ['content'];
-      } else if (name == 'edit_memory' && assistant?.enableMemory == true) {
-        required = ['id', 'content'];
-      } else if (name == 'delete_memory' && assistant?.enableMemory == true) {
-        required = ['id'];
-      } else if (name == 'use_skill') {
-        required = ['name'];
-      } else {
-        // Not a known built-in tool; let downstream handlers decide
-        return null;
-      }
-
-      final missing = <String>[];
-      for (final r in required) {
-        final v = args[r];
-        if (!args.containsKey(r) || v == null || (v is String && (v).isEmpty)) {
-          missing.add(r);
-        }
-      }
-      if (missing.isEmpty) return null;
-
-      return const JsonEncoder.withIndent('  ').convert({
-        'type': 'tool_error',
-        'error': 'invalid_arguments',
-        'message': 'Missing required parameters: ${missing.join(", ")}',
-        'tool': name,
-        'lastArguments': args,
-        'instruction': 'Provide all required parameters (${missing.join(", ")}) and call the same tool again.',
-      });
-    } catch (_) {
-      return null;
-    }
-  }
-
   // ============================================================================
   // Tool Call Handler
   // ============================================================================
@@ -457,10 +414,6 @@ class ToolHandlerService {
 
     return (name, args, {toolCallId}) async {
       try {
-        // Pre-validate built-in tool required parameters
-        final builtinError = _validateBuiltinToolCall(name, args, assistant);
-        if (builtinError != null) return builtinError;
-
         // Search tool
         if (name == SearchToolService.toolName &&
             assistant?.searchEnabled == true) {
