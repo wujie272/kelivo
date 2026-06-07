@@ -64,6 +64,7 @@ class ChatInputSection extends StatelessWidget {
     this.onClearContext,
     this.onCompressContext,
     this.conversationId,
+    this.sendButtonTooltip,
     this.backgroundImageActive = false,
   });
 
@@ -105,6 +106,7 @@ class ChatInputSection extends StatelessWidget {
   final VoidCallback? onClearContext;
   final VoidCallback? onCompressContext;
   final String? conversationId;
+  final String? sendButtonTooltip;
   final bool backgroundImageActive;
 
   @override
@@ -164,6 +166,7 @@ class ChatInputSection extends StatelessWidget {
       onOpenSearch: onOpenSearch,
       onSend: onSend,
       loading: isLoading,
+      sendButtonTooltip: sendButtonTooltip,
       hasQueuedInput: hasQueuedInput,
       queuedPreviewText: queuedPreviewText,
       onCancelQueuedInput: onCancelQueuedInput,

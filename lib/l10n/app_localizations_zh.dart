@@ -483,14 +483,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get assistantProviderNewAssistantName => '新助手';
 
   @override
-  String assistantProviderSampleAssistantSystemPrompt(
-    String model_name,
-    String cur_datetime,
-    String locale,
-    String timezone,
-    String device_info,
-    String system_version,
-  ) {
+  String assistantProviderSampleAssistantSystemPrompt(String model_name, String cur_datetime, String locale, String timezone, String device_info, String system_version) {
     return '你是$model_name, 一个人工智能助手，乐意为用户提供准确，有益的帮助。现在时间是$cur_datetime，用户设备语言为$locale，时区为$timezone，用户正在使用$device_info，版本$system_version。如果用户没有明确说明，请使用用户设备语言进行回复。';
   }
 
@@ -606,8 +599,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homePagePleaseSelectModel => '请先选择模型';
 
   @override
-  String get homePageAudioAttachmentUnsupported =>
-      '当前模型不支持音频附件，请切换到支持音频输入的模型或移除音频文件后重试。';
+  String get homePageAudioAttachmentUnsupported => '当前模型不支持音频附件，请切换到支持音频输入的模型或移除音频文件后重试。';
 
   @override
   String get homePagePleaseSetupTranslateModel => '请先设置翻译模型';
@@ -830,8 +822,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get assistantEditContextMessagesTitle => '上下文消息数量';
 
   @override
-  String get assistantEditContextMessagesDescription =>
-      '多少历史消息会被当作上下文发送给模型，超过数量会忽略，只保留最近 N 条';
+  String get assistantEditContextMessagesDescription => '多少历史消息会被当作上下文发送给模型，超过数量会忽略，只保留最近 N 条';
 
   @override
   String get assistantEditStreamOutputTitle => '流式输出';
@@ -945,8 +936,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get iosBackgroundGenerationEnableTitle => '后台生成';
 
   @override
-  String get iosBackgroundGenerationEnableSubtitle =>
-      'App 离开前台后，使用 iOS 分配的后台时间继续当前回复。';
+  String get iosBackgroundGenerationEnableSubtitle => 'App 离开前台后，使用 iOS 分配的后台时间继续当前回复。';
 
   @override
   String get iosBackgroundTaskRefreshTitle => '后台任务恢复';
@@ -970,12 +960,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get iosBackgroundLimitNoticeTitle => 'iOS 仍可能暂停任务';
 
   @override
-  String get iosBackgroundLimitNoticeBody =>
-      '这些选项使用 Apple 支持的后台时间、BackgroundTasks、通知和实时活动。它们能提升连续性，但不能强制 iOS 永久保持 Kelivo 运行。';
+  String get iosBackgroundLimitNoticeBody => '这些选项使用 Apple 支持的后台时间、BackgroundTasks、通知和实时活动。它们能提升连续性，但不能强制 iOS 永久保持 Kelivo 运行。';
 
   @override
-  String get iosBackgroundUnsupportedLiveActivity =>
-      '需要 iOS 16.1 或更高版本，并在系统设置中允许实时活动。';
+  String get iosBackgroundUnsupportedLiveActivity => '需要 iOS 16.1 或更高版本，并在系统设置中允许实时活动。';
 
   @override
   String get iosBackgroundNativeStatusTitle => '系统状态';
@@ -1070,8 +1058,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get assistantEditImageUrlDialogTitle => '输入图片链接';
 
   @override
-  String get assistantEditImageUrlDialogHint =>
-      '例如: https://example.com/avatar.png';
+  String get assistantEditImageUrlDialogHint => '例如: https://example.com/avatar.png';
 
   @override
   String get assistantEditImageUrlDialogCancel => '取消';
@@ -1705,8 +1692,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chatHistoryPageDeleteAllDialogTitle => '删除未置顶对话';
 
   @override
-  String get chatHistoryPageDeleteAllDialogContent =>
-      '确定要删除所有未置顶的对话吗？已置顶的将会保留。';
+  String get chatHistoryPageDeleteAllDialogContent => '确定要删除所有未置顶的对话吗？已置顶的将会保留。';
 
   @override
   String get chatHistoryPageCancel => '取消';
@@ -1743,6 +1729,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get messageEditPageHint => '输入消息内容…';
+
+  @override
+  String get userMessageEditSaveOnly => '仅保存';
+
+  @override
+  String get userMessageEditUnsupportedSnackbar => '该内容不支持编辑';
+
+  @override
+  String get userMessageEditOverwriteTitle => '提示';
+
+  @override
+  String get userMessageEditOverwriteContent => '修改将覆盖输入框已有内容，是否覆盖？';
 
   @override
   String get selectCopyPageTitle => '选择复制';
@@ -1985,12 +1983,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chatMessageWidgetRegenerateConfirmTitle => '确认重新生成';
 
   @override
-  String get chatMessageWidgetRegenerateConfirmContent =>
-      '重新生成只会更新当前消息，不会删除下面的消息。确定要继续吗？';
+  String get chatMessageWidgetRegenerateConfirmContent => '重新生成只会更新当前消息，不会删除下面的消息。确定要继续吗？';
 
   @override
-  String get chatMessageWidgetRegenerateConfirmDeleteTrailingContent =>
-      '重新生成将会删除此消息下面的所有消息，且无法撤销。确定要继续吗？';
+  String get chatMessageWidgetRegenerateConfirmDeleteTrailingContent => '重新生成将会删除此消息下面的所有消息，且无法撤销。确定要继续吗？';
 
   @override
   String get chatMessageWidgetRegenerateConfirmCancel => '取消';
@@ -2130,8 +2126,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get displaySettingsPageEnableDollarLatexTitle => '启用 \$...\$ 渲染';
 
   @override
-  String get displaySettingsPageEnableDollarLatexSubtitle =>
-      '将 \$...\$ 之间的内容按行内数学公式渲染';
+  String get displaySettingsPageEnableDollarLatexSubtitle => '将 \$...\$ 之间的内容按行内数学公式渲染';
 
   @override
   String get displaySettingsPageEnableMathTitle => '启用数学公式渲染';
@@ -2143,12 +2138,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get displaySettingsPageEnableUserMarkdownTitle => '用户消息 Markdown 渲染';
 
   @override
-  String get displaySettingsPageEnableReasoningMarkdownTitle =>
-      '思维链 Markdown 渲染';
+  String get displaySettingsPageEnableReasoningMarkdownTitle => '思维链 Markdown 渲染';
 
   @override
-  String get displaySettingsPageEnableAssistantMarkdownTitle =>
-      '助手消息 Markdown 渲染';
+  String get displaySettingsPageEnableAssistantMarkdownTitle => '助手消息 Markdown 渲染';
 
   @override
   String get displaySettingsPageMobileCodeBlockWrapTitle => '移动端代码块自动换行';
@@ -2202,8 +2195,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get messageExportThinkingContentLabel => '思考内容';
 
   @override
-  String get messageExportSheetDateTimeWithSecondsPattern =>
-      'yyyy年M月d日 HH:mm:ss';
+  String get messageExportSheetDateTimeWithSecondsPattern => 'yyyy年M月d日 HH:mm:ss';
 
   @override
   String get exportDisclaimerAiGenerated => '内容由 AI 生成，请仔细甄别';
@@ -2360,8 +2352,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sideDrawerImageUrlDialogTitle => '输入图片链接';
 
   @override
-  String get sideDrawerImageUrlDialogHint =>
-      '例如: https://example.com/avatar.png';
+  String get sideDrawerImageUrlDialogHint => '例如: https://example.com/avatar.png';
 
   @override
   String get sideDrawerQQAvatarDialogTitle => '使用QQ头像';
@@ -2608,15 +2599,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get defaultModelPageSuggestionModelTitle => '聊天建议模型';
 
   @override
-  String get defaultModelPageSuggestionModelSubtitle =>
-      '用于在助手回复后生成继续对话的建议气泡。选择模型后才会启用。';
+  String get defaultModelPageSuggestionModelSubtitle => '用于在助手回复后生成继续对话的建议气泡。选择模型后才会启用。';
 
   @override
   String get assistantEditRecentChatsSummaryFrequencyTitle => '摘要更新频率';
 
   @override
-  String get assistantEditRecentChatsSummaryFrequencyDescription =>
-      '累计达到所选条数的新消息后，会更新历史聊天摘要。';
+  String get assistantEditRecentChatsSummaryFrequencyDescription => '累计达到所选条数的新消息后，会更新历史聊天摘要。';
 
   @override
   String assistantEditRecentChatsSummaryFrequencyOption(int count) {
@@ -2630,26 +2619,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get assistantEditRecentChatsSummaryFrequencyCustomTitle => '自定义摘要频率';
 
   @override
-  String get assistantEditRecentChatsSummaryFrequencyCustomDescription =>
-      '输入累计多少条新消息后再更新历史聊天摘要。';
+  String get assistantEditRecentChatsSummaryFrequencyCustomDescription => '输入累计多少条新消息后再更新历史聊天摘要。';
 
   @override
   String get assistantEditRecentChatsSummaryFrequencyCustomLabel => '新消息条数';
 
   @override
-  String get assistantEditRecentChatsSummaryFrequencyCustomHint =>
-      '请输入大于 0 的整数';
+  String get assistantEditRecentChatsSummaryFrequencyCustomHint => '请输入大于 0 的整数';
 
   @override
-  String get assistantEditRecentChatsSummaryFrequencyCustomInvalid =>
-      '请输入大于 0 的整数';
+  String get assistantEditRecentChatsSummaryFrequencyCustomInvalid => '请输入大于 0 的整数';
 
   @override
   String get defaultModelPageTranslateModelTitle => '翻译模型';
 
   @override
-  String get defaultModelPageTranslateModelSubtitle =>
-      '用于翻译消息内容的模型，推荐使用快速且准确的模型';
+  String get defaultModelPageTranslateModelSubtitle => '用于翻译消息内容的模型，推荐使用快速且准确的模型';
 
   @override
   String get defaultModelPageOcrModelTitle => 'OCR 模型';
@@ -2658,8 +2643,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get defaultModelPageOcrModelSubtitle => '用于对图片执行文字识别的模型';
 
   @override
-  String get defaultModelPageOcrModelRequiresImageInput =>
-      '请选择标记为支持图片输入的模型用于 OCR';
+  String get defaultModelPageOcrModelRequiresImageInput => '请选择标记为支持图片输入的模型用于 OCR';
 
   @override
   String get defaultModelPagePromptLabel => '提示词';
@@ -2691,10 +2675,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String defaultModelPageSummaryVars(
-    String previousSummaryVar,
-    String userMessagesVar,
-  ) {
+  String defaultModelPageSummaryVars(String previousSummaryVar, String userMessagesVar) {
     return '变量：旧摘要：$previousSummaryVar，新消息：$userMessagesVar';
   }
 
@@ -2803,8 +2784,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get modelDetailSheetReasoningAbility => '推理';
 
   @override
-  String get modelDetailSheetProviderOverrideDescription =>
-      '供应商重写：允许为特定模型自定义供应商设置。（暂未实现）';
+  String get modelDetailSheetProviderOverrideDescription => '供应商重写：允许为特定模型自定义供应商设置。（暂未实现）';
 
   @override
   String get modelDetailSheetAddProviderOverride => '添加供应商重写';
@@ -2855,19 +2835,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get modelDetailSheetYoutubeTool => 'YouTube';
 
   @override
-  String get modelDetailSheetYoutubeToolDescription =>
-      '启用 YouTube 链接读取（自动识别提示词中的链接）';
+  String get modelDetailSheetYoutubeToolDescription => '启用 YouTube 链接读取（自动识别提示词中的链接）';
 
   @override
-  String get modelDetailSheetOpenaiBuiltinToolsResponsesOnlyHint =>
-      '需要启用 OpenAI Responses API。';
+  String get modelDetailSheetOpenaiBuiltinToolsResponsesOnlyHint => '需要启用 OpenAI Responses API。';
 
   @override
   String get modelDetailSheetOpenaiCodeInterpreterTool => '代码解释器';
 
   @override
-  String get modelDetailSheetOpenaiCodeInterpreterToolDescription =>
-      '启用代码解释器工具（容器自动，内存上限 4g）';
+  String get modelDetailSheetOpenaiCodeInterpreterToolDescription => '启用代码解释器工具（容器自动，内存上限 4g）';
 
   @override
   String get modelDetailSheetOpenaiImageGenerationTool => '图像生成';
@@ -2975,23 +2952,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get providerDetailPageAihubmixAppCodeLabel => '应用 Code（享 10% 优惠）';
 
   @override
-  String get providerDetailPageAihubmixAppCodeHelp =>
-      '为请求附加 APP-Code，可享 10% 优惠，仅对 AIhubmix 生效。';
+  String get providerDetailPageAihubmixAppCodeHelp => '为请求附加 APP-Code，可享 10% 优惠，仅对 AIhubmix 生效。';
 
   @override
-  String get providerDetailPageClaudePromptCachingTitle =>
-      'Claude Prompt Caching';
+  String get providerDetailPageClaudePromptCachingTitle => 'Claude Prompt Caching';
 
   @override
-  String get providerDetailPageClaudePromptCachingHelp =>
-      '通过 Claude 官方或 OpenRouter 调用 Claude 时附加 cache_control。';
+  String get providerDetailPageClaudePromptCachingHelp => '通过 Claude 官方或 OpenRouter 调用 Claude 时附加 cache_control。';
 
   @override
   String get providerDetailPageClaudePromptCachingTtlTitle => '缓存 TTL';
 
   @override
-  String get providerDetailPageClaudePromptCachingTtlHelp =>
-      '5 分钟为默认值。1 小时写入成本更高，但长对话中可减少重复重建缓存。';
+  String get providerDetailPageClaudePromptCachingTtlHelp => '5 分钟为默认值。1 小时写入成本更高，但长对话中可减少重复重建缓存。';
 
   @override
   String get providerDetailPageClaudePromptCachingTtl5m => '5 分钟';
@@ -3261,8 +3234,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get addProviderSheetVertexAiProjectIdLabel => '项目ID';
 
   @override
-  String get addProviderSheetVertexAiServiceAccountJsonLabel =>
-      '服务账号 JSON（粘贴或导入）';
+  String get addProviderSheetVertexAiServiceAccountJsonLabel => '服务账号 JSON（粘贴或导入）';
 
   @override
   String get addProviderSheetImportJsonButton => '导入 JSON';
@@ -3293,8 +3265,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get importProviderSheetDescription =>
-      '粘贴分享字符串（可多行，每行一个）或 ChatBox JSON';
+  String get importProviderSheetDescription => '粘贴分享字符串（可多行，每行一个）或 ChatBox JSON';
 
   @override
   String get importProviderSheetInputHint => 'ai-provider:v1:...';
@@ -3528,8 +3499,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchSettingsSheetClaudeDynamicSearchTitle => '模型内置搜索(新)';
 
   @override
-  String get searchSettingsSheetClaudeDynamicSearchDescription =>
-      '在支持的 Claude 官方模型上使用 `web_search_20260209`，支持动态过滤能力。';
+  String get searchSettingsSheetClaudeDynamicSearchDescription => '在支持的 Claude 官方模型上使用 `web_search_20260209`，支持动态过滤能力。';
 
   @override
   String get searchSettingsSheetWebSearchTitle => '网络搜索';
@@ -3620,8 +3590,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get displaySettingsPageShowUserNameTimestampTitle => '显示用户名称和时间戳';
 
   @override
-  String get displaySettingsPageShowUserNameTimestampSubtitle =>
-      '是否在聊天消息中显示用户名称和时间戳';
+  String get displaySettingsPageShowUserNameTimestampSubtitle => '是否在聊天消息中显示用户名称和时间戳';
 
   @override
   String get displaySettingsPageShowUserNameTitle => '显示用户名称';
@@ -3633,15 +3602,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get displaySettingsPageShowUserMessageActionsTitle => '显示用户消息操作按钮';
 
   @override
-  String get displaySettingsPageShowUserMessageActionsSubtitle =>
-      '在用户消息下方显示复制、重发与更多按钮';
+  String get displaySettingsPageShowUserMessageActionsSubtitle => '在用户消息下方显示复制、重发与更多按钮';
 
   @override
   String get displaySettingsPageShowModelNameTimestampTitle => '显示模型名称和时间戳';
 
   @override
-  String get displaySettingsPageShowModelNameTimestampSubtitle =>
-      '是否在聊天消息中显示模型名称和时间戳';
+  String get displaySettingsPageShowModelNameTimestampSubtitle => '是否在聊天消息中显示模型名称和时间戳';
 
   @override
   String get displaySettingsPageShowModelNameTitle => '显示模型名称';
@@ -3653,8 +3620,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get displaySettingsPageShowProviderInChatMessageTitle => '模型名称后显示供应商';
 
   @override
-  String get displaySettingsPageShowProviderInChatMessageSubtitle =>
-      '在聊天消息的模型名称后面显示供应商名称（如 模型 | 供应商）';
+  String get displaySettingsPageShowProviderInChatMessageSubtitle => '在聊天消息的模型名称后面显示供应商名称（如 模型 | 供应商）';
 
   @override
   String get displaySettingsPageChatModelIconTitle => '聊天列表模型图标';
@@ -3672,15 +3638,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get displaySettingsPageAutoCollapseThinkingTitle => '自动折叠思考';
 
   @override
-  String get displaySettingsPageAutoCollapseThinkingSubtitle =>
-      '思考完成后自动折叠，保持界面简洁';
+  String get displaySettingsPageAutoCollapseThinkingSubtitle => '思考完成后自动折叠，保持界面简洁';
 
   @override
   String get displaySettingsPageCollapseThinkingStepsTitle => '折叠思考步骤';
 
   @override
-  String get displaySettingsPageCollapseThinkingStepsSubtitle =>
-      '默认只显示最新步骤，展开后查看全部';
+  String get displaySettingsPageCollapseThinkingStepsSubtitle => '默认只显示最新步骤，展开后查看全部';
 
   @override
   String get displaySettingsPageShowToolResultSummaryTitle => '显示工具结果摘要';
@@ -3689,12 +3653,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get displaySettingsPageInsertSuggestionOnlyTitle => '点击建议时仅填入输入框';
 
   @override
-  String get displaySettingsPageShowToolResultSummarySubtitle =>
-      '在工具步骤下方显示摘要文本';
+  String get displaySettingsPageShowToolResultSummarySubtitle => '在工具步骤下方显示摘要文本';
 
   @override
-  String get displaySettingsPageRegenerateDeleteTrailingMessagesTitle =>
-      '重新生成时删除下面的消息';
+  String get displaySettingsPageRegenerateDeleteTrailingMessagesTitle => '重新生成时删除下面的消息';
 
   @override
   String get displaySettingsPageShowRegenerateConfirmDialogTitle => '重新生成前弹出确认';
@@ -3717,20 +3679,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get displaySettingsPageEnableImageCropperTitle => '启用图片裁剪';
 
   @override
-  String get displaySettingsPageEnableImageCropperSubtitle =>
-      '从相册或相机选择图片后，允许裁剪图片';
+  String get displaySettingsPageEnableImageCropperSubtitle => '从相册或相机选择图片后，允许裁剪图片';
 
   @override
-  String get displaySettingsPageKeepSidebarOpenOnAssistantTapTitle =>
-      '点选助手时不自动关闭侧边栏';
+  String get displaySettingsPageKeepSidebarOpenOnAssistantTapTitle => '点选助手时不自动关闭侧边栏';
 
   @override
-  String get displaySettingsPageKeepSidebarOpenOnTopicTapTitle =>
-      '点选话题时不自动关闭侧边栏';
+  String get displaySettingsPageKeepSidebarOpenOnTopicTapTitle => '点选话题时不自动关闭侧边栏';
 
   @override
-  String get displaySettingsPageKeepAssistantListExpandedOnSidebarCloseTitle =>
-      '关闭侧边栏时不折叠助手列表';
+  String get displaySettingsPageKeepAssistantListExpandedOnSidebarCloseTitle => '关闭侧边栏时不折叠助手列表';
 
   @override
   String get displaySettingsPageShowUpdatesTitle => '显示更新';
@@ -3754,8 +3712,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get displaySettingsPageMessageNavButtonsModeHover => '鼠标悬停时显示';
 
   @override
-  String get displaySettingsPageMessageNavButtonsModeScrollAndHover =>
-      '滚动和鼠标悬停时显示';
+  String get displaySettingsPageMessageNavButtonsModeScrollAndHover => '滚动和鼠标悬停时显示';
 
   @override
   String get displaySettingsPageMessageNavButtonsModeNever => '永不显示';
@@ -4084,29 +4041,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ttsSettingsTextSelectionQuotedOnlyTitle => '仅引号内文字';
 
   @override
-  String get ttsSettingsTextSelectionQuotedOnlyDescription =>
-      '播放 “”、‘’、\"\"、\'\'、「」或『』内的文字。';
+  String get ttsSettingsTextSelectionQuotedOnlyDescription => '播放 “”、‘’、\"\"、\'\'、「」或『』内的文字。';
 
   @override
   String get ttsSettingsTextSelectionOutsideParenthesesTitle => '括号外文字';
 
   @override
-  String get ttsSettingsTextSelectionOutsideParenthesesDescription =>
-      '跳过 () 和 （） 内的文字。';
+  String get ttsSettingsTextSelectionOutsideParenthesesDescription => '跳过 () 和 （） 内的文字。';
 
   @override
   String get ttsSettingsTextSelectionItalicOnlyTitle => '仅斜体文字';
 
   @override
-  String get ttsSettingsTextSelectionItalicOnlyDescription =>
-      '播放 Markdown 或 HTML 斜体文字。';
+  String get ttsSettingsTextSelectionItalicOnlyDescription => '播放 Markdown 或 HTML 斜体文字。';
 
   @override
   String get ttsSettingsTextSelectionNonItalicTitle => '仅正体文字';
 
   @override
-  String get ttsSettingsTextSelectionNonItalicDescription =>
-      '跳过 Markdown 或 HTML 斜体文字。';
+  String get ttsSettingsTextSelectionNonItalicDescription => '跳过 Markdown 或 HTML 斜体文字。';
 
   @override
   String get ttsFloatingPlayerLabel => '语音播放器';
@@ -4212,12 +4165,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsShare => 'Kelivo - 开源AI助手';
 
   @override
-  String get searchProviderBingLocalDescription =>
-      '使用网络抓取工具获取必应搜索结果。无需 API 密钥，但可能不够稳定。';
+  String get searchProviderBingLocalDescription => '使用网络抓取工具获取必应搜索结果。无需 API 密钥，但可能不够稳定。';
 
   @override
-  String get searchProviderDuckDuckGoDescription =>
-      '基于 DDGS 的 DuckDuckGo 隐私搜索，无需 API 密钥，支持设置地区。';
+  String get searchProviderDuckDuckGoDescription => '基于 DDGS 的 DuckDuckGo 隐私搜索，无需 API 密钥，支持设置地区。';
 
   @override
   String get searchProviderBraveDescription => 'Brave 独立搜索引擎。注重隐私，无跟踪或画像。';
@@ -4226,8 +4177,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchProviderExaDescription => '具备语义理解的神经搜索引擎。适合研究与查找特定内容。';
 
   @override
-  String get searchProviderLinkUpDescription =>
-      '提供来源可追溯答案的搜索 API，同时提供搜索结果与 AI 摘要。';
+  String get searchProviderLinkUpDescription => '提供来源可追溯答案的搜索 API，同时提供搜索结果与 AI 摘要。';
 
   @override
   String get searchProviderMetasoDescription => '秘塔中文搜索引擎。面向中文内容优化并提供 AI 能力。';
@@ -4236,16 +4186,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchProviderSearXNGDescription => '注重隐私的元搜索引擎。需自建实例，无跟踪。';
 
   @override
-  String get searchProviderTavilyDescription =>
-      '为大型语言模型（LLMs）优化的 AI 搜索 API，提供高质量、相关的搜索结果。';
+  String get searchProviderTavilyDescription => '为大型语言模型（LLMs）优化的 AI 搜索 API，提供高质量、相关的搜索结果。';
 
   @override
-  String get searchProviderZhipuDescription =>
-      '智谱 AI 旗下中文 AI 搜索服务，针对中文内容与查询进行了优化。';
+  String get searchProviderZhipuDescription => '智谱 AI 旗下中文 AI 搜索服务，针对中文内容与查询进行了优化。';
 
   @override
-  String get searchProviderOllamaDescription =>
-      'Ollama 网络搜索 API。为模型补充最新信息，减少幻觉并提升准确性。';
+  String get searchProviderOllamaDescription => 'Ollama 网络搜索 API。为模型补充最新信息，减少幻觉并提升准确性。';
 
   @override
   String get searchProviderJinaDescription => '适合开发者和企业用于 AI 搜索应用。支持多语言与多模态。';
@@ -4287,29 +4234,31 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchServiceNamePerplexity => 'Perplexity';
 
   @override
-  String get searchProviderPerplexityDescription =>
-      'Perplexity 搜索 API。提供排序的网页结果，支持区域与域名过滤。';
+  String get searchProviderPerplexityDescription => 'Perplexity 搜索 API。提供排序的网页结果，支持区域与域名过滤。';
 
   @override
   String get searchServiceNameBocha => '博查';
 
   @override
-  String get searchProviderBochaDescription =>
-      '博查 AI 全网网页搜索，支持时间范围与摘要，更适合 AI 使用。';
+  String get searchProviderBochaDescription => '博查 AI 全网网页搜索，支持时间范围与摘要，更适合 AI 使用。';
 
   @override
   String get searchServiceNameSerper => 'Serper';
 
   @override
-  String get searchProviderSerperDescription =>
-      'Serper Google 搜索 API。响应快速，支持国家/地区、语言、时间和页码过滤。';
+  String get searchProviderSerperDescription => 'Serper Google 搜索 API。响应快速，支持国家/地区、语言、时间和页码过滤。';
+
+  @override
+  String get searchServiceNameQuerit => 'Querit';
+
+  @override
+  String get searchProviderQueritDescription => '面向 LLM 应用的 Querit 搜索 API。返回实时网页结果，并支持站点、时间、国家和语言过滤。';
 
   @override
   String get searchServiceNameGrok => 'Grok';
 
   @override
-  String get searchProviderGrokDescription =>
-      '通过 xAI Responses API 使用 Grok 搜索。调用网页和 X 搜索工具，并返回带引用的来源。';
+  String get searchProviderGrokDescription => '通过 xAI Responses API 使用 Grok 搜索。调用网页和 X 搜索工具，并返回带引用的来源。';
 
   @override
   String get searchServicesDialogCountryOptional => '国家/地区（可选）';
@@ -4325,6 +4274,33 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get searchServicesDialogPageInvalid => '页码必须是正整数。';
+
+  @override
+  String get searchServicesDialogSitesIncludeOptional => '包含站点（可选）';
+
+  @override
+  String get searchServicesDialogSitesExcludeOptional => '排除站点（可选）';
+
+  @override
+  String get searchServicesDialogTimeRangeOptional => '时间范围（可选）';
+
+  @override
+  String get searchServicesDialogCountriesOptional => '国家（可选）';
+
+  @override
+  String get searchServicesDialogLanguagesOptional => '语言（可选）';
+
+  @override
+  String get searchServicesDialogSitesHint => 'example.com, docs.example.com';
+
+  @override
+  String get searchServicesDialogTimeRangeHint => 'd7';
+
+  @override
+  String get searchServicesDialogCountriesHint => 'united states, japan';
+
+  @override
+  String get searchServicesDialogLanguagesHint => 'english, japanese';
 
   @override
   String get generationInterrupted => '生成已中断';
@@ -4470,22 +4446,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get assistantEditLocalToolTimeInfoTitle => '时间信息';
 
   @override
-  String get assistantEditLocalToolTimeInfoSubtitle =>
-      '读取设备日期、星期、时间、时区、UTC 偏移和时间戳。';
+  String get assistantEditLocalToolTimeInfoSubtitle => '读取设备日期、星期、时间、时区、UTC 偏移和时间戳。';
 
   @override
   String get assistantEditLocalToolClipboardTitle => '剪切板';
 
   @override
-  String get assistantEditLocalToolClipboardSubtitle =>
-      '在明确需要时读取或写入设备剪切板中的纯文本。';
+  String get assistantEditLocalToolClipboardSubtitle => '在明确需要时读取或写入设备剪切板中的纯文本。';
 
   @override
   String get assistantEditLocalToolTextToSpeechTitle => '文字转语音';
 
   @override
-  String get assistantEditLocalToolTextToSpeechSubtitle =>
-      '允许助手使用已配置的语音播放朗读文本。';
+  String get assistantEditLocalToolTextToSpeechSubtitle => '允许助手使用已配置的语音播放朗读文本。';
 
   @override
   String get assistantEditLocalToolAskUserTitle => '询问用户';
@@ -4503,8 +4476,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get assistantEditRecentChatsSwitchTitle => '参考历史聊天记录';
 
   @override
-  String get assistantEditRecentChatsSwitchDescription =>
-      '在新对话中引用最近的对话标题以增强上下文';
+  String get assistantEditRecentChatsSwitchDescription => '在新对话中引用最近的对话标题以增强上下文';
 
   @override
   String get assistantEditManageMemoryTitle => '管理记忆';
@@ -4569,8 +4541,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get providersPageMultiSelectTooltip => '多选';
 
   @override
-  String get providersPageDeleteSelectedConfirmContent =>
-      '确定要删除选中的供应商吗？该操作不可撤销。';
+  String get providersPageDeleteSelectedConfirmContent => '确定要删除选中的供应商吗？该操作不可撤销。';
 
   @override
   String get providersPageDeleteSelectedSnackbar => '已删除选中的供应商';
@@ -4662,8 +4633,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkProxyBypassLabel => '代理绕过';
 
   @override
-  String get networkProxyBypassHint =>
-      '用逗号分隔的主机或 CIDR，例如：localhost,127.0.0.1,192.168.0.0/16,*.local';
+  String get networkProxyBypassHint => '用逗号分隔的主机或 CIDR，例如：localhost,127.0.0.1,192.168.0.0/16,*.local';
 
   @override
   String get networkProxyOptionalHint => '可选';
@@ -4765,8 +4735,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get flutterLogSettingTitle => '应用日志打印';
 
   @override
-  String get flutterLogSettingSubtitle =>
-      '开启后会将 Flutter 错误与 print 输出写入 logs/flutter_logs.txt';
+  String get flutterLogSettingSubtitle => '开启后会将 Flutter 错误与 print 输出写入 logs/flutter_logs.txt';
 
   @override
   String get logViewerTitle => '请求日志';
@@ -5149,12 +5118,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get debugPageCreateManyMessagesConversationButton => '创建 1024 条消息的对话';
 
   @override
-  String get debugPageCreateDailyMixedMarkdownConversationButton =>
-      '创建 3000 条日常混合 Markdown 消息';
+  String get debugPageCreateDailyMixedMarkdownConversationButton => '创建 3000 条日常混合 Markdown 消息';
 
   @override
-  String get debugPageCreateLongReasoningConversationButton =>
-      '创建长思考链对话（128 条）';
+  String get debugPageCreateLongReasoningConversationButton => '创建长思考链对话（128 条）';
 
   @override
   String get debugPageCreatingButton => '创建中...';
@@ -5166,8 +5133,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get debugPageCreatingManyMessagesConversation => '正在创建 1024 条消息的对话...';
 
   @override
-  String get debugPageCreatingDailyMixedMarkdownConversation =>
-      '正在创建 3000 条日常混合 Markdown 对话...';
+  String get debugPageCreatingDailyMixedMarkdownConversation => '正在创建 3000 条日常混合 Markdown 对话...';
 
   @override
   String get debugPageCreatingLongReasoningConversation => '正在创建长思考链调试对话...';
@@ -5206,8 +5172,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get debugPageOversizedConversationSeedText =>
-      '这是一段用于复现超大对话渲染卡顿的长调试文本。它包含重复的 Markdown 风格文本、标点、中文内容和普通词语，方便测试聊天渲染、存储和滚动性能。';
+  String get debugPageOversizedConversationSeedText => '这是一段用于复现超大对话渲染卡顿的长调试文本。它包含重复的 Markdown 风格文本、标点、中文内容和普通词语，方便测试聊天渲染、存储和滚动性能。';
 
   @override
   String debugPageManyMessagesSeedText(String role, int index) {
@@ -5217,7 +5182,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
 class AppLocalizationsZhHans extends AppLocalizationsZh {
-  AppLocalizationsZhHans() : super('zh_Hans');
+  AppLocalizationsZhHans(): super('zh_Hans');
 
   @override
   String get helloWorld => '你好，世界！';
@@ -5694,14 +5659,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get assistantProviderNewAssistantName => '新助手';
 
   @override
-  String assistantProviderSampleAssistantSystemPrompt(
-    String model_name,
-    String cur_datetime,
-    String locale,
-    String timezone,
-    String device_info,
-    String system_version,
-  ) {
+  String assistantProviderSampleAssistantSystemPrompt(String model_name, String cur_datetime, String locale, String timezone, String device_info, String system_version) {
     return '你是$model_name, 一个人工智能助手，乐意为用户提供准确，有益的帮助。现在时间是$cur_datetime，用户设备语言为$locale，时区为$timezone，用户正在使用$device_info，版本$system_version。如果用户没有明确说明，请使用用户设备语言进行回复。';
   }
 
@@ -5817,8 +5775,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get homePagePleaseSelectModel => '请先选择模型';
 
   @override
-  String get homePageAudioAttachmentUnsupported =>
-      '当前模型不支持音频附件，请切换到支持音频输入的模型或移除音频文件后重试。';
+  String get homePageAudioAttachmentUnsupported => '当前模型不支持音频附件，请切换到支持音频输入的模型或移除音频文件后重试。';
 
   @override
   String get homePagePleaseSetupTranslateModel => '请先设置翻译模型';
@@ -6041,8 +5998,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get assistantEditContextMessagesTitle => '上下文消息数量';
 
   @override
-  String get assistantEditContextMessagesDescription =>
-      '多少历史消息会被当作上下文发送给模型，超过数量会忽略，只保留最近 N 条';
+  String get assistantEditContextMessagesDescription => '多少历史消息会被当作上下文发送给模型，超过数量会忽略，只保留最近 N 条';
 
   @override
   String get assistantEditStreamOutputTitle => '流式输出';
@@ -6156,8 +6112,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get iosBackgroundGenerationEnableTitle => '后台生成';
 
   @override
-  String get iosBackgroundGenerationEnableSubtitle =>
-      'App 离开前台后，使用 iOS 分配的后台时间继续当前回复。';
+  String get iosBackgroundGenerationEnableSubtitle => 'App 离开前台后，使用 iOS 分配的后台时间继续当前回复。';
 
   @override
   String get iosBackgroundTaskRefreshTitle => '后台任务恢复';
@@ -6181,12 +6136,10 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get iosBackgroundLimitNoticeTitle => 'iOS 仍可能暂停任务';
 
   @override
-  String get iosBackgroundLimitNoticeBody =>
-      '这些选项使用 Apple 支持的后台时间、BackgroundTasks、通知和实时活动。它们能提升连续性，但不能强制 iOS 永久保持 Kelivo 运行。';
+  String get iosBackgroundLimitNoticeBody => '这些选项使用 Apple 支持的后台时间、BackgroundTasks、通知和实时活动。它们能提升连续性，但不能强制 iOS 永久保持 Kelivo 运行。';
 
   @override
-  String get iosBackgroundUnsupportedLiveActivity =>
-      '需要 iOS 16.1 或更高版本，并在系统设置中允许实时活动。';
+  String get iosBackgroundUnsupportedLiveActivity => '需要 iOS 16.1 或更高版本，并在系统设置中允许实时活动。';
 
   @override
   String get iosBackgroundNativeStatusTitle => '系统状态';
@@ -6281,8 +6234,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get assistantEditImageUrlDialogTitle => '输入图片链接';
 
   @override
-  String get assistantEditImageUrlDialogHint =>
-      '例如: https://example.com/avatar.png';
+  String get assistantEditImageUrlDialogHint => '例如: https://example.com/avatar.png';
 
   @override
   String get assistantEditImageUrlDialogCancel => '取消';
@@ -6916,8 +6868,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get chatHistoryPageDeleteAllDialogTitle => '删除未置顶对话';
 
   @override
-  String get chatHistoryPageDeleteAllDialogContent =>
-      '确定要删除所有未置顶的对话吗？已置顶的将会保留。';
+  String get chatHistoryPageDeleteAllDialogContent => '确定要删除所有未置顶的对话吗？已置顶的将会保留。';
 
   @override
   String get chatHistoryPageCancel => '取消';
@@ -6954,6 +6905,18 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get messageEditPageHint => '输入消息内容…';
+
+  @override
+  String get userMessageEditSaveOnly => '仅保存';
+
+  @override
+  String get userMessageEditUnsupportedSnackbar => '该内容不支持编辑';
+
+  @override
+  String get userMessageEditOverwriteTitle => '提示';
+
+  @override
+  String get userMessageEditOverwriteContent => '修改将覆盖输入框已有内容，是否覆盖？';
 
   @override
   String get selectCopyPageTitle => '选择复制';
@@ -7196,12 +7159,10 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get chatMessageWidgetRegenerateConfirmTitle => '确认重新生成';
 
   @override
-  String get chatMessageWidgetRegenerateConfirmContent =>
-      '重新生成只会更新当前消息，不会删除下面的消息。确定要继续吗？';
+  String get chatMessageWidgetRegenerateConfirmContent => '重新生成只会更新当前消息，不会删除下面的消息。确定要继续吗？';
 
   @override
-  String get chatMessageWidgetRegenerateConfirmDeleteTrailingContent =>
-      '重新生成将会删除此消息下面的所有消息，且无法撤销。确定要继续吗？';
+  String get chatMessageWidgetRegenerateConfirmDeleteTrailingContent => '重新生成将会删除此消息下面的所有消息，且无法撤销。确定要继续吗？';
 
   @override
   String get chatMessageWidgetRegenerateConfirmCancel => '取消';
@@ -7341,8 +7302,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get displaySettingsPageEnableDollarLatexTitle => '启用 \$...\$ 渲染';
 
   @override
-  String get displaySettingsPageEnableDollarLatexSubtitle =>
-      '将 \$...\$ 之间的内容按行内数学公式渲染';
+  String get displaySettingsPageEnableDollarLatexSubtitle => '将 \$...\$ 之间的内容按行内数学公式渲染';
 
   @override
   String get displaySettingsPageEnableMathTitle => '启用数学公式渲染';
@@ -7354,12 +7314,10 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get displaySettingsPageEnableUserMarkdownTitle => '用户消息 Markdown 渲染';
 
   @override
-  String get displaySettingsPageEnableReasoningMarkdownTitle =>
-      '思维链 Markdown 渲染';
+  String get displaySettingsPageEnableReasoningMarkdownTitle => '思维链 Markdown 渲染';
 
   @override
-  String get displaySettingsPageEnableAssistantMarkdownTitle =>
-      '助手消息 Markdown 渲染';
+  String get displaySettingsPageEnableAssistantMarkdownTitle => '助手消息 Markdown 渲染';
 
   @override
   String get displaySettingsPageMobileCodeBlockWrapTitle => '移动端代码块自动换行';
@@ -7413,8 +7371,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get messageExportThinkingContentLabel => '思考内容';
 
   @override
-  String get messageExportSheetDateTimeWithSecondsPattern =>
-      'yyyy年M月d日 HH:mm:ss';
+  String get messageExportSheetDateTimeWithSecondsPattern => 'yyyy年M月d日 HH:mm:ss';
 
   @override
   String get exportDisclaimerAiGenerated => '内容由 AI 生成，请仔细甄别';
@@ -7571,8 +7528,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get sideDrawerImageUrlDialogTitle => '输入图片链接';
 
   @override
-  String get sideDrawerImageUrlDialogHint =>
-      '例如: https://example.com/avatar.png';
+  String get sideDrawerImageUrlDialogHint => '例如: https://example.com/avatar.png';
 
   @override
   String get sideDrawerQQAvatarDialogTitle => '使用QQ头像';
@@ -7819,15 +7775,13 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get defaultModelPageSuggestionModelTitle => '聊天建议模型';
 
   @override
-  String get defaultModelPageSuggestionModelSubtitle =>
-      '用于在助手回复后生成继续对话的建议气泡。选择模型后才会启用。';
+  String get defaultModelPageSuggestionModelSubtitle => '用于在助手回复后生成继续对话的建议气泡。选择模型后才会启用。';
 
   @override
   String get assistantEditRecentChatsSummaryFrequencyTitle => '摘要更新频率';
 
   @override
-  String get assistantEditRecentChatsSummaryFrequencyDescription =>
-      '累计达到所选条数的新消息后，会更新历史聊天摘要。';
+  String get assistantEditRecentChatsSummaryFrequencyDescription => '累计达到所选条数的新消息后，会更新历史聊天摘要。';
 
   @override
   String assistantEditRecentChatsSummaryFrequencyOption(int count) {
@@ -7841,26 +7795,22 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get assistantEditRecentChatsSummaryFrequencyCustomTitle => '自定义摘要频率';
 
   @override
-  String get assistantEditRecentChatsSummaryFrequencyCustomDescription =>
-      '输入累计多少条新消息后再更新历史聊天摘要。';
+  String get assistantEditRecentChatsSummaryFrequencyCustomDescription => '输入累计多少条新消息后再更新历史聊天摘要。';
 
   @override
   String get assistantEditRecentChatsSummaryFrequencyCustomLabel => '新消息条数';
 
   @override
-  String get assistantEditRecentChatsSummaryFrequencyCustomHint =>
-      '请输入大于 0 的整数';
+  String get assistantEditRecentChatsSummaryFrequencyCustomHint => '请输入大于 0 的整数';
 
   @override
-  String get assistantEditRecentChatsSummaryFrequencyCustomInvalid =>
-      '请输入大于 0 的整数';
+  String get assistantEditRecentChatsSummaryFrequencyCustomInvalid => '请输入大于 0 的整数';
 
   @override
   String get defaultModelPageTranslateModelTitle => '翻译模型';
 
   @override
-  String get defaultModelPageTranslateModelSubtitle =>
-      '用于翻译消息内容的模型，推荐使用快速且准确的模型';
+  String get defaultModelPageTranslateModelSubtitle => '用于翻译消息内容的模型，推荐使用快速且准确的模型';
 
   @override
   String get defaultModelPageOcrModelTitle => 'OCR 模型';
@@ -7869,8 +7819,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get defaultModelPageOcrModelSubtitle => '用于对图片执行文字识别的模型';
 
   @override
-  String get defaultModelPageOcrModelRequiresImageInput =>
-      '请选择标记为支持图片输入的模型用于 OCR';
+  String get defaultModelPageOcrModelRequiresImageInput => '请选择标记为支持图片输入的模型用于 OCR';
 
   @override
   String get defaultModelPagePromptLabel => '提示词';
@@ -7902,10 +7851,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   }
 
   @override
-  String defaultModelPageSummaryVars(
-    String previousSummaryVar,
-    String userMessagesVar,
-  ) {
+  String defaultModelPageSummaryVars(String previousSummaryVar, String userMessagesVar) {
     return '变量：旧摘要：$previousSummaryVar，新消息：$userMessagesVar';
   }
 
@@ -8014,8 +7960,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get modelDetailSheetReasoningAbility => '推理';
 
   @override
-  String get modelDetailSheetProviderOverrideDescription =>
-      '供应商重写：允许为特定模型自定义供应商设置。（暂未实现）';
+  String get modelDetailSheetProviderOverrideDescription => '供应商重写：允许为特定模型自定义供应商设置。（暂未实现）';
 
   @override
   String get modelDetailSheetAddProviderOverride => '添加供应商重写';
@@ -8066,19 +8011,16 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get modelDetailSheetYoutubeTool => 'YouTube';
 
   @override
-  String get modelDetailSheetYoutubeToolDescription =>
-      '启用 YouTube 链接读取（自动识别提示词中的链接）';
+  String get modelDetailSheetYoutubeToolDescription => '启用 YouTube 链接读取（自动识别提示词中的链接）';
 
   @override
-  String get modelDetailSheetOpenaiBuiltinToolsResponsesOnlyHint =>
-      '需要启用 OpenAI Responses API。';
+  String get modelDetailSheetOpenaiBuiltinToolsResponsesOnlyHint => '需要启用 OpenAI Responses API。';
 
   @override
   String get modelDetailSheetOpenaiCodeInterpreterTool => '代码解释器';
 
   @override
-  String get modelDetailSheetOpenaiCodeInterpreterToolDescription =>
-      '启用代码解释器工具（容器自动，内存上限 4g）';
+  String get modelDetailSheetOpenaiCodeInterpreterToolDescription => '启用代码解释器工具（容器自动，内存上限 4g）';
 
   @override
   String get modelDetailSheetOpenaiImageGenerationTool => '图像生成';
@@ -8186,23 +8128,19 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get providerDetailPageAihubmixAppCodeLabel => '应用 Code（享 10% 优惠）';
 
   @override
-  String get providerDetailPageAihubmixAppCodeHelp =>
-      '为请求附加 APP-Code，可享 10% 优惠，仅对 AIhubmix 生效。';
+  String get providerDetailPageAihubmixAppCodeHelp => '为请求附加 APP-Code，可享 10% 优惠，仅对 AIhubmix 生效。';
 
   @override
-  String get providerDetailPageClaudePromptCachingTitle =>
-      'Claude Prompt Caching';
+  String get providerDetailPageClaudePromptCachingTitle => 'Claude Prompt Caching';
 
   @override
-  String get providerDetailPageClaudePromptCachingHelp =>
-      '通过 Claude 官方或 OpenRouter 调用 Claude 时附加 cache_control。';
+  String get providerDetailPageClaudePromptCachingHelp => '通过 Claude 官方或 OpenRouter 调用 Claude 时附加 cache_control。';
 
   @override
   String get providerDetailPageClaudePromptCachingTtlTitle => '缓存 TTL';
 
   @override
-  String get providerDetailPageClaudePromptCachingTtlHelp =>
-      '5 分钟为默认值。1 小时写入成本更高，但长对话中可减少重复重建缓存。';
+  String get providerDetailPageClaudePromptCachingTtlHelp => '5 分钟为默认值。1 小时写入成本更高，但长对话中可减少重复重建缓存。';
 
   @override
   String get providerDetailPageClaudePromptCachingTtl5m => '5 分钟';
@@ -8470,8 +8408,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get addProviderSheetVertexAiProjectIdLabel => '项目ID';
 
   @override
-  String get addProviderSheetVertexAiServiceAccountJsonLabel =>
-      '服务账号 JSON（粘贴或导入）';
+  String get addProviderSheetVertexAiServiceAccountJsonLabel => '服务账号 JSON（粘贴或导入）';
 
   @override
   String get addProviderSheetImportJsonButton => '导入 JSON';
@@ -8502,8 +8439,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   }
 
   @override
-  String get importProviderSheetDescription =>
-      '粘贴分享字符串（可多行，每行一个）或 ChatBox JSON';
+  String get importProviderSheetDescription => '粘贴分享字符串（可多行，每行一个）或 ChatBox JSON';
 
   @override
   String get importProviderSheetInputHint => 'ai-provider:v1:...';
@@ -8737,8 +8673,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get searchSettingsSheetClaudeDynamicSearchTitle => '模型内置搜索(新)';
 
   @override
-  String get searchSettingsSheetClaudeDynamicSearchDescription =>
-      '在支持的 Claude 官方模型上使用 `web_search_20260209`，支持动态过滤能力。';
+  String get searchSettingsSheetClaudeDynamicSearchDescription => '在支持的 Claude 官方模型上使用 `web_search_20260209`，支持动态过滤能力。';
 
   @override
   String get searchSettingsSheetWebSearchTitle => '网络搜索';
@@ -8829,8 +8764,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get displaySettingsPageShowUserNameTimestampTitle => '显示用户名称和时间戳';
 
   @override
-  String get displaySettingsPageShowUserNameTimestampSubtitle =>
-      '是否在聊天消息中显示用户名称和时间戳';
+  String get displaySettingsPageShowUserNameTimestampSubtitle => '是否在聊天消息中显示用户名称和时间戳';
 
   @override
   String get displaySettingsPageShowUserNameTitle => '显示用户名称';
@@ -8842,15 +8776,13 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get displaySettingsPageShowUserMessageActionsTitle => '显示用户消息操作按钮';
 
   @override
-  String get displaySettingsPageShowUserMessageActionsSubtitle =>
-      '在用户消息下方显示复制、重发与更多按钮';
+  String get displaySettingsPageShowUserMessageActionsSubtitle => '在用户消息下方显示复制、重发与更多按钮';
 
   @override
   String get displaySettingsPageShowModelNameTimestampTitle => '显示模型名称和时间戳';
 
   @override
-  String get displaySettingsPageShowModelNameTimestampSubtitle =>
-      '是否在聊天消息中显示模型名称和时间戳';
+  String get displaySettingsPageShowModelNameTimestampSubtitle => '是否在聊天消息中显示模型名称和时间戳';
 
   @override
   String get displaySettingsPageShowModelNameTitle => '显示模型名称';
@@ -8862,8 +8794,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get displaySettingsPageShowProviderInChatMessageTitle => '模型名称后显示供应商';
 
   @override
-  String get displaySettingsPageShowProviderInChatMessageSubtitle =>
-      '在聊天消息的模型名称后面显示供应商名称（如 模型 | 供应商）';
+  String get displaySettingsPageShowProviderInChatMessageSubtitle => '在聊天消息的模型名称后面显示供应商名称（如 模型 | 供应商）';
 
   @override
   String get displaySettingsPageChatModelIconTitle => '聊天列表模型图标';
@@ -8881,15 +8812,13 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get displaySettingsPageAutoCollapseThinkingTitle => '自动折叠思考';
 
   @override
-  String get displaySettingsPageAutoCollapseThinkingSubtitle =>
-      '思考完成后自动折叠，保持界面简洁';
+  String get displaySettingsPageAutoCollapseThinkingSubtitle => '思考完成后自动折叠，保持界面简洁';
 
   @override
   String get displaySettingsPageCollapseThinkingStepsTitle => '折叠思考步骤';
 
   @override
-  String get displaySettingsPageCollapseThinkingStepsSubtitle =>
-      '默认只显示最新步骤，展开后查看全部';
+  String get displaySettingsPageCollapseThinkingStepsSubtitle => '默认只显示最新步骤，展开后查看全部';
 
   @override
   String get displaySettingsPageShowToolResultSummaryTitle => '显示工具结果摘要';
@@ -8898,12 +8827,10 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get displaySettingsPageInsertSuggestionOnlyTitle => '点击建议时仅填入输入框';
 
   @override
-  String get displaySettingsPageShowToolResultSummarySubtitle =>
-      '在工具步骤下方显示摘要文本';
+  String get displaySettingsPageShowToolResultSummarySubtitle => '在工具步骤下方显示摘要文本';
 
   @override
-  String get displaySettingsPageRegenerateDeleteTrailingMessagesTitle =>
-      '重新生成时删除下面的消息';
+  String get displaySettingsPageRegenerateDeleteTrailingMessagesTitle => '重新生成时删除下面的消息';
 
   @override
   String get displaySettingsPageShowRegenerateConfirmDialogTitle => '重新生成前弹出确认';
@@ -8926,20 +8853,16 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get displaySettingsPageEnableImageCropperTitle => '启用图片裁剪';
 
   @override
-  String get displaySettingsPageEnableImageCropperSubtitle =>
-      '从相册或相机选择图片后，允许裁剪图片';
+  String get displaySettingsPageEnableImageCropperSubtitle => '从相册或相机选择图片后，允许裁剪图片';
 
   @override
-  String get displaySettingsPageKeepSidebarOpenOnAssistantTapTitle =>
-      '点选助手时不自动关闭侧边栏';
+  String get displaySettingsPageKeepSidebarOpenOnAssistantTapTitle => '点选助手时不自动关闭侧边栏';
 
   @override
-  String get displaySettingsPageKeepSidebarOpenOnTopicTapTitle =>
-      '点选话题时不自动关闭侧边栏';
+  String get displaySettingsPageKeepSidebarOpenOnTopicTapTitle => '点选话题时不自动关闭侧边栏';
 
   @override
-  String get displaySettingsPageKeepAssistantListExpandedOnSidebarCloseTitle =>
-      '关闭侧边栏时不折叠助手列表';
+  String get displaySettingsPageKeepAssistantListExpandedOnSidebarCloseTitle => '关闭侧边栏时不折叠助手列表';
 
   @override
   String get displaySettingsPageShowUpdatesTitle => '显示更新';
@@ -8963,8 +8886,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get displaySettingsPageMessageNavButtonsModeHover => '鼠标悬停时显示';
 
   @override
-  String get displaySettingsPageMessageNavButtonsModeScrollAndHover =>
-      '滚动和鼠标悬停时显示';
+  String get displaySettingsPageMessageNavButtonsModeScrollAndHover => '滚动和鼠标悬停时显示';
 
   @override
   String get displaySettingsPageMessageNavButtonsModeNever => '永不显示';
@@ -9293,29 +9215,25 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get ttsSettingsTextSelectionQuotedOnlyTitle => '仅引号内文字';
 
   @override
-  String get ttsSettingsTextSelectionQuotedOnlyDescription =>
-      '播放 “”、‘’、\"\"、\'\'、「」或『』内的文字。';
+  String get ttsSettingsTextSelectionQuotedOnlyDescription => '播放 “”、‘’、\"\"、\'\'、「」或『』内的文字。';
 
   @override
   String get ttsSettingsTextSelectionOutsideParenthesesTitle => '括号外文字';
 
   @override
-  String get ttsSettingsTextSelectionOutsideParenthesesDescription =>
-      '跳过 () 和 （） 内的文字。';
+  String get ttsSettingsTextSelectionOutsideParenthesesDescription => '跳过 () 和 （） 内的文字。';
 
   @override
   String get ttsSettingsTextSelectionItalicOnlyTitle => '仅斜体文字';
 
   @override
-  String get ttsSettingsTextSelectionItalicOnlyDescription =>
-      '播放 Markdown 或 HTML 斜体文字。';
+  String get ttsSettingsTextSelectionItalicOnlyDescription => '播放 Markdown 或 HTML 斜体文字。';
 
   @override
   String get ttsSettingsTextSelectionNonItalicTitle => '仅正体文字';
 
   @override
-  String get ttsSettingsTextSelectionNonItalicDescription =>
-      '跳过 Markdown 或 HTML 斜体文字。';
+  String get ttsSettingsTextSelectionNonItalicDescription => '跳过 Markdown 或 HTML 斜体文字。';
 
   @override
   String get ttsFloatingPlayerLabel => '语音播放器';
@@ -9421,12 +9339,10 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get settingsShare => 'Kelivo - 开源AI助手';
 
   @override
-  String get searchProviderBingLocalDescription =>
-      '使用网络抓取工具获取必应搜索结果。无需 API 密钥，但可能不够稳定。';
+  String get searchProviderBingLocalDescription => '使用网络抓取工具获取必应搜索结果。无需 API 密钥，但可能不够稳定。';
 
   @override
-  String get searchProviderDuckDuckGoDescription =>
-      '基于 DDGS 的 DuckDuckGo 隐私搜索，无需 API 密钥，支持设置地区。';
+  String get searchProviderDuckDuckGoDescription => '基于 DDGS 的 DuckDuckGo 隐私搜索，无需 API 密钥，支持设置地区。';
 
   @override
   String get searchProviderBraveDescription => 'Brave 独立搜索引擎。注重隐私，无跟踪或画像。';
@@ -9435,8 +9351,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get searchProviderExaDescription => '具备语义理解的神经搜索引擎。适合研究与查找特定内容。';
 
   @override
-  String get searchProviderLinkUpDescription =>
-      '提供来源可追溯答案的搜索 API，同时提供搜索结果与 AI 摘要。';
+  String get searchProviderLinkUpDescription => '提供来源可追溯答案的搜索 API，同时提供搜索结果与 AI 摘要。';
 
   @override
   String get searchProviderMetasoDescription => '秘塔中文搜索引擎。面向中文内容优化并提供 AI 能力。';
@@ -9445,16 +9360,13 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get searchProviderSearXNGDescription => '注重隐私的元搜索引擎。需自建实例，无跟踪。';
 
   @override
-  String get searchProviderTavilyDescription =>
-      '为大型语言模型（LLMs）优化的 AI 搜索 API，提供高质量、相关的搜索结果。';
+  String get searchProviderTavilyDescription => '为大型语言模型（LLMs）优化的 AI 搜索 API，提供高质量、相关的搜索结果。';
 
   @override
-  String get searchProviderZhipuDescription =>
-      '智谱 AI 旗下中文 AI 搜索服务，针对中文内容与查询进行了优化。';
+  String get searchProviderZhipuDescription => '智谱 AI 旗下中文 AI 搜索服务，针对中文内容与查询进行了优化。';
 
   @override
-  String get searchProviderOllamaDescription =>
-      'Ollama 网络搜索 API。为模型补充最新信息，减少幻觉并提升准确性。';
+  String get searchProviderOllamaDescription => 'Ollama 网络搜索 API。为模型补充最新信息，减少幻觉并提升准确性。';
 
   @override
   String get searchProviderJinaDescription => '适合开发者和企业用于 AI 搜索应用。支持多语言与多模态。';
@@ -9496,29 +9408,31 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get searchServiceNamePerplexity => 'Perplexity';
 
   @override
-  String get searchProviderPerplexityDescription =>
-      'Perplexity 搜索 API。提供排序的网页结果，支持区域与域名过滤。';
+  String get searchProviderPerplexityDescription => 'Perplexity 搜索 API。提供排序的网页结果，支持区域与域名过滤。';
 
   @override
   String get searchServiceNameBocha => '博查';
 
   @override
-  String get searchProviderBochaDescription =>
-      '博查 AI 全网网页搜索，支持时间范围与摘要，更适合 AI 使用。';
+  String get searchProviderBochaDescription => '博查 AI 全网网页搜索，支持时间范围与摘要，更适合 AI 使用。';
 
   @override
   String get searchServiceNameSerper => 'Serper';
 
   @override
-  String get searchProviderSerperDescription =>
-      'Serper Google 搜索 API。响应快速，支持国家/地区、语言、时间和页码过滤。';
+  String get searchProviderSerperDescription => 'Serper Google 搜索 API。响应快速，支持国家/地区、语言、时间和页码过滤。';
+
+  @override
+  String get searchServiceNameQuerit => 'Querit';
+
+  @override
+  String get searchProviderQueritDescription => '面向 LLM 应用的 Querit 搜索 API。返回实时网页结果，并支持站点、时间、国家和语言过滤。';
 
   @override
   String get searchServiceNameGrok => 'Grok';
 
   @override
-  String get searchProviderGrokDescription =>
-      '通过 xAI Responses API 使用 Grok 搜索。调用网页和 X 搜索工具，并返回带引用的来源。';
+  String get searchProviderGrokDescription => '通过 xAI Responses API 使用 Grok 搜索。调用网页和 X 搜索工具，并返回带引用的来源。';
 
   @override
   String get searchServicesDialogCountryOptional => '国家/地区（可选）';
@@ -9534,6 +9448,33 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get searchServicesDialogPageInvalid => '页码必须是正整数。';
+
+  @override
+  String get searchServicesDialogSitesIncludeOptional => '包含站点（可选）';
+
+  @override
+  String get searchServicesDialogSitesExcludeOptional => '排除站点（可选）';
+
+  @override
+  String get searchServicesDialogTimeRangeOptional => '时间范围（可选）';
+
+  @override
+  String get searchServicesDialogCountriesOptional => '国家（可选）';
+
+  @override
+  String get searchServicesDialogLanguagesOptional => '语言（可选）';
+
+  @override
+  String get searchServicesDialogSitesHint => 'example.com, docs.example.com';
+
+  @override
+  String get searchServicesDialogTimeRangeHint => 'd7';
+
+  @override
+  String get searchServicesDialogCountriesHint => 'united states, japan';
+
+  @override
+  String get searchServicesDialogLanguagesHint => 'english, japanese';
 
   @override
   String get generationInterrupted => '生成已中断';
@@ -9679,22 +9620,19 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get assistantEditLocalToolTimeInfoTitle => '时间信息';
 
   @override
-  String get assistantEditLocalToolTimeInfoSubtitle =>
-      '读取设备日期、星期、时间、时区、UTC 偏移和时间戳。';
+  String get assistantEditLocalToolTimeInfoSubtitle => '读取设备日期、星期、时间、时区、UTC 偏移和时间戳。';
 
   @override
   String get assistantEditLocalToolClipboardTitle => '剪切板';
 
   @override
-  String get assistantEditLocalToolClipboardSubtitle =>
-      '在明确需要时读取或写入设备剪切板中的纯文本。';
+  String get assistantEditLocalToolClipboardSubtitle => '在明确需要时读取或写入设备剪切板中的纯文本。';
 
   @override
   String get assistantEditLocalToolTextToSpeechTitle => '文字转语音';
 
   @override
-  String get assistantEditLocalToolTextToSpeechSubtitle =>
-      '允许助手使用已配置的语音播放朗读文本。';
+  String get assistantEditLocalToolTextToSpeechSubtitle => '允许助手使用已配置的语音播放朗读文本。';
 
   @override
   String get assistantEditLocalToolAskUserTitle => '询问用户';
@@ -9712,8 +9650,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get assistantEditRecentChatsSwitchTitle => '参考历史聊天记录';
 
   @override
-  String get assistantEditRecentChatsSwitchDescription =>
-      '在新对话中引用最近的对话标题以增强上下文';
+  String get assistantEditRecentChatsSwitchDescription => '在新对话中引用最近的对话标题以增强上下文';
 
   @override
   String get assistantEditManageMemoryTitle => '管理记忆';
@@ -9778,8 +9715,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get providersPageMultiSelectTooltip => '多选';
 
   @override
-  String get providersPageDeleteSelectedConfirmContent =>
-      '确定要删除选中的供应商吗？该操作不可撤销。';
+  String get providersPageDeleteSelectedConfirmContent => '确定要删除选中的供应商吗？该操作不可撤销。';
 
   @override
   String get providersPageDeleteSelectedSnackbar => '已删除选中的供应商';
@@ -9871,8 +9807,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get networkProxyBypassLabel => '代理绕过';
 
   @override
-  String get networkProxyBypassHint =>
-      '用逗号分隔的主机或 CIDR，例如：localhost,127.0.0.1,192.168.0.0/16,*.local';
+  String get networkProxyBypassHint => '用逗号分隔的主机或 CIDR，例如：localhost,127.0.0.1,192.168.0.0/16,*.local';
 
   @override
   String get networkProxyOptionalHint => '可选';
@@ -9974,8 +9909,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get flutterLogSettingTitle => '应用日志打印';
 
   @override
-  String get flutterLogSettingSubtitle =>
-      '开启后会将 Flutter 错误与 print 输出写入 logs/flutter_logs.txt';
+  String get flutterLogSettingSubtitle => '开启后会将 Flutter 错误与 print 输出写入 logs/flutter_logs.txt';
 
   @override
   String get logViewerTitle => '请求日志';
@@ -10358,12 +10292,10 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get debugPageCreateManyMessagesConversationButton => '创建 1024 条消息的对话';
 
   @override
-  String get debugPageCreateDailyMixedMarkdownConversationButton =>
-      '创建 3000 条日常混合 Markdown 消息';
+  String get debugPageCreateDailyMixedMarkdownConversationButton => '创建 3000 条日常混合 Markdown 消息';
 
   @override
-  String get debugPageCreateLongReasoningConversationButton =>
-      '创建长思考链对话（128 条）';
+  String get debugPageCreateLongReasoningConversationButton => '创建长思考链对话（128 条）';
 
   @override
   String get debugPageCreatingButton => '创建中...';
@@ -10375,8 +10307,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get debugPageCreatingManyMessagesConversation => '正在创建 1024 条消息的对话...';
 
   @override
-  String get debugPageCreatingDailyMixedMarkdownConversation =>
-      '正在创建 3000 条日常混合 Markdown 对话...';
+  String get debugPageCreatingDailyMixedMarkdownConversation => '正在创建 3000 条日常混合 Markdown 对话...';
 
   @override
   String get debugPageCreatingLongReasoningConversation => '正在创建长思考链调试对话...';
@@ -10415,8 +10346,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   }
 
   @override
-  String get debugPageOversizedConversationSeedText =>
-      '这是一段用于复现超大对话渲染卡顿的长调试文本。它包含重复的 Markdown 风格文本、标点、中文内容和普通词语，方便测试聊天渲染、存储和滚动性能。';
+  String get debugPageOversizedConversationSeedText => '这是一段用于复现超大对话渲染卡顿的长调试文本。它包含重复的 Markdown 风格文本、标点、中文内容和普通词语，方便测试聊天渲染、存储和滚动性能。';
 
   @override
   String debugPageManyMessagesSeedText(String role, int index) {
@@ -10426,7 +10356,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
 class AppLocalizationsZhHant extends AppLocalizationsZh {
-  AppLocalizationsZhHant() : super('zh_Hant');
+  AppLocalizationsZhHant(): super('zh_Hant');
 
   @override
   String get helloWorld => '你好，世界！';
@@ -10903,14 +10833,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get assistantProviderNewAssistantName => '新助理';
 
   @override
-  String assistantProviderSampleAssistantSystemPrompt(
-    String model_name,
-    String cur_datetime,
-    String locale,
-    String timezone,
-    String device_info,
-    String system_version,
-  ) {
+  String assistantProviderSampleAssistantSystemPrompt(String model_name, String cur_datetime, String locale, String timezone, String device_info, String system_version) {
     return '你是$model_name, 一個人工智慧助理，樂意為使用者提供準確，有益的幫助。現在時間是$cur_datetime，使用者裝置語言為$locale，時區為$timezone，使用者正在使用$device_info，版本$system_version。如果使用者沒有明確說明，請使用使用者裝置語言進行回覆。';
   }
 
@@ -11026,8 +10949,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get homePagePleaseSelectModel => '請先選擇模型';
 
   @override
-  String get homePageAudioAttachmentUnsupported =>
-      '目前模型不支援音訊附件，請切換到支援音訊輸入的模型或移除音訊檔案後再試。';
+  String get homePageAudioAttachmentUnsupported => '目前模型不支援音訊附件，請切換到支援音訊輸入的模型或移除音訊檔案後再試。';
 
   @override
   String get homePagePleaseSetupTranslateModel => '請先設定翻譯模型';
@@ -11250,8 +11172,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get assistantEditContextMessagesTitle => '上下文訊息數量';
 
   @override
-  String get assistantEditContextMessagesDescription =>
-      '多少歷史訊息會被當作上下文傳送給模型，超過數量會忽略，只保留最近 N 條';
+  String get assistantEditContextMessagesDescription => '多少歷史訊息會被當作上下文傳送給模型，超過數量會忽略，只保留最近 N 條';
 
   @override
   String get assistantEditStreamOutputTitle => '串流輸出';
@@ -11365,8 +11286,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get iosBackgroundGenerationEnableTitle => '後台生成';
 
   @override
-  String get iosBackgroundGenerationEnableSubtitle =>
-      'App 離開前台後，使用 iOS 分配的後台時間繼續目前回覆。';
+  String get iosBackgroundGenerationEnableSubtitle => 'App 離開前台後，使用 iOS 分配的後台時間繼續目前回覆。';
 
   @override
   String get iosBackgroundTaskRefreshTitle => '後台任務恢復';
@@ -11390,12 +11310,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get iosBackgroundLimitNoticeTitle => 'iOS 仍可能暫停任務';
 
   @override
-  String get iosBackgroundLimitNoticeBody =>
-      '這些選項使用 Apple 支援的後台時間、BackgroundTasks、通知和即時活動。它們能提升連續性，但不能強制 iOS 永久保持 Kelivo 運行。';
+  String get iosBackgroundLimitNoticeBody => '這些選項使用 Apple 支援的後台時間、BackgroundTasks、通知和即時活動。它們能提升連續性，但不能強制 iOS 永久保持 Kelivo 運行。';
 
   @override
-  String get iosBackgroundUnsupportedLiveActivity =>
-      '需要 iOS 16.1 或更高版本，並在系統設定中允許即時活動。';
+  String get iosBackgroundUnsupportedLiveActivity => '需要 iOS 16.1 或更高版本，並在系統設定中允許即時活動。';
 
   @override
   String get iosBackgroundNativeStatusTitle => '系統狀態';
@@ -11490,8 +11408,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get assistantEditImageUrlDialogTitle => '輸入圖片連結';
 
   @override
-  String get assistantEditImageUrlDialogHint =>
-      '例如: https://example.com/avatar.png';
+  String get assistantEditImageUrlDialogHint => '例如: https://example.com/avatar.png';
 
   @override
   String get assistantEditImageUrlDialogCancel => '取消';
@@ -12164,6 +12081,18 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get messageEditPageHint => '輸入訊息內容…';
 
   @override
+  String get userMessageEditSaveOnly => '僅儲存';
+
+  @override
+  String get userMessageEditUnsupportedSnackbar => '該內容不支援編輯';
+
+  @override
+  String get userMessageEditOverwriteTitle => '提示';
+
+  @override
+  String get userMessageEditOverwriteContent => '修改將覆蓋輸入框已有內容，是否覆蓋？';
+
+  @override
   String get selectCopyPageTitle => '選擇複製';
 
   @override
@@ -12404,12 +12333,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get chatMessageWidgetRegenerateConfirmTitle => '確認重新生成';
 
   @override
-  String get chatMessageWidgetRegenerateConfirmContent =>
-      '重新生成只會更新目前訊息，不會刪除下面的訊息。確定要繼續嗎？';
+  String get chatMessageWidgetRegenerateConfirmContent => '重新生成只會更新目前訊息，不會刪除下面的訊息。確定要繼續嗎？';
 
   @override
-  String get chatMessageWidgetRegenerateConfirmDeleteTrailingContent =>
-      '重新生成將會刪除此訊息下面的所有訊息，且無法復原。確定要繼續嗎？';
+  String get chatMessageWidgetRegenerateConfirmDeleteTrailingContent => '重新生成將會刪除此訊息下面的所有訊息，且無法復原。確定要繼續嗎？';
 
   @override
   String get chatMessageWidgetRegenerateConfirmCancel => '取消';
@@ -12549,8 +12476,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get displaySettingsPageEnableDollarLatexTitle => '啟用 \$...\$ 渲染';
 
   @override
-  String get displaySettingsPageEnableDollarLatexSubtitle =>
-      '將 \$...\$ 之間的內容以行內數學公式渲染';
+  String get displaySettingsPageEnableDollarLatexSubtitle => '將 \$...\$ 之間的內容以行內數學公式渲染';
 
   @override
   String get displaySettingsPageEnableMathTitle => '啟用數學公式渲染';
@@ -12562,12 +12488,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get displaySettingsPageEnableUserMarkdownTitle => '使用者訊息 Markdown 渲染';
 
   @override
-  String get displaySettingsPageEnableReasoningMarkdownTitle =>
-      '思维鏈 Markdown 渲染';
+  String get displaySettingsPageEnableReasoningMarkdownTitle => '思维鏈 Markdown 渲染';
 
   @override
-  String get displaySettingsPageEnableAssistantMarkdownTitle =>
-      '助手訊息 Markdown 渲染';
+  String get displaySettingsPageEnableAssistantMarkdownTitle => '助手訊息 Markdown 渲染';
 
   @override
   String get displaySettingsPageMobileCodeBlockWrapTitle => '行動端程式碼區塊自動換行';
@@ -12621,8 +12545,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get messageExportThinkingContentLabel => '思考內容';
 
   @override
-  String get messageExportSheetDateTimeWithSecondsPattern =>
-      'yyyy年M月d日 HH:mm:ss';
+  String get messageExportSheetDateTimeWithSecondsPattern => 'yyyy年M月d日 HH:mm:ss';
 
   @override
   String get exportDisclaimerAiGenerated => '內容由 AI 生成，請仔細甄別';
@@ -12779,8 +12702,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get sideDrawerImageUrlDialogTitle => '輸入圖片連結';
 
   @override
-  String get sideDrawerImageUrlDialogHint =>
-      '例如: https://example.com/avatar.png';
+  String get sideDrawerImageUrlDialogHint => '例如: https://example.com/avatar.png';
 
   @override
   String get sideDrawerQQAvatarDialogTitle => '使用QQ頭像';
@@ -13027,15 +12949,13 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get defaultModelPageSuggestionModelTitle => '聊天建議模型';
 
   @override
-  String get defaultModelPageSuggestionModelSubtitle =>
-      '用於在助手回覆後生成繼續對話的建議氣泡。選擇模型後才會啟用。';
+  String get defaultModelPageSuggestionModelSubtitle => '用於在助手回覆後生成繼續對話的建議氣泡。選擇模型後才會啟用。';
 
   @override
   String get assistantEditRecentChatsSummaryFrequencyTitle => '摘要更新頻率';
 
   @override
-  String get assistantEditRecentChatsSummaryFrequencyDescription =>
-      '累計達到所選條數的新訊息後，會更新歷史聊天摘要。';
+  String get assistantEditRecentChatsSummaryFrequencyDescription => '累計達到所選條數的新訊息後，會更新歷史聊天摘要。';
 
   @override
   String assistantEditRecentChatsSummaryFrequencyOption(int count) {
@@ -13049,26 +12969,22 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get assistantEditRecentChatsSummaryFrequencyCustomTitle => '自訂摘要頻率';
 
   @override
-  String get assistantEditRecentChatsSummaryFrequencyCustomDescription =>
-      '輸入累計多少則新訊息後再更新歷史聊天摘要。';
+  String get assistantEditRecentChatsSummaryFrequencyCustomDescription => '輸入累計多少則新訊息後再更新歷史聊天摘要。';
 
   @override
   String get assistantEditRecentChatsSummaryFrequencyCustomLabel => '新訊息數量';
 
   @override
-  String get assistantEditRecentChatsSummaryFrequencyCustomHint =>
-      '請輸入大於 0 的整數';
+  String get assistantEditRecentChatsSummaryFrequencyCustomHint => '請輸入大於 0 的整數';
 
   @override
-  String get assistantEditRecentChatsSummaryFrequencyCustomInvalid =>
-      '請輸入大於 0 的整數';
+  String get assistantEditRecentChatsSummaryFrequencyCustomInvalid => '請輸入大於 0 的整數';
 
   @override
   String get defaultModelPageTranslateModelTitle => '翻譯模型';
 
   @override
-  String get defaultModelPageTranslateModelSubtitle =>
-      '用於翻譯訊息內容的模型，推薦使用快速且準確的模型';
+  String get defaultModelPageTranslateModelSubtitle => '用於翻譯訊息內容的模型，推薦使用快速且準確的模型';
 
   @override
   String get defaultModelPageOcrModelTitle => 'OCR 模型';
@@ -13077,8 +12993,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get defaultModelPageOcrModelSubtitle => '用於對圖片執行文字辨識的模型';
 
   @override
-  String get defaultModelPageOcrModelRequiresImageInput =>
-      '請選擇標記為支援圖片輸入的模型用於 OCR';
+  String get defaultModelPageOcrModelRequiresImageInput => '請選擇標記為支援圖片輸入的模型用於 OCR';
 
   @override
   String get defaultModelPagePromptLabel => '提示詞';
@@ -13110,10 +13025,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
-  String defaultModelPageSummaryVars(
-    String previousSummaryVar,
-    String userMessagesVar,
-  ) {
+  String defaultModelPageSummaryVars(String previousSummaryVar, String userMessagesVar) {
     return '變數：舊摘要：$previousSummaryVar，新訊息：$userMessagesVar';
   }
 
@@ -13222,8 +13134,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get modelDetailSheetReasoningAbility => '推理';
 
   @override
-  String get modelDetailSheetProviderOverrideDescription =>
-      '供應商覆寫：允許為特定模型自訂供應商設定。（暫未實現）';
+  String get modelDetailSheetProviderOverrideDescription => '供應商覆寫：允許為特定模型自訂供應商設定。（暫未實現）';
 
   @override
   String get modelDetailSheetAddProviderOverride => '新增供應商覆寫';
@@ -13274,19 +13185,16 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get modelDetailSheetYoutubeTool => 'YouTube';
 
   @override
-  String get modelDetailSheetYoutubeToolDescription =>
-      '啟用 YouTube 連結讀取（自動辨識提示詞中的連結）';
+  String get modelDetailSheetYoutubeToolDescription => '啟用 YouTube 連結讀取（自動辨識提示詞中的連結）';
 
   @override
-  String get modelDetailSheetOpenaiBuiltinToolsResponsesOnlyHint =>
-      '需要啟用 OpenAI Responses API。';
+  String get modelDetailSheetOpenaiBuiltinToolsResponsesOnlyHint => '需要啟用 OpenAI Responses API。';
 
   @override
   String get modelDetailSheetOpenaiCodeInterpreterTool => '程式碼解譯器';
 
   @override
-  String get modelDetailSheetOpenaiCodeInterpreterToolDescription =>
-      '啟用程式碼解譯器工具（容器自動，記憶體上限 4g）';
+  String get modelDetailSheetOpenaiCodeInterpreterToolDescription => '啟用程式碼解譯器工具（容器自動，記憶體上限 4g）';
 
   @override
   String get modelDetailSheetOpenaiImageGenerationTool => '圖像生成';
@@ -13394,23 +13302,19 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get providerDetailPageAihubmixAppCodeLabel => '應用 Code（享 10% 優惠）';
 
   @override
-  String get providerDetailPageAihubmixAppCodeHelp =>
-      '為請求附加 APP-Code，可享 10% 優惠，僅對 AIhubmix 生效。';
+  String get providerDetailPageAihubmixAppCodeHelp => '為請求附加 APP-Code，可享 10% 優惠，僅對 AIhubmix 生效。';
 
   @override
-  String get providerDetailPageClaudePromptCachingTitle =>
-      'Claude Prompt Caching';
+  String get providerDetailPageClaudePromptCachingTitle => 'Claude Prompt Caching';
 
   @override
-  String get providerDetailPageClaudePromptCachingHelp =>
-      '透過 Claude 官方或 OpenRouter 呼叫 Claude 時附加 cache_control。';
+  String get providerDetailPageClaudePromptCachingHelp => '透過 Claude 官方或 OpenRouter 呼叫 Claude 時附加 cache_control。';
 
   @override
   String get providerDetailPageClaudePromptCachingTtlTitle => '快取 TTL';
 
   @override
-  String get providerDetailPageClaudePromptCachingTtlHelp =>
-      '5 分鐘為預設值。1 小時寫入成本更高，但長對話中可減少重複重建快取。';
+  String get providerDetailPageClaudePromptCachingTtlHelp => '5 分鐘為預設值。1 小時寫入成本更高，但長對話中可減少重複重建快取。';
 
   @override
   String get providerDetailPageClaudePromptCachingTtl5m => '5 分鐘';
@@ -13679,8 +13583,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get addProviderSheetVertexAiProjectIdLabel => '專案ID';
 
   @override
-  String get addProviderSheetVertexAiServiceAccountJsonLabel =>
-      '服務帳號 JSON（貼上或匯入）';
+  String get addProviderSheetVertexAiServiceAccountJsonLabel => '服務帳號 JSON（貼上或匯入）';
 
   @override
   String get addProviderSheetImportJsonButton => '匯入 JSON';
@@ -13945,8 +13848,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get searchSettingsSheetClaudeDynamicSearchTitle => '模型內建搜尋(新)';
 
   @override
-  String get searchSettingsSheetClaudeDynamicSearchDescription =>
-      '在支援的 Claude 官方模型上使用 `web_search_20260209`，支援動態過濾能力。';
+  String get searchSettingsSheetClaudeDynamicSearchDescription => '在支援的 Claude 官方模型上使用 `web_search_20260209`，支援動態過濾能力。';
 
   @override
   String get searchSettingsSheetWebSearchTitle => '網路搜尋';
@@ -14037,8 +13939,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get displaySettingsPageShowUserNameTimestampTitle => '顯示使用者名稱與時間戳';
 
   @override
-  String get displaySettingsPageShowUserNameTimestampSubtitle =>
-      '是否在聊天訊息中顯示使用者名稱以時間戳';
+  String get displaySettingsPageShowUserNameTimestampSubtitle => '是否在聊天訊息中顯示使用者名稱以時間戳';
 
   @override
   String get displaySettingsPageShowUserNameTitle => '顯示使用者名稱';
@@ -14050,15 +13951,13 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get displaySettingsPageShowUserMessageActionsTitle => '顯示使用者訊息操作按鈕';
 
   @override
-  String get displaySettingsPageShowUserMessageActionsSubtitle =>
-      '在使用者訊息下方顯示複製、重傳與更多按鈕';
+  String get displaySettingsPageShowUserMessageActionsSubtitle => '在使用者訊息下方顯示複製、重傳與更多按鈕';
 
   @override
   String get displaySettingsPageShowModelNameTimestampTitle => '顯示模型名稱與時間戳';
 
   @override
-  String get displaySettingsPageShowModelNameTimestampSubtitle =>
-      '是否在聊天訊息中顯示模型名稱及時間戳';
+  String get displaySettingsPageShowModelNameTimestampSubtitle => '是否在聊天訊息中顯示模型名稱及時間戳';
 
   @override
   String get displaySettingsPageShowModelNameTitle => '顯示模型名稱';
@@ -14070,8 +13969,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get displaySettingsPageShowProviderInChatMessageTitle => '模型名稱後顯示供應商';
 
   @override
-  String get displaySettingsPageShowProviderInChatMessageSubtitle =>
-      '在聊天訊息的模型名稱後面顯示供應商名稱（如 模型 | 供應商）';
+  String get displaySettingsPageShowProviderInChatMessageSubtitle => '在聊天訊息的模型名稱後面顯示供應商名稱（如 模型 | 供應商）';
 
   @override
   String get displaySettingsPageChatModelIconTitle => '聊天列表模型圖示';
@@ -14089,15 +13987,13 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get displaySettingsPageAutoCollapseThinkingTitle => '自動折疊思考';
 
   @override
-  String get displaySettingsPageAutoCollapseThinkingSubtitle =>
-      '思考完成後自動折疊，保持介面簡潔';
+  String get displaySettingsPageAutoCollapseThinkingSubtitle => '思考完成後自動折疊，保持介面簡潔';
 
   @override
   String get displaySettingsPageCollapseThinkingStepsTitle => '折疊思考步驟';
 
   @override
-  String get displaySettingsPageCollapseThinkingStepsSubtitle =>
-      '預設只顯示最新步驟，展開後查看全部';
+  String get displaySettingsPageCollapseThinkingStepsSubtitle => '預設只顯示最新步驟，展開後查看全部';
 
   @override
   String get displaySettingsPageShowToolResultSummaryTitle => '顯示工具結果摘要';
@@ -14106,12 +14002,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get displaySettingsPageInsertSuggestionOnlyTitle => '點擊建議時僅填入輸入框';
 
   @override
-  String get displaySettingsPageShowToolResultSummarySubtitle =>
-      '在工具步驟下方顯示摘要文字';
+  String get displaySettingsPageShowToolResultSummarySubtitle => '在工具步驟下方顯示摘要文字';
 
   @override
-  String get displaySettingsPageRegenerateDeleteTrailingMessagesTitle =>
-      '重新生成時刪除下面的訊息';
+  String get displaySettingsPageRegenerateDeleteTrailingMessagesTitle => '重新生成時刪除下面的訊息';
 
   @override
   String get displaySettingsPageShowRegenerateConfirmDialogTitle => '重新生成前彈出確認';
@@ -14134,20 +14028,16 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get displaySettingsPageEnableImageCropperTitle => '啟用圖片裁剪';
 
   @override
-  String get displaySettingsPageEnableImageCropperSubtitle =>
-      '從相簿或相機選擇圖片後，允許裁剪圖片';
+  String get displaySettingsPageEnableImageCropperSubtitle => '從相簿或相機選擇圖片後，允許裁剪圖片';
 
   @override
-  String get displaySettingsPageKeepSidebarOpenOnAssistantTapTitle =>
-      '點選助手時不自動關閉側邊欄';
+  String get displaySettingsPageKeepSidebarOpenOnAssistantTapTitle => '點選助手時不自動關閉側邊欄';
 
   @override
-  String get displaySettingsPageKeepSidebarOpenOnTopicTapTitle =>
-      '點選話題時不自動關閉側邊欄';
+  String get displaySettingsPageKeepSidebarOpenOnTopicTapTitle => '點選話題時不自動關閉側邊欄';
 
   @override
-  String get displaySettingsPageKeepAssistantListExpandedOnSidebarCloseTitle =>
-      '關閉側邊欄時不折疊助手列表';
+  String get displaySettingsPageKeepAssistantListExpandedOnSidebarCloseTitle => '關閉側邊欄時不折疊助手列表';
 
   @override
   String get displaySettingsPageShowUpdatesTitle => '顯示更新';
@@ -14171,8 +14061,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get displaySettingsPageMessageNavButtonsModeHover => '滑鼠懸停時顯示';
 
   @override
-  String get displaySettingsPageMessageNavButtonsModeScrollAndHover =>
-      '滾動和滑鼠懸停時顯示';
+  String get displaySettingsPageMessageNavButtonsModeScrollAndHover => '滾動和滑鼠懸停時顯示';
 
   @override
   String get displaySettingsPageMessageNavButtonsModeNever => '永不顯示';
@@ -14501,29 +14390,25 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get ttsSettingsTextSelectionQuotedOnlyTitle => '僅引號內文字';
 
   @override
-  String get ttsSettingsTextSelectionQuotedOnlyDescription =>
-      '播放 “”、‘’、\"\"、\'\'、「」或『』內的文字。';
+  String get ttsSettingsTextSelectionQuotedOnlyDescription => '播放 “”、‘’、\"\"、\'\'、「」或『』內的文字。';
 
   @override
   String get ttsSettingsTextSelectionOutsideParenthesesTitle => '括號外文字';
 
   @override
-  String get ttsSettingsTextSelectionOutsideParenthesesDescription =>
-      '跳過 () 和 （） 內的文字。';
+  String get ttsSettingsTextSelectionOutsideParenthesesDescription => '跳過 () 和 （） 內的文字。';
 
   @override
   String get ttsSettingsTextSelectionItalicOnlyTitle => '僅斜體文字';
 
   @override
-  String get ttsSettingsTextSelectionItalicOnlyDescription =>
-      '播放 Markdown 或 HTML 斜體文字。';
+  String get ttsSettingsTextSelectionItalicOnlyDescription => '播放 Markdown 或 HTML 斜體文字。';
 
   @override
   String get ttsSettingsTextSelectionNonItalicTitle => '僅正體文字';
 
   @override
-  String get ttsSettingsTextSelectionNonItalicDescription =>
-      '跳過 Markdown 或 HTML 斜體文字。';
+  String get ttsSettingsTextSelectionNonItalicDescription => '跳過 Markdown 或 HTML 斜體文字。';
 
   @override
   String get ttsFloatingPlayerLabel => '語音播放器';
@@ -14629,12 +14514,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get settingsShare => 'Kelivo - 開源AI助理';
 
   @override
-  String get searchProviderBingLocalDescription =>
-      '使用網路抓取工具取得 Bing 搜尋結果。無需 API 金鑰，但可能不夠穩定。';
+  String get searchProviderBingLocalDescription => '使用網路抓取工具取得 Bing 搜尋結果。無需 API 金鑰，但可能不夠穩定。';
 
   @override
-  String get searchProviderDuckDuckGoDescription =>
-      '基於 DDGS 的 DuckDuckGo 隱私搜尋，無需 API 金鑰，支援設定地區。';
+  String get searchProviderDuckDuckGoDescription => '基於 DDGS 的 DuckDuckGo 隱私搜尋，無需 API 金鑰，支援設定地區。';
 
   @override
   String get searchProviderBraveDescription => 'Brave 獨立搜尋引擎。注重隱私，無追蹤或建立個人檔案。';
@@ -14643,8 +14526,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get searchProviderExaDescription => '具備語義理解的神經搜尋引擎。適合研究與查找特定內容。';
 
   @override
-  String get searchProviderLinkUpDescription =>
-      '提供來源可追溯答案的搜尋 API，同時提供搜尋結果與 AI 摘要。';
+  String get searchProviderLinkUpDescription => '提供來源可追溯答案的搜尋 API，同時提供搜尋結果與 AI 摘要。';
 
   @override
   String get searchProviderMetasoDescription => '秘塔中文搜尋引擎。針對中文內容優化並提供 AI 能力。';
@@ -14653,20 +14535,16 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get searchProviderSearXNGDescription => '重視隱私的元搜尋引擎。需自建實例，無追蹤。';
 
   @override
-  String get searchProviderTavilyDescription =>
-      '為大型語言模型（LLM）優化的 AI 搜尋 API，提供高品質、相關的搜尋結果。';
+  String get searchProviderTavilyDescription => '為大型語言模型（LLM）優化的 AI 搜尋 API，提供高品質、相關的搜尋結果。';
 
   @override
-  String get searchProviderZhipuDescription =>
-      '智譜 AI 旗下中文 AI 搜尋服務，針對中文內容與查詢進行優化。';
+  String get searchProviderZhipuDescription => '智譜 AI 旗下中文 AI 搜尋服務，針對中文內容與查詢進行優化。';
 
   @override
-  String get searchProviderOllamaDescription =>
-      'Ollama 網路搜尋 API。為模型補充最新資訊，降低幻覺並提升準確性。';
+  String get searchProviderOllamaDescription => 'Ollama 網路搜尋 API。為模型補充最新資訊，降低幻覺並提升準確性。';
 
   @override
-  String get searchProviderJinaDescription =>
-      'AI 搜尋基礎設施：提供 Embeddings、重排序、Web Reader、DeepSearch 與小語言模型。支援多語言與多模態。';
+  String get searchProviderJinaDescription => 'AI 搜尋基礎設施：提供 Embeddings、重排序、Web Reader、DeepSearch 與小語言模型。支援多語言與多模態。';
 
   @override
   String get searchServiceNameBingLocal => 'Bing（本機）';
@@ -14705,29 +14583,31 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get searchServiceNamePerplexity => 'Perplexity';
 
   @override
-  String get searchProviderPerplexityDescription =>
-      'Perplexity 搜尋 API。提供排序的網頁結果，支援地區與網域過濾。';
+  String get searchProviderPerplexityDescription => 'Perplexity 搜尋 API。提供排序的網頁結果，支援地區與網域過濾。';
 
   @override
   String get searchServiceNameBocha => '博查';
 
   @override
-  String get searchProviderBochaDescription =>
-      '博查 AI 全網網頁搜尋，支援時間範圍與摘要，更適合 AI 使用。';
+  String get searchProviderBochaDescription => '博查 AI 全網網頁搜尋，支援時間範圍與摘要，更適合 AI 使用。';
 
   @override
   String get searchServiceNameSerper => 'Serper';
 
   @override
-  String get searchProviderSerperDescription =>
-      'Serper Google 搜尋 API。回應快速，支援國家/地區、語言、時間和頁碼過濾。';
+  String get searchProviderSerperDescription => 'Serper Google 搜尋 API。回應快速，支援國家/地區、語言、時間和頁碼過濾。';
+
+  @override
+  String get searchServiceNameQuerit => 'Querit';
+
+  @override
+  String get searchProviderQueritDescription => '面向 LLM 應用的 Querit 搜尋 API。返回即時網頁結果，並支援站點、時間、國家和語言過濾。';
 
   @override
   String get searchServiceNameGrok => 'Grok';
 
   @override
-  String get searchProviderGrokDescription =>
-      '透過 xAI Responses API 使用 Grok 搜尋。呼叫網頁和 X 搜尋工具，並返回帶引用的來源。';
+  String get searchProviderGrokDescription => '透過 xAI Responses API 使用 Grok 搜尋。呼叫網頁和 X 搜尋工具，並返回帶引用的來源。';
 
   @override
   String get searchServicesDialogCountryOptional => '國家/地區（可選）';
@@ -14743,6 +14623,33 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get searchServicesDialogPageInvalid => '頁碼必須是正整數。';
+
+  @override
+  String get searchServicesDialogSitesIncludeOptional => '包含站點（可選）';
+
+  @override
+  String get searchServicesDialogSitesExcludeOptional => '排除站點（可選）';
+
+  @override
+  String get searchServicesDialogTimeRangeOptional => '時間範圍（可選）';
+
+  @override
+  String get searchServicesDialogCountriesOptional => '國家（可選）';
+
+  @override
+  String get searchServicesDialogLanguagesOptional => '語言（可選）';
+
+  @override
+  String get searchServicesDialogSitesHint => 'example.com, docs.example.com';
+
+  @override
+  String get searchServicesDialogTimeRangeHint => 'd7';
+
+  @override
+  String get searchServicesDialogCountriesHint => 'united states, japan';
+
+  @override
+  String get searchServicesDialogLanguagesHint => 'english, japanese';
 
   @override
   String get generationInterrupted => '生成已中斷';
@@ -14876,8 +14783,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get chatInputBarQuickPhraseTooltip => '快捷片語';
 
   @override
-  String get assistantEditQuickPhraseDescription =>
-      '管理此助理的快捷片語。點擊下方按鈕以新增或編輯片語。';
+  String get assistantEditQuickPhraseDescription => '管理此助理的快捷片語。點擊下方按鈕以新增或編輯片語。';
 
   @override
   String get assistantEditManageQuickPhraseButton => '管理快捷片語';
@@ -14889,22 +14795,19 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get assistantEditLocalToolTimeInfoTitle => '時間資訊';
 
   @override
-  String get assistantEditLocalToolTimeInfoSubtitle =>
-      '讀取裝置日期、星期、時間、時區、UTC 偏移和時間戳。';
+  String get assistantEditLocalToolTimeInfoSubtitle => '讀取裝置日期、星期、時間、時區、UTC 偏移和時間戳。';
 
   @override
   String get assistantEditLocalToolClipboardTitle => '剪貼簿';
 
   @override
-  String get assistantEditLocalToolClipboardSubtitle =>
-      '在明確需要時讀取或寫入裝置剪貼簿中的純文字。';
+  String get assistantEditLocalToolClipboardSubtitle => '在明確需要時讀取或寫入裝置剪貼簿中的純文字。';
 
   @override
   String get assistantEditLocalToolTextToSpeechTitle => '文字轉語音';
 
   @override
-  String get assistantEditLocalToolTextToSpeechSubtitle =>
-      '允許助手使用已設定的語音播放朗讀文字。';
+  String get assistantEditLocalToolTextToSpeechSubtitle => '允許助手使用已設定的語音播放朗讀文字。';
 
   @override
   String get assistantEditLocalToolAskUserTitle => '詢問使用者';
@@ -14922,8 +14825,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get assistantEditRecentChatsSwitchTitle => '參考歷史聊天記錄';
 
   @override
-  String get assistantEditRecentChatsSwitchDescription =>
-      '在新對話中引用最近的對話標題以增強上下文';
+  String get assistantEditRecentChatsSwitchDescription => '在新對話中引用最近的對話標題以增強上下文';
 
   @override
   String get assistantEditManageMemoryTitle => '管理記憶';
@@ -14988,8 +14890,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get providersPageMultiSelectTooltip => '多選';
 
   @override
-  String get providersPageDeleteSelectedConfirmContent =>
-      '確定要刪除選中的供應商嗎？此操作不可撤銷。';
+  String get providersPageDeleteSelectedConfirmContent => '確定要刪除選中的供應商嗎？此操作不可撤銷。';
 
   @override
   String get providersPageDeleteSelectedSnackbar => '已刪除選中的供應商';
@@ -15081,8 +14982,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get networkProxyBypassLabel => '代理繞過';
 
   @override
-  String get networkProxyBypassHint =>
-      '以逗號分隔的主機或 CIDR，例如：localhost,127.0.0.1,192.168.0.0/16,*.local';
+  String get networkProxyBypassHint => '以逗號分隔的主機或 CIDR，例如：localhost,127.0.0.1,192.168.0.0/16,*.local';
 
   @override
   String get networkProxyOptionalHint => '可選';
@@ -15184,8 +15084,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get flutterLogSettingTitle => 'Flutter日誌列印';
 
   @override
-  String get flutterLogSettingSubtitle =>
-      '開啟後會將 Flutter 錯誤與 print 輸出寫入 logs/flutter_logs.txt';
+  String get flutterLogSettingSubtitle => '開啟後會將 Flutter 錯誤與 print 輸出寫入 logs/flutter_logs.txt';
 
   @override
   String get logViewerTitle => '請求日誌';
@@ -15568,12 +15467,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get debugPageCreateManyMessagesConversationButton => '建立 1024 條訊息的對話';
 
   @override
-  String get debugPageCreateDailyMixedMarkdownConversationButton =>
-      '建立 3000 條日常混合 Markdown 訊息';
+  String get debugPageCreateDailyMixedMarkdownConversationButton => '建立 3000 條日常混合 Markdown 訊息';
 
   @override
-  String get debugPageCreateLongReasoningConversationButton =>
-      '建立長思考鏈對話（128 條）';
+  String get debugPageCreateLongReasoningConversationButton => '建立長思考鏈對話（128 條）';
 
   @override
   String get debugPageCreatingButton => '建立中...';
@@ -15585,8 +15482,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get debugPageCreatingManyMessagesConversation => '正在建立 1024 條訊息的對話...';
 
   @override
-  String get debugPageCreatingDailyMixedMarkdownConversation =>
-      '正在建立 3000 條日常混合 Markdown 對話...';
+  String get debugPageCreatingDailyMixedMarkdownConversation => '正在建立 3000 條日常混合 Markdown 對話...';
 
   @override
   String get debugPageCreatingLongReasoningConversation => '正在建立長思考鏈調試對話...';
@@ -15625,8 +15521,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
-  String get debugPageOversizedConversationSeedText =>
-      '這是一段用於復現超大對話渲染卡頓的長調試文字。它包含重複的 Markdown 風格文字、標點、中文內容和普通詞語，方便測試聊天渲染、儲存和捲動效能。';
+  String get debugPageOversizedConversationSeedText => '這是一段用於復現超大對話渲染卡頓的長調試文字。它包含重複的 Markdown 風格文字、標點、中文內容和普通詞語，方便測試聊天渲染、儲存和捲動效能。';
 
   @override
   String debugPageManyMessagesSeedText(String role, int index) {
