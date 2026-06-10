@@ -806,7 +806,7 @@ class _MessageListViewState extends State<MessageListView> {
       onSpeak: message.role == 'assistant'
           ? () => widget.onSpeakMessage?.call(message)
           : null,
-      onEdit: (message.role == 'user' || message.role == 'assistant')
+      onEdit: (message.role == 'assistant' || message.role == 'user')
           ? () => widget.onEditMessage?.call(message)
           : null,
       onDelete: message.role == 'user'

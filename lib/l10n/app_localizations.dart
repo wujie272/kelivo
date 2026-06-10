@@ -3179,6 +3179,18 @@ abstract class AppLocalizations {
   /// **'Path-style addressing'**
   String get backupPageS3PathStyle;
 
+  /// No description provided for @backupPageUserAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'User-Agent'**
+  String get backupPageUserAgent;
+
+  /// No description provided for @backupPageUserAgentHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional'**
+  String get backupPageUserAgentHint;
+
   /// No description provided for @backupPageSave.
   ///
   /// In en, this message translates to:
@@ -3466,6 +3478,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enter message…'**
   String get messageEditPageHint;
+
+  /// No description provided for @userMessageEditSaveOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Only'**
+  String get userMessageEditSaveOnly;
+
+  /// No description provided for @userMessageEditUnsupportedSnackbar.
+  ///
+  /// In en, this message translates to:
+  /// **'This content does not support editing'**
+  String get userMessageEditUnsupportedSnackbar;
+
+  /// No description provided for @userMessageEditOverwriteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notice'**
+  String get userMessageEditOverwriteTitle;
+
+  /// No description provided for @userMessageEditOverwriteContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Editing will overwrite the existing input. Overwrite it?'**
+  String get userMessageEditOverwriteContent;
 
   /// No description provided for @selectCopyPageTitle.
   ///
@@ -8306,6 +8342,18 @@ abstract class AppLocalizations {
   /// **'Serper Google Search API. Fast web results with optional country, language, time, and page filters.'**
   String get searchProviderSerperDescription;
 
+  /// No description provided for @searchServiceNameQuerit.
+  ///
+  /// In en, this message translates to:
+  /// **'Querit'**
+  String get searchServiceNameQuerit;
+
+  /// No description provided for @searchProviderQueritDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Querit Search API for LLM applications. Returns real-time web results with site, time, country, and language filters.'**
+  String get searchProviderQueritDescription;
+
   /// No description provided for @searchServiceNameGrok.
   ///
   /// In en, this message translates to:
@@ -8347,6 +8395,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Page must be a positive integer.'**
   String get searchServicesDialogPageInvalid;
+
+  /// No description provided for @searchServicesDialogSitesIncludeOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Include sites (optional)'**
+  String get searchServicesDialogSitesIncludeOptional;
+
+  /// No description provided for @searchServicesDialogSitesExcludeOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Exclude sites (optional)'**
+  String get searchServicesDialogSitesExcludeOptional;
+
+  /// No description provided for @searchServicesDialogTimeRangeOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Time range (optional)'**
+  String get searchServicesDialogTimeRangeOptional;
+
+  /// No description provided for @searchServicesDialogCountriesOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Countries (optional)'**
+  String get searchServicesDialogCountriesOptional;
+
+  /// No description provided for @searchServicesDialogLanguagesOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Languages (optional)'**
+  String get searchServicesDialogLanguagesOptional;
+
+  /// No description provided for @searchServicesDialogSitesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'example.com, docs.example.com'**
+  String get searchServicesDialogSitesHint;
+
+  /// No description provided for @searchServicesDialogTimeRangeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'d7'**
+  String get searchServicesDialogTimeRangeHint;
+
+  /// No description provided for @searchServicesDialogCountriesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'united states, japan'**
+  String get searchServicesDialogCountriesHint;
+
+  /// No description provided for @searchServicesDialogLanguagesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'english, japanese'**
+  String get searchServicesDialogLanguagesHint;
 
   /// No description provided for @generationInterrupted.
   ///

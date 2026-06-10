@@ -259,6 +259,10 @@ List<int> _displayedImageBytes(WidgetTester tester) {
   return (provider as MemoryImage).bytes;
 }
 
+Finder _findSoftHorizontalRule() {
+  return find.byKey(const ValueKey('markdown-soft-horizontal-rule'));
+}
+
 Widget _markdownHarness(
   String text, {
   double? width,
@@ -391,6 +395,60 @@ void main() {
       '| Bob \\| Jr. | said "hello" |  |',
     );
   });
+
+  testWidgets(
+    'MarkdownWithCodeHighlight renders markdown horizontal rule markers',
+    (tester) async {
+      for (final marker in ['---', '***', '___']) {
+        await tester.pumpWidget(
+          _markdownHarness('Before\n\n$marker\n\nAfter', width: 360),
+        );
+        await tester.pump();
+
+        expect(
+          _findSoftHorizontalRule(),
+          findsOneWidget,
+          reason: '$marker should render as a horizontal rule',
+        );
+        expect(
+          find.textContaining(marker),
+          findsNothing,
+          reason: '$marker should not remain as visible marker text',
+        );
+        expect(find.textContaining('Before'), findsOneWidget);
+        expect(find.textContaining('After'), findsOneWidget);
+      }
+    },
+  );
+
+  testWidgets(
+    'MarkdownWithCodeHighlight keeps non-hr asterisks out of horizontal rules',
+    (tester) async {
+      await tester.pumpWidget(
+        _markdownHarness('''
+* list item
+
+Inline ***strong emphasis*** text.
+
+```markdown
+***
+```
+''', width: 360),
+      );
+      await tester.pump();
+
+      expect(_findSoftHorizontalRule(), findsNothing);
+      expect(find.textContaining('list item'), findsOneWidget);
+      expect(find.textContaining('strong emphasis'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(SelectableHighlightView),
+          matching: find.textContaining('***'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets(
     'MarkdownWithCodeHighlight renders grouped raw citation metadata as separate capsules',
@@ -2248,6 +2306,33 @@ A-->B
   );
 
   testWidgets(
+    r'MarkdownWithCodeHighlight keeps hex colors in inline math color commands',
+    (tester) async {
+      await tester.pumpWidget(
+        _markdownHarness(r'''
+颜色\(\color{#FF5733}{A}\)，文字色\(\textcolor{#228B22}{B}\)，背景\(\colorbox{#197}{C}\)，符号\(#\)。
+'''),
+      );
+      await tester.pump();
+
+      final mathWidgets = _mathWidgets(tester);
+      expect(mathWidgets, hasLength(4));
+      expect(
+        mathWidgets.map((widget) => widget.parseError),
+        everyElement(isNull),
+      );
+      final encoded = _encodedMathTex(tester);
+      expect(encoded[0].toLowerCase(), contains('ff5733'));
+      expect(encoded[0], isNot(contains(r'\#FF5733')));
+      expect(encoded[1].toLowerCase(), contains('228b22'));
+      expect(encoded[1], isNot(contains(r'\#228B22')));
+      expect(encoded[2], isNot(contains(r'\#197')));
+      expect(encoded[3], contains(r'\#'));
+      expect(find.textContaining(r'\(\color{#FF5733}{A}\)'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'MarkdownWithCodeHighlight keeps literal double dollars from spanning prose',
     (tester) async {
       await tester.pumpWidget(
@@ -2672,6 +2757,69 @@ line3
       expect(find.text('Collapse'), findsNothing);
       expect(find.byIcon(Lucide.ChevronRight), findsNothing);
       expect(find.textContaining('line3'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'MarkdownWithCodeHighlight shows collapsed code tail fade when hidden lines exist',
+    (tester) async {
+      await tester.pumpWidget(
+        _markdownHarness(
+          '''
+```dart
+fade1
+fade2
+fade3
+```
+''',
+          preferences: const {
+            'display_auto_collapse_code_block_v1': true,
+            'display_auto_collapse_code_block_lines_v1': 2,
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('code-block-collapsed-tail-fade')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('fade3'), findsNothing);
+
+      await tester.tap(find.text('dart'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('code-block-collapsed-tail-fade')),
+        findsNothing,
+      );
+      expect(find.textContaining('fade3'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'MarkdownWithCodeHighlight omits collapsed code tail fade without hidden lines',
+    (tester) async {
+      await tester.pumpWidget(
+        _markdownHarness('''
+```dart
+exact1
+exact2
+```
+'''),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('dart'));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Lucide.ChevronRight), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('code-block-collapsed-tail-fade')),
+        findsNothing,
+      );
+      expect(find.textContaining('exact2'), findsOneWidget);
     },
   );
 
