@@ -1,5 +1,6 @@
 import "../../../support/business_test_harness.dart";
 import 'dart:convert';
+import 'package:Kelivo/core/providers/skill_provider.dart';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -166,6 +167,7 @@ class _ToolHandlerTestScope extends StatelessWidget {
               memoryProvider ??
               MemoryProvider(preferences: createBusinessTestPreferences()),
         ),
+        ChangeNotifierProvider<SkillProvider>(create: (_) => SkillProvider()),
       ],
       child: child,
     );
