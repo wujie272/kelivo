@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:Kelivo/core/providers/skill_provider.dart';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -153,6 +154,7 @@ class _ToolHandlerTestScope extends StatelessWidget {
         ChangeNotifierProvider<MemoryProvider>(
           create: (_) => memoryProvider ?? MemoryProvider(),
         ),
+        ChangeNotifierProvider<SkillProvider>(create: (_) => SkillProvider()),
       ],
       child: child,
     );
