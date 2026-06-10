@@ -402,9 +402,11 @@ class StreamController {
       reasoningCounts: List<int>.of(data.reasoningCounts.take(length)),
       toolCounts: List<int>.of(data.toolCounts.take(length)),
     );
-// JSON helpers using dart:convert
-String _encodeJson(dynamic obj) => jsonEncode(obj);
-dynamic _decodeJson(String json) => jsonDecode(json);
+  }
+
+  String _encodeJson(dynamic obj) => jsonEncode(obj);
+
+  dynamic _decodeJson(String json) => jsonDecode(json);
 
   // ============================================================================
   // Tool Parts Deduplication
