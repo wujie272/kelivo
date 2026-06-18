@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../../shared/widgets/ios_switch.dart';
 import '../widgets/model_select_sheet.dart';
 import '../widgets/ocr_prompt_sheet.dart';
 import '../utils/ocr_model_capability.dart';
@@ -20,6 +21,16 @@ class DefaultModelPage extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final settings = context.watch<SettingsProvider>();
     final l10n = AppLocalizations.of(context)!;
+    Future<ModelSelection?> pickConfiguredModel(
+      String? providerKey,
+      String? modelId,
+    ) {
+      return showModelSelector(
+        context,
+        initialProviderKey: providerKey,
+        initialModelId: modelId,
+      );
+    }
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -49,7 +60,10 @@ class DefaultModelPage extends StatelessWidget {
               await settings.resetCurrentModel();
             },
             onPick: () async {
-              final sel = await showModelSelector(context);
+              final sel = await pickConfiguredModel(
+                settings.currentModelProvider,
+                settings.currentModelId,
+              );
               if (sel != null) {
                 await settings.setCurrentModel(sel.providerKey, sel.modelId);
               }
@@ -68,7 +82,10 @@ class DefaultModelPage extends StatelessWidget {
               await settings.resetTitleModel();
             },
             onPick: () async {
-              final sel = await showModelSelector(context);
+              final sel = await pickConfiguredModel(
+                settings.titleModelProvider,
+                settings.titleModelId,
+              );
               if (sel != null) {
                 await settings.setTitleModel(sel.providerKey, sel.modelId);
               }
@@ -89,7 +106,10 @@ class DefaultModelPage extends StatelessWidget {
               await settings.resetSummaryModel();
             },
             onPick: () async {
-              final sel = await showModelSelector(context);
+              final sel = await pickConfiguredModel(
+                settings.summaryModelProvider,
+                settings.summaryModelId,
+              );
               if (sel != null) {
                 await settings.setSummaryModel(sel.providerKey, sel.modelId);
               }
@@ -108,7 +128,10 @@ class DefaultModelPage extends StatelessWidget {
               await settings.resetSuggestionModel();
             },
             onPick: () async {
-              final sel = await showModelSelector(context);
+              final sel = await pickConfiguredModel(
+                settings.suggestionModelProvider,
+                settings.suggestionModelId,
+              );
               if (sel != null) {
                 await settings.setSuggestionModel(sel.providerKey, sel.modelId);
               }
@@ -134,7 +157,10 @@ class DefaultModelPage extends StatelessWidget {
               await settings.resetCompressModel();
             },
             onPick: () async {
-              final sel = await showModelSelector(context);
+              final sel = await pickConfiguredModel(
+                settings.compressModelProvider,
+                settings.compressModelId,
+              );
               if (sel != null) {
                 await settings.setCompressModel(sel.providerKey, sel.modelId);
               }
@@ -154,7 +180,10 @@ class DefaultModelPage extends StatelessWidget {
               await settings.resetTranslateModel();
             },
             onPick: () async {
-              final sel = await showModelSelector(context);
+              final sel = await pickConfiguredModel(
+                settings.translateModelProvider,
+                settings.translateModelId,
+              );
               if (sel != null) {
                 await settings.setTranslateModel(sel.providerKey, sel.modelId);
               }
@@ -173,7 +202,10 @@ class DefaultModelPage extends StatelessWidget {
               await settings.resetOcrModel();
             },
             onPick: () async {
-              final sel = await showModelSelector(context);
+              final sel = await pickConfiguredModel(
+                settings.ocrModelProvider,
+                settings.ocrModelId,
+              );
               if (sel != null) {
                 if (!modelSupportsOcrImageInput(
                   settings,
@@ -211,98 +243,112 @@ class DefaultModelPage extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) {
-        return SafeArea(
-          top: false,
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 12,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: cs.onSurface.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
+        return Consumer<SettingsProvider>(
+          builder: (context, settings, _) {
+            return SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  top: 12,
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  l10n.defaultModelPagePromptLabel,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: AppFontWeights.semibold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: controller,
-                  maxLines: 8,
-                  decoration: InputDecoration(
-                    hintText: l10n.defaultModelPageTitlePromptHint,
-                    filled: true,
-                    fillColor: Theme.of(ctx).brightness == Brightness.dark
-                        ? Colors.white10
-                        : const Color(0xFFF2F3F5),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: cs.outlineVariant.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: cs.outlineVariant.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: cs.primary.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextButton(
-                      onPressed: () async {
-                        await settings.resetTitlePrompt();
-                        controller.text = settings.titlePrompt;
-                      },
-                      child: Text(l10n.defaultModelPageResetDefault),
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: cs.onSurface.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
                     ),
-                    const Spacer(),
-                    FilledButton(
-                      onPressed: () async {
-                        await settings.setTitlePrompt(controller.text.trim());
-                        if (ctx.mounted) Navigator.of(ctx).pop();
-                      },
-                      child: Text(l10n.defaultModelPageSave),
+                    const SizedBox(height: 14),
+                    _TitleThinkingSwitchRow(
+                      settings: settings,
+                      l10n: l10n,
+                      cs: cs,
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      l10n.defaultModelPagePromptLabel,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: AppFontWeights.semibold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: controller,
+                      maxLines: 6,
+                      decoration: InputDecoration(
+                        hintText: l10n.defaultModelPageTitlePromptHint,
+                        filled: true,
+                        fillColor: Theme.of(ctx).brightness == Brightness.dark
+                            ? Colors.white10
+                            : const Color(0xFFF2F3F5),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: cs.outlineVariant.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: cs.outlineVariant.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: cs.primary.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      l10n.defaultModelPageTitleVars('{content}', '{locale}'),
+                      style: TextStyle(
+                        color: cs.onSurface.withValues(alpha: 0.6),
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: () async {
+                            await settings.resetTitlePrompt();
+                            await settings
+                                .resetTitleGenerationThinkingEnabled();
+                            controller.text = settings.titlePrompt;
+                          },
+                          child: Text(l10n.defaultModelPageResetDefault),
+                        ),
+                        const Spacer(),
+                        FilledButton(
+                          onPressed: () async {
+                            await settings.setTitlePrompt(
+                              controller.text.trim(),
+                            );
+                            if (ctx.mounted) Navigator.of(ctx).pop();
+                          },
+                          child: Text(l10n.defaultModelPageSave),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  l10n.defaultModelPageTitleVars('{content}', '{locale}'),
-                  style: TextStyle(
-                    color: cs.onSurface.withValues(alpha: 0.6),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -998,6 +1044,54 @@ class _BrandAvatar extends StatelessWidget {
       ),
       alignment: Alignment.center,
       child: inner,
+    );
+  }
+}
+
+class _TitleThinkingSwitchRow extends StatelessWidget {
+  const _TitleThinkingSwitchRow({
+    required this.settings,
+    required this.l10n,
+    required this.cs,
+  });
+
+  final SettingsProvider settings;
+  final AppLocalizations l10n;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = settings.titleGenerationThinkingEnabled;
+    return _TactileRow(
+      onTap: () => settings.setTitleGenerationThinkingEnabled(!value),
+      builder: (_) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.titleModelThinkingTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: AppFontWeights.medium,
+                    color: cs.onSurface.withValues(alpha: 0.92),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              IosSwitch(
+                value: value,
+                semanticLabel: l10n.titleModelThinkingTitle,
+                onChanged: settings.setTitleGenerationThinkingEnabled,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

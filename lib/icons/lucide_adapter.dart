@@ -95,6 +95,8 @@ class Lucide {
   static const IconData Eraser = lucide.LucideIcons.eraser;
   static const IconData ChevronLeft = lucide.LucideIcons.chevronLeft;
   static const IconData MessageSquare = lucide.LucideIcons.messageSquare;
+  static const IconData RectangleHorizontal =
+      lucide.LucideIcons.rectangleHorizontal;
   static const IconData CircleStop = lucide.LucideIcons.circleStop;
   static const IconData CircleX = lucide.LucideIcons.circleX;
   static const IconData Link2 = lucide.LucideIcons.link2;
@@ -103,6 +105,7 @@ class Lucide {
   static const IconData ArrowDown = lucide.LucideIcons.arrowDown;
   static const IconData Edit2 = lucide.LucideIcons.squarePen;
   static const IconData BookOpen = lucide.LucideIcons.bookOpen;
+  static const IconData Calculator = lucide.LucideIcons.calculator;
   static const IconData Activity = lucide.LucideIcons.activity;
   static const IconData Export = lucide.LucideIcons.folderUp;
   static const IconData Import2 = lucide.LucideIcons.folderDown;

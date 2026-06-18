@@ -778,6 +778,7 @@
   "reasoningBudgetSheetMedium": "Medium Reasoning",
   "reasoningBudgetSheetHeavy": "Heavy Reasoning",
   "reasoningBudgetSheetXhigh": "Extreme Reasoning",
+  "reasoningBudgetSheetMax": "Maximum Reasoning",
   "reasoningBudgetSheetTitle": "Reasoning Chain Strength",
   "reasoningBudgetSheetCurrentLevel": "Current Level: {level}",
   "@reasoningBudgetSheetCurrentLevel": {
@@ -1065,6 +1066,14 @@
   "sideDrawerEnterLink": "Enter Link",
   "sideDrawerImportFromQQ": "Import from QQ",
   "sideDrawerReset": "Reset",
+  "providerAvatarChooseBuiltInIcon": "Choose Built-in Icon",
+  "providerAvatarIconDialogTitle": "Choose Built-in Icon",
+  "providerAvatarIconSearchHint": "Search icons",
+  "providerAvatarIconNoResults": "No icons found",
+  "providerAvatarInputLobehubIcon": "Enter LobeHub Icon",
+  "providerAvatarChooseLobehubIcon": "Enter LobeHub Icon",
+  "providerAvatarLobehubDialogTitle": "Enter LobeHub Icon",
+  "providerAvatarLobehubDialogHint": "Enter a LobeHub icon name, e.g. openai",
   "sideDrawerEmojiDialogTitle": "Choose Emoji",
   "sideDrawerEmojiDialogHint": "Type or paste any emoji",
   "sideDrawerImageUrlDialogTitle": "Enter Image URL",
@@ -1166,6 +1175,7 @@
   "defaultModelPageChatModelSubtitle": "Global default chat model",
   "defaultModelPageTitleModelTitle": "Title Summary Model",
   "defaultModelPageTitleModelSubtitle": "Used for summarizing conversation titles; prefer fast & cheap models",
+  "titleModelThinkingTitle": "Enable Thinking",
   "defaultModelPageSummaryModelTitle": "Summary Model",
   "defaultModelPageSummaryModelSubtitle": "Used for generating conversation summaries; prefer fast and cheap models",
   "defaultModelPageSuggestionModelTitle": "Chat Suggestions Model",
@@ -1596,6 +1606,8 @@
   "aboutPageGithub": "GitHub",
   "aboutPageLicense": "License",
   "aboutPageJoinQQGroup": "Join our QQ Group",
+  "aboutPageQQGroupOne": "Kelivo Group 1",
+  "aboutPageQQGroupTwo": "Kelivo Group 2",
   "aboutPageJoinDiscord": "Join us on Discord",
   "displaySettingsPageShowUserAvatarTitle": "Show User Avatar",
   "displaySettingsPageShowUserAvatarSubtitle": "Display user avatar in chat messages",
@@ -1677,6 +1689,7 @@
   "displaySettingsPageAutoScrollDisabledLabel": "Off",
   "displaySettingsPageChatFontSampleText": "This is a sample chat text",
   "displaySettingsPageChatBackgroundMaskTitle": "Chat Background Overlay Opacity",
+  "displaySettingsPageChatInputBackgroundOpacityTitle": "Input Box Background Opacity",
   "displaySettingsPageThemeSettingsTitle": "Theme Settings",
   "displaySettingsPageThemeColorTitle": "Theme Color",
   "desktopSettingsFontsTitle": "Fonts",
@@ -1949,6 +1962,8 @@
   "assistantEditLocalToolTextToSpeechSubtitle": "Let the assistant read text aloud with the configured TTS playback.",
   "assistantEditLocalToolAskUserTitle": "Ask User",
   "assistantEditLocalToolAskUserSubtitle": "Let the assistant ask short questions and continue after you answer.",
+  "assistantEditLocalToolCalculateTitle": "Calculator",
+  "assistantEditLocalToolCalculateSubtitle": "Evaluate mathematical expressions, supports + - * / power sqrt sin cos etc.",
   "assistantEditMemorySwitchTitle": "Memory",
   "assistantEditMemorySwitchDescription": "Allow the assistant to create and use memories across chats.",
   "assistantEditRecentChatsSwitchTitle": "Recent Chats Reference",
@@ -2051,6 +2066,16 @@
   "providerDetailPageDeleteSelectedModelsTooltip": "Delete selected models",
   "providerDetailPageDeleteSelectedModelsConfirm": "Delete {count} selected model(s)? This cannot be undone.",
   "@providerDetailPageDeleteSelectedModelsConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "providerDetailPageDeleteFailedDetectedModelsButton": "Delete unavailable",
+  "providerDetailPageDeleteFailedDetectedModelsTooltip": "Delete models that failed detection",
+  "providerDetailPageDeleteFailedDetectedModelsConfirm": "Delete {count} model(s) that failed detection? This cannot be undone.",
+  "@providerDetailPageDeleteFailedDetectedModelsConfirm": {
     "placeholders": {
       "count": {
         "type": "int"

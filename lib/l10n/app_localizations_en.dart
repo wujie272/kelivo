@@ -1973,6 +1973,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reasoningBudgetSheetXhigh => 'Extreme Reasoning';
 
   @override
+  String get reasoningBudgetSheetMax => 'Maximum Reasoning';
+
+  @override
   String get reasoningBudgetSheetTitle => 'Reasoning Chain Strength';
 
   @override
@@ -2457,6 +2460,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sideDrawerReset => 'Reset';
 
   @override
+  String get providerAvatarChooseBuiltInIcon => 'Choose Built-in Icon';
+
+  @override
+  String get providerAvatarIconDialogTitle => 'Choose Built-in Icon';
+
+  @override
+  String get providerAvatarIconSearchHint => 'Search icons';
+
+  @override
+  String get providerAvatarIconNoResults => 'No icons found';
+
+  @override
+  String get providerAvatarInputLobehubIcon => 'Enter LobeHub Icon';
+
+  @override
+  String get providerAvatarChooseLobehubIcon => 'Enter LobeHub Icon';
+
+  @override
+  String get providerAvatarLobehubDialogTitle => 'Enter LobeHub Icon';
+
+  @override
+  String get providerAvatarLobehubDialogHint =>
+      'Enter a LobeHub icon name, e.g. openai';
+
+  @override
   String get sideDrawerEmojiDialogTitle => 'Choose Emoji';
 
   @override
@@ -2709,6 +2737,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get defaultModelPageTitleModelSubtitle =>
       'Used for summarizing conversation titles; prefer fast & cheap models';
+
+  @override
+  String get titleModelThinkingTitle => 'Enable Thinking';
 
   @override
   String get defaultModelPageSummaryModelTitle => 'Summary Model';
@@ -3759,6 +3790,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutPageJoinQQGroup => 'Join our QQ Group';
 
   @override
+  String get aboutPageQQGroupOne => 'Kelivo Group 1';
+
+  @override
+  String get aboutPageQQGroupTwo => 'Kelivo Group 2';
+
+  @override
   String get aboutPageJoinDiscord => 'Join us on Discord';
 
   @override
@@ -4027,6 +4064,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get displaySettingsPageChatBackgroundMaskTitle =>
       'Chat Background Overlay Opacity';
+
+  @override
+  String get displaySettingsPageChatInputBackgroundOpacityTitle =>
+      'Input Box Background Opacity';
 
   @override
   String get displaySettingsPageThemeSettingsTitle => 'Theme Settings';
@@ -4735,6 +4776,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Let the assistant ask short questions and continue after you answer.';
 
   @override
+  String get assistantEditLocalToolCalculateTitle => 'Calculator';
+
+  @override
+  String get assistantEditLocalToolCalculateSubtitle =>
+      'Evaluate mathematical expressions, supports + - * / power sqrt sin cos etc.';
+
+  @override
   String get assistantEditMemorySwitchTitle => 'Memory';
 
   @override
@@ -4990,6 +5038,19 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String providerDetailPageDeleteSelectedModelsConfirm(int count) {
     return 'Delete $count selected model(s)? This cannot be undone.';
+  }
+
+  @override
+  String get providerDetailPageDeleteFailedDetectedModelsButton =>
+      'Delete unavailable';
+
+  @override
+  String get providerDetailPageDeleteFailedDetectedModelsTooltip =>
+      'Delete models that failed detection';
+
+  @override
+  String providerDetailPageDeleteFailedDetectedModelsConfirm(int count) {
+    return 'Delete $count model(s) that failed detection? This cannot be undone.';
   }
 
   @override

@@ -3797,6 +3797,12 @@ abstract class AppLocalizations {
   /// **'Extreme Reasoning'**
   String get reasoningBudgetSheetXhigh;
 
+  /// No description provided for @reasoningBudgetSheetMax.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum Reasoning'**
+  String get reasoningBudgetSheetMax;
+
   /// No description provided for @reasoningBudgetSheetTitle.
   ///
   /// In en, this message translates to:
@@ -4619,6 +4625,54 @@ abstract class AppLocalizations {
   /// **'Reset'**
   String get sideDrawerReset;
 
+  /// No description provided for @providerAvatarChooseBuiltInIcon.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Built-in Icon'**
+  String get providerAvatarChooseBuiltInIcon;
+
+  /// No description provided for @providerAvatarIconDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Built-in Icon'**
+  String get providerAvatarIconDialogTitle;
+
+  /// No description provided for @providerAvatarIconSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search icons'**
+  String get providerAvatarIconSearchHint;
+
+  /// No description provided for @providerAvatarIconNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No icons found'**
+  String get providerAvatarIconNoResults;
+
+  /// No description provided for @providerAvatarInputLobehubIcon.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter LobeHub Icon'**
+  String get providerAvatarInputLobehubIcon;
+
+  /// No description provided for @providerAvatarChooseLobehubIcon.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter LobeHub Icon'**
+  String get providerAvatarChooseLobehubIcon;
+
+  /// No description provided for @providerAvatarLobehubDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter LobeHub Icon'**
+  String get providerAvatarLobehubDialogTitle;
+
+  /// No description provided for @providerAvatarLobehubDialogHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a LobeHub icon name, e.g. openai'**
+  String get providerAvatarLobehubDialogHint;
+
   /// No description provided for @sideDrawerEmojiDialogTitle.
   ///
   /// In en, this message translates to:
@@ -5104,6 +5158,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Used for summarizing conversation titles; prefer fast & cheap models'**
   String get defaultModelPageTitleModelSubtitle;
+
+  /// No description provided for @titleModelThinkingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Thinking'**
+  String get titleModelThinkingTitle;
 
   /// No description provided for @defaultModelPageSummaryModelTitle.
   ///
@@ -7028,6 +7088,18 @@ abstract class AppLocalizations {
   /// **'Join our QQ Group'**
   String get aboutPageJoinQQGroup;
 
+  /// No description provided for @aboutPageQQGroupOne.
+  ///
+  /// In en, this message translates to:
+  /// **'Kelivo Group 1'**
+  String get aboutPageQQGroupOne;
+
+  /// No description provided for @aboutPageQQGroupTwo.
+  ///
+  /// In en, this message translates to:
+  /// **'Kelivo Group 2'**
+  String get aboutPageQQGroupTwo;
+
   /// No description provided for @aboutPageJoinDiscord.
   ///
   /// In en, this message translates to:
@@ -7471,6 +7543,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Chat Background Overlay Opacity'**
   String get displaySettingsPageChatBackgroundMaskTitle;
+
+  /// No description provided for @displaySettingsPageChatInputBackgroundOpacityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Input Box Background Opacity'**
+  String get displaySettingsPageChatInputBackgroundOpacityTitle;
 
   /// No description provided for @displaySettingsPageThemeSettingsTitle.
   ///
@@ -8774,6 +8852,18 @@ abstract class AppLocalizations {
   /// **'Let the assistant ask short questions and continue after you answer.'**
   String get assistantEditLocalToolAskUserSubtitle;
 
+  /// No description provided for @assistantEditLocalToolCalculateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Calculator'**
+  String get assistantEditLocalToolCalculateTitle;
+
+  /// No description provided for @assistantEditLocalToolCalculateSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Evaluate mathematical expressions, supports + - * / power sqrt sin cos etc.'**
+  String get assistantEditLocalToolCalculateSubtitle;
+
   /// No description provided for @assistantEditMemorySwitchTitle.
   ///
   /// In en, this message translates to:
@@ -9253,6 +9343,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete {count} selected model(s)? This cannot be undone.'**
   String providerDetailPageDeleteSelectedModelsConfirm(int count);
+
+  /// No description provided for @providerDetailPageDeleteFailedDetectedModelsButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete unavailable'**
+  String get providerDetailPageDeleteFailedDetectedModelsButton;
+
+  /// No description provided for @providerDetailPageDeleteFailedDetectedModelsTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete models that failed detection'**
+  String get providerDetailPageDeleteFailedDetectedModelsTooltip;
+
+  /// No description provided for @providerDetailPageDeleteFailedDetectedModelsConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {count} model(s) that failed detection? This cannot be undone.'**
+  String providerDetailPageDeleteFailedDetectedModelsConfirm(int count);
 
   /// No description provided for @providerDetailPageSelectedModelsDeletedSnackbar.
   ///

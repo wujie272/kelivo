@@ -753,12 +753,11 @@ class ChatApiService {
           ModelAbility.reasoning,
         );
         final effort = _openAIEffortForBudget(thinkingBudget, upstreamModelId);
-        final host = Uri.tryParse(config.baseUrl)?.host.toLowerCase() ?? '';
-        final modelLower = upstreamModelId.toLowerCase();
-        final bool isMimo =
-            host.contains('xiaomimimo') ||
-            modelLower.startsWith('mimo-') ||
-            modelLower.contains('/mimo-');
+        final info = _OpenAIProviderInfo(
+          host: Uri.tryParse(config.baseUrl)?.host.toLowerCase() ?? '',
+          providerId: config.id.toLowerCase(),
+          upstreamModelId: upstreamModelId,
+        );
         if (config.useResponseApi == true) {
           // Inject built-in web_search tool when enabled and supported
           final toolsList = <Map<String, dynamic>>[];
@@ -875,18 +874,13 @@ class ChatApiService {
         }
         // Vendor-specific reasoning knobs for chat-completions compatible hosts (non-streaming)
         if (config.useResponseApi != true) {
-          final off = _isOff(thinkingBudget);
-          if (host.contains('open.bigmodel.cn') ||
-              host.contains('bigmodel') ||
-              isMimo) {
-            // Zhipu BigModel / Xiaomi MiMo: thinking: { type: enabled|disabled }
-            if (isReasoning) {
-              body['thinking'] = {'type': off ? 'disabled' : 'enabled'};
-            } else {
-              body.remove('thinking');
-            }
-            body.remove('reasoning_effort');
-          } else if (_isKimiThinkingModel(upstreamModelId)) {
+          _applyVendorReasoningKnobs(
+            body,
+            info: info,
+            isReasoning: isReasoning,
+            thinkingBudget: thinkingBudget,
+          );
+          if (info.isKimiThinkingModel) {
             _normalizeMoonshotKimiChatBody(
               body,
               upstreamModelId: upstreamModelId,
@@ -908,12 +902,6 @@ class ChatApiService {
           body,
           upstreamModelId,
           fallbackEffort: effort,
-        );
-        _normalizeMoonshotKimiChatBody(
-          body,
-          upstreamModelId: upstreamModelId,
-          isReasoning: isReasoning,
-          thinkingBudget: thinkingBudget,
         );
         final resp = await client.post(
           url,
@@ -1209,8 +1197,9 @@ class ChatApiService {
   static bool _supportsClaudeAdaptiveThinking(String modelId) {
     final lower = modelId.trim().toLowerCase();
     if (!lower.contains('claude-')) return false;
+    if (lower.contains('fable') || lower.contains('mythos')) return true;
     final m = RegExp(
-      r'claude-(opus|sonnet)-(\d+)-(\d+)',
+      r'claude-(opus|sonnet)-(\d+)[-.](\d+)',
       caseSensitive: false,
     ).firstMatch(lower);
     if (m != null) {
@@ -1226,12 +1215,17 @@ class ChatApiService {
   static bool _isClaudeAdaptiveOnlyThinkingModel(String modelId) {
     final lower = modelId.trim().toLowerCase();
     if (!lower.contains('claude-')) return false;
-    if (lower.contains('mythos')) return true;
+    if (lower.contains('fable') || lower.contains('mythos')) return true;
     final m = RegExp(
-      r'claude-(opus|sonnet)-(\d+)-(\d+)',
+      r'claude-(opus|sonnet)-(\d+)[-.](\d+)',
       caseSensitive: false,
     ).firstMatch(lower);
-    if (m == null) return lower.contains('4-7') || lower.contains('4.7');
+    if (m == null) {
+      return lower.contains('4-7') ||
+          lower.contains('4.7') ||
+          lower.contains('4-8') ||
+          lower.contains('4.8');
+    }
     final family = (m.group(1) ?? '').toLowerCase();
     final major = int.tryParse(m.group(2) ?? '');
     final minor = int.tryParse(m.group(3) ?? '');
@@ -1240,6 +1234,11 @@ class ChatApiService {
     if (major < 4) return false;
     if (family == 'opus' && minor >= 7) return true;
     return false;
+  }
+
+  static bool _isClaudeThinkingAlwaysOnModel(String modelId) {
+    final lower = modelId.trim().toLowerCase();
+    return lower.contains('claude-fable') || lower.contains('claude-mythos');
   }
 
   static String _claudeEffortForBudget(int? budget) {
@@ -1260,11 +1259,19 @@ class ChatApiService {
     }
 
     final lower = modelId.trim().toLowerCase();
-    final supportsXhigh = lower.startsWith('claude-opus-4-7');
+    final supportsXhigh =
+        lower.contains('claude-opus-4-7') ||
+        lower.contains('claude-opus-4.7') ||
+        lower.contains('claude-opus-4-8') ||
+        lower.contains('claude-opus-4.8') ||
+        lower.contains('claude-fable') ||
+        lower.contains('claude-mythos');
     final supportsMax =
         supportsXhigh ||
-        lower.startsWith('claude-opus-4-6') ||
-        lower.startsWith('claude-sonnet-4-6') ||
+        lower.contains('claude-opus-4-6') ||
+        lower.contains('claude-opus-4.6') ||
+        lower.contains('claude-sonnet-4-6') ||
+        lower.contains('claude-sonnet-4.6') ||
         lower.contains('mythos');
 
     switch (normalizedEffort) {
@@ -1289,6 +1296,10 @@ class ChatApiService {
     int? budget, {
     ProviderConfig? config,
   }) {
+    if (_isClaudeThinkingAlwaysOnModel(modelId)) {
+      if (!_isClaudeReasoningEnabled(budget)) return null;
+      return <String, dynamic>{'type': 'adaptive', 'display': 'summarized'};
+    }
     if (!_isClaudeReasoningEnabled(budget)) {
       return <String, dynamic>{'type': 'disabled'};
     }
@@ -1309,6 +1320,14 @@ class ChatApiService {
     int? budget, {
     ProviderConfig? config,
   }) {
+    if (_isClaudeThinkingAlwaysOnModel(modelId)) {
+      final effort = _normalizeClaudeEffort(
+        _claudeEffortForBudget(budget),
+        modelId,
+      );
+      if (effort == 'auto' || effort == 'off') return null;
+      return <String, dynamic>{'effort': effort};
+    }
     if (_isDeepSeekClaudeCompatible(modelId, config: config)) {
       if (!_isClaudeReasoningEnabled(budget)) return null;
       final effort = _claudeEffortForBudget(budget);
@@ -1330,6 +1349,7 @@ class ChatApiService {
   }
 
   static bool _claudeShouldOmitSamplingParams(String modelId, int? budget) {
+    if (_isClaudeThinkingAlwaysOnModel(modelId)) return true;
     return _isClaudeAdaptiveOnlyThinkingModel(modelId) &&
         _isClaudeReasoningEnabled(budget);
   }

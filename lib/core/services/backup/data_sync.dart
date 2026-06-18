@@ -164,7 +164,8 @@ class DataSync {
       final uploadDirPath = (await _getUploadDir()).path;
       final avatarsDirPath = (await _getAvatarsDir()).path;
       final imagesDirPath = (await _getImagesDir()).path;
-      final skillsDirPath = (await AppDirectories.getSkillsDirectory()).path;
+final skillsDirPath = (await AppDirectories.getSkillsDirectory()).path;
+final fontsDirPath = (await _getFontsDir()).path;
       final settingsPath = settingsTmp.path;
       final chatsPath = chatsTmp?.path;
       final includeFiles = cfg.includeFiles;
@@ -179,7 +180,8 @@ class DataSync {
           uploadDirPath: uploadDirPath,
           avatarsDirPath: avatarsDirPath,
           imagesDirPath: imagesDirPath,
-          skillsDirPath: skillsDirPath,
+skillsDirPath: skillsDirPath,
+fontsDirPath: fontsDirPath,
         );
       });
 
@@ -250,7 +252,8 @@ class DataSync {
     required String uploadDirPath,
     required String avatarsDirPath,
     required String imagesDirPath,
-    required String skillsDirPath,
+required String skillsDirPath,
+required String fontsDirPath,
   }) {
     final writer = _StreamingZipWriter(outPath);
     try {
@@ -267,7 +270,8 @@ class DataSync {
         _addDirectoryToZip(writer, uploadDirPath, 'upload');
         _addDirectoryToZip(writer, avatarsDirPath, 'avatars');
         _addDirectoryToZip(writer, imagesDirPath, 'images');
-        _addDirectoryToZip(writer, skillsDirPath, 'skills');
+_addDirectoryToZip(writer, skillsDirPath, 'skills');
+_addDirectoryToZip(writer, fontsDirPath, 'fonts');
       }
 
       writer.closeSync();
@@ -589,6 +593,10 @@ class DataSync {
 
   Future<Directory> _getAvatarsDir() async {
     return await AppDirectories.getAvatarsDirectory();
+  }
+
+  Future<Directory> _getFontsDir() async {
+    return await AppDirectories.getFontsDirectory();
   }
 
   Future<String> _exportSettingsJson() async {
@@ -1193,22 +1201,35 @@ class DataSync {
             }
           }
 
-          // Restore skills directory
+// Restore skills directory
           final skillsSrc = Directory(p.join(extractDir.path, 'skills'));
           if (await skillsSrc.exists()) {
             final dst = (await AppDirectories.getSkillsDirectory());
+// Restore managed local fonts directory
+          final fontsSrc = Directory(p.join(extractDir.path, 'fonts'));
+          if (await fontsSrc.exists()) {
+            final dst = await _getFontsDir();
             if (await dst.exists()) {
               try {
                 await dst.delete(recursive: true);
               } catch (_) {}
             }
             await dst.create(recursive: true);
-            for (final ent in skillsSrc.listSync(recursive: true)) {
+for (final ent in skillsSrc.listSync(recursive: true)) {
               if (ent is File) {
                 final rel = p.relative(ent.path, from: skillsSrc.path);
                 final target = File(p.join(dst.path, rel));
                 await target.parent.create(recursive: true);
                 await ent.copy(target.path);
+for (final ent in fontsSrc.listSync(recursive: true)) {
+              if (ent is File) {
+                final rel = p.relative(ent.path, from: fontsSrc.path);
+                final target = File(p.join(dst.path, rel));
+                await target.parent.create(recursive: true);
+                await ent.copy(target.path);
+                try {
+                  await target.setLastModified(await ent.lastModified());
+                } catch (_) {}
               }
             }
           }
@@ -1280,7 +1301,7 @@ class DataSync {
             }
           }
 
-          // Merge skills directory
+// Merge skills directory
           final skillsSrc = Directory(p.join(extractDir.path, 'skills'));
           if (await skillsSrc.exists()) {
             final dst = (await AppDirectories.getSkillsDirectory());
@@ -1290,10 +1311,23 @@ class DataSync {
             for (final ent in skillsSrc.listSync(recursive: true)) {
               if (ent is File) {
                 final rel = p.relative(ent.path, from: skillsSrc.path);
+// Merge managed local fonts directory
+          final fontsSrc = Directory(p.join(extractDir.path, 'fonts'));
+          if (await fontsSrc.exists()) {
+            final dst = await _getFontsDir();
+            if (!await dst.exists()) {
+              await dst.create(recursive: true);
+            }
+            for (final ent in fontsSrc.listSync(recursive: true)) {
+              if (ent is File) {
+                final rel = p.relative(ent.path, from: fontsSrc.path);
                 final target = File(p.join(dst.path, rel));
                 if (!await target.exists()) {
                   await target.parent.create(recursive: true);
                   await ent.copy(target.path);
+                  try {
+                    await target.setLastModified(await ent.lastModified());
+                  } catch (_) {}
                 }
               }
             }

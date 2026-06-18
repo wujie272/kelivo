@@ -200,6 +200,8 @@ _ModelProcessingResult _processModelsInBackground(_ModelProcessingData data) {
 Future<ModelSelection?> showModelSelector(
   BuildContext context, {
   String? limitProviderKey,
+  String? initialProviderKey,
+  String? initialModelId,
 }) async {
   if (_modelSelectorOpen) return null;
   _modelSelectorOpen = true;
@@ -212,6 +214,8 @@ Future<ModelSelection?> showModelSelector(
       return await _showDesktopModelSelector(
         context,
         limitProviderKey: limitProviderKey,
+        initialProviderKey: initialProviderKey,
+        initialModelId: initialModelId,
       );
     }
     final cs = Theme.of(context).colorScheme;
@@ -222,7 +226,11 @@ Future<ModelSelection?> showModelSelector(
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => _ModelSelectSheet(limitProviderKey: limitProviderKey),
+      builder: (ctx) => _ModelSelectSheet(
+        limitProviderKey: limitProviderKey,
+        initialProviderKey: initialProviderKey,
+        initialModelId: initialModelId,
+      ),
     );
   } finally {
     _modelSelectorOpen = false;
@@ -256,8 +264,14 @@ Future<void> showModelSelectSheet(
 }
 
 class _ModelSelectSheet extends StatefulWidget {
-  const _ModelSelectSheet({this.limitProviderKey});
+  const _ModelSelectSheet({
+    this.limitProviderKey,
+    this.initialProviderKey,
+    this.initialModelId,
+  });
   final String? limitProviderKey;
+  final String? initialProviderKey;
+  final String? initialModelId;
   @override
   State<_ModelSelectSheet> createState() => _ModelSelectSheetState();
 }
@@ -273,7 +287,10 @@ class _ModelSelectSheetState extends State<_ModelSelectSheet> {
   final Map<String, GlobalKey> _providerTabKeys = <String, GlobalKey>{};
   static const double _initialSize = 0.8;
   static const double _maxSize = 0.8;
-  static const double _stickyProviderHeaderHeight = 38;
+  static const double _stickyProviderHeaderHeight = 30;
+  static const double _estimatedHeaderExtent = 39;
+  static const double _estimatedModelExtent = 79;
+  static const double _listBottomPadding = 12;
   // static const double _currentSelectionScrollMargin = 10;
   String _lastQuery = '';
   String? _activeProviderKey;
@@ -345,6 +362,23 @@ class _ModelSelectSheetState extends State<_ModelSelectSheet> {
     return out;
   }
 
+  String _currentModelKey(
+    SettingsProvider settings,
+    AssistantProvider assistantProvider,
+  ) {
+    final hasInitial =
+        widget.initialProviderKey != null && widget.initialModelId != null;
+    final provider = hasInitial
+        ? widget.initialProviderKey
+        : assistantProvider.currentAssistant?.chatModelProvider ??
+              settings.currentModelProvider;
+    final modelId = hasInitial
+        ? widget.initialModelId
+        : assistantProvider.currentAssistant?.chatModelId ??
+              settings.currentModelId;
+    return (provider != null && modelId != null) ? '$provider::$modelId' : '';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -362,16 +396,10 @@ class _ModelSelectSheetState extends State<_ModelSelectSheet> {
   Future<void> _loadModelsAsync() async {
     try {
       final settings = context.read<SettingsProvider>();
-      final assistant = context.read<AssistantProvider>().currentAssistant;
+      final assistantProvider = context.read<AssistantProvider>();
       final providerConfigs = _buildProviderConfigsPayload(settings);
 
-      // Determine current model - use assistant's model if set, otherwise global default
-      final currentProvider =
-          assistant?.chatModelProvider ?? settings.currentModelProvider;
-      final currentModelId = assistant?.chatModelId ?? settings.currentModelId;
-      final currentKey = (currentProvider != null && currentModelId != null)
-          ? '$currentProvider::$currentModelId'
-          : '';
+      final currentKey = _currentModelKey(settings, assistantProvider);
 
       // Prepare data for background processing
       final processingData = _ModelProcessingData(
@@ -427,16 +455,10 @@ class _ModelSelectSheetState extends State<_ModelSelectSheet> {
 
   void _loadModelsSynchronously() {
     final settings = context.read<SettingsProvider>();
-    final assistant = context.read<AssistantProvider>().currentAssistant;
+    final assistantProvider = context.read<AssistantProvider>();
     final providerConfigs = _buildProviderConfigsPayload(settings);
 
-    // Determine current model - use assistant's model if set, otherwise global default
-    final currentProvider =
-        assistant?.chatModelProvider ?? settings.currentModelProvider;
-    final currentModelId = assistant?.chatModelId ?? settings.currentModelId;
-    final currentKey = (currentProvider != null && currentModelId != null)
-        ? '$currentProvider::$currentModelId'
-        : '';
+    final currentKey = _currentModelKey(settings, assistantProvider);
 
     final processingData = _ModelProcessingData(
       providerConfigs: providerConfigs,
@@ -479,25 +501,11 @@ class _ModelSelectSheetState extends State<_ModelSelectSheet> {
       return;
     }
 
-    final settings = context.read<SettingsProvider>();
-    final assistant = context.read<AssistantProvider>().currentAssistant;
-
-    // Use assistant's model if set, otherwise fall back to global default
-    final pk = assistant?.chatModelProvider ?? settings.currentModelProvider;
-    final mid = assistant?.chatModelId ?? settings.currentModelId;
-    if (pk == null || mid == null) return;
-
     // Optionally expand a bit for better context
     await _expandSheetIfNeeded(
       _initialSize.clamp(0.0, _maxSize),
       duration: const Duration(milliseconds: 200),
     );
-
-    // If current model is pinned and favorites section is visible, jump there first
-    final currentKey = '$pk::$mid';
-    final bool showFavorites =
-        widget.limitProviderKey == null && (_search.text.isEmpty);
-    final bool isPinned = settings.pinnedModels.contains(currentKey);
 
     // Ensure the list is attached before attempting to scroll
     if (!_itemScrollController.isAttached) {
@@ -510,15 +518,10 @@ class _ModelSelectSheetState extends State<_ModelSelectSheet> {
       return;
     }
 
-    int? targetIndex;
-    if (showFavorites && isPinned) {
-      targetIndex = _favModelIndexMap[currentKey];
-    }
-    targetIndex ??= _modelIndexMap[currentKey];
-    targetIndex ??= _headerIndexMap[pk];
+    final targetIndex = _currentSelectionTargetIndex();
 
     if (targetIndex != null) {
-      final alignment = _currentSelectionScrollAlignment();
+      final alignment = _currentSelectionScrollAlignment(targetIndex);
       try {
         await _itemScrollController.scrollTo(
           index: targetIndex,
@@ -533,7 +536,7 @@ class _ModelSelectSheetState extends State<_ModelSelectSheet> {
           if (!mounted || _autoScrolled) return;
           try {
             await _itemScrollController.scrollTo(
-              index: targetIndex!,
+              index: targetIndex,
               alignment: alignment,
               duration: const Duration(milliseconds: 360),
               curve: Curves.easeOutCubic,
@@ -545,13 +548,56 @@ class _ModelSelectSheetState extends State<_ModelSelectSheet> {
     }
   }
 
-  double _currentSelectionScrollAlignment() {
-    if (widget.limitProviderKey != null || _listViewportHeight <= 0) {
+  int? _currentSelectionTargetIndex() {
+    if (_search.text.trim().isNotEmpty) return null;
+
+    final settings = context.read<SettingsProvider>();
+
+    final currentKey = _currentModelKey(
+      settings,
+      context.read<AssistantProvider>(),
+    );
+    if (currentKey.isEmpty) return null;
+
+    if (widget.limitProviderKey == null &&
+        settings.pinnedModels.contains(currentKey)) {
+      final favIndex = _favModelIndexMap[currentKey];
+      if (favIndex != null) return favIndex;
+    }
+
+    final separator = currentKey.indexOf('::');
+    final pk = separator == -1
+        ? currentKey
+        : currentKey.substring(0, separator);
+    return _modelIndexMap[currentKey] ?? _headerIndexMap[pk];
+  }
+
+  double _currentSelectionScrollAlignment(int targetIndex) {
+    if (_listViewportHeight <= 0) {
       return 0;
     }
-    return ((_stickyProviderHeaderHeight) /
-            _listViewportHeight)
-        .clamp(0.0, 0.3);
+    final topAlignment = widget.limitProviderKey == null
+        ? (_stickyProviderHeaderHeight / _listViewportHeight).clamp(0.0, 0.3)
+        : 0.0;
+    if (_rows.length <= 1) return topAlignment;
+
+    final remainingExtent = _estimatedRemainingExtentFrom(targetIndex);
+    final topAlignedRequiredExtent = _listViewportHeight * (1 - topAlignment);
+    if (remainingExtent >= topAlignedRequiredExtent) return topAlignment;
+
+    final tailAlignment = 1.0 - (remainingExtent / _listViewportHeight);
+    return tailAlignment.clamp(topAlignment, 0.72);
+  }
+
+  double _estimatedRemainingExtentFrom(int targetIndex) {
+    var extent = _listBottomPadding;
+    for (var i = targetIndex; i < _rows.length; i++) {
+      final row = _rows[i];
+      extent += row is _HeaderRow
+          ? _estimatedHeaderExtent
+          : _estimatedModelExtent;
+    }
+    return extent;
   }
 
   // Scroll to the first matching provider group when searching.
@@ -682,7 +728,11 @@ class _ModelSelectSheetState extends State<_ModelSelectSheet> {
       }
       _activeProviderKey = nextKey;
     });
-    if (nextKey != null) _scrollProviderTabIntoView(nextKey);
+    if (nextKey != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scrollProviderTabIntoView(nextKey);
+      });
+    }
   }
 
   void _scrollProviderTabIntoView(String providerKey) {
@@ -1019,7 +1069,18 @@ class _ModelSelectSheetState extends State<_ModelSelectSheet> {
                 return const SizedBox.shrink();
               },
             ),
-            _stickyProviderHeader(context),
+            if (widget.limitProviderKey == null)
+              Positioned(
+                top: -1,
+                left: 0,
+                right: 0,
+                child: ColoredBox(
+                  key: const ValueKey('model-selector-top-seam-cover'),
+                  color: Theme.of(context).colorScheme.surface,
+                  child: const SizedBox(height: 1),
+                ),
+              ),
+            if (_activeProviderKey != null) _stickyProviderHeader(context),
           ],
         );
       },
@@ -1076,14 +1137,14 @@ class _ModelSelectSheetState extends State<_ModelSelectSheet> {
 
     final cs = Theme.of(context).colorScheme;
     return Positioned(
-      top: 0,
+      top: -1,
       left: 0,
       right: 0,
       child: DecoratedBox(
         key: const ValueKey('model-selector-sticky-provider'),
         decoration: BoxDecoration(color: cs.surface),
         child: SizedBox(
-          height: _stickyProviderHeaderHeight,
+          height: _stickyProviderHeaderHeight + 1,
           child: ClipRect(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
@@ -1117,7 +1178,7 @@ class _ModelSelectSheetState extends State<_ModelSelectSheet> {
               },
               child: Padding(
                 key: ValueKey('sticky-provider-$providerKey'),
-                padding: const EdgeInsets.fromLTRB(16, 9, 16, 7),
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 5),
                 child: Row(
                   children: [
                     Expanded(
@@ -1586,14 +1647,19 @@ class _BrandAvatar extends StatelessWidget {
 Future<ModelSelection?> _showDesktopModelSelector(
   BuildContext context, {
   String? limitProviderKey,
+  String? initialProviderKey,
+  String? initialModelId,
 }) async {
   return showGeneralDialog<ModelSelection>(
     context: context,
     barrierDismissible: true,
     barrierLabel: 'model-select-desktop',
     barrierColor: Colors.black.withValues(alpha: 0.25),
-    pageBuilder: (ctx, _, __) =>
-        _DesktopModelSelectDialogBody(limitProviderKey: limitProviderKey),
+    pageBuilder: (ctx, _, __) => _DesktopModelSelectDialogBody(
+      limitProviderKey: limitProviderKey,
+      initialProviderKey: initialProviderKey,
+      initialModelId: initialModelId,
+    ),
     transitionBuilder: (ctx, anim, _, child) {
       final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
       return FadeTransition(
@@ -1608,8 +1674,14 @@ Future<ModelSelection?> _showDesktopModelSelector(
 }
 
 class _DesktopModelSelectDialogBody extends StatefulWidget {
-  const _DesktopModelSelectDialogBody({this.limitProviderKey});
+  const _DesktopModelSelectDialogBody({
+    this.limitProviderKey,
+    this.initialProviderKey,
+    this.initialModelId,
+  });
   final String? limitProviderKey;
+  final String? initialProviderKey;
+  final String? initialModelId;
   @override
   State<_DesktopModelSelectDialogBody> createState() =>
       _DesktopModelSelectDialogBodyState();
@@ -1694,16 +1766,28 @@ class _DesktopModelSelectDialogBodyState
     return out;
   }
 
+  String _currentModelKey(
+    SettingsProvider settings,
+    AssistantProvider assistantProvider,
+  ) {
+    final hasInitial =
+        widget.initialProviderKey != null && widget.initialModelId != null;
+    final provider = hasInitial
+        ? widget.initialProviderKey
+        : assistantProvider.currentAssistant?.chatModelProvider ??
+              settings.currentModelProvider;
+    final modelId = hasInitial
+        ? widget.initialModelId
+        : assistantProvider.currentAssistant?.chatModelId ??
+              settings.currentModelId;
+    return (provider != null && modelId != null) ? '$provider::$modelId' : '';
+  }
+
   Future<void> _loadModels() async {
     final settings = context.read<SettingsProvider>();
-    final assistant = context.read<AssistantProvider>().currentAssistant;
+    final assistantProvider = context.read<AssistantProvider>();
     final providerConfigs = _buildProviderConfigsPayload(settings);
-    final currentProvider =
-        assistant?.chatModelProvider ?? settings.currentModelProvider;
-    final currentModelId = assistant?.chatModelId ?? settings.currentModelId;
-    final currentKey = (currentProvider != null && currentModelId != null)
-        ? '$currentProvider::$currentModelId'
-        : '';
+    final currentKey = _currentModelKey(settings, assistantProvider);
 
     final data = _ModelProcessingData(
       providerConfigs: providerConfigs,
@@ -2016,15 +2100,15 @@ class _DesktopModelSelectDialogBodyState
     }
 
     final settings = context.read<SettingsProvider>();
-    final assistant = context.read<AssistantProvider>().currentAssistant;
-    final pk = assistant?.chatModelProvider ?? settings.currentModelProvider;
-    final mid = assistant?.chatModelId ?? settings.currentModelId;
-    if (pk == null || mid == null) return;
+    final currentKey = _currentModelKey(
+      settings,
+      context.read<AssistantProvider>(),
+    );
+    if (currentKey.isEmpty) return;
 
     // Rebuild to ensure index maps are current
     _rebuildRows();
 
-    final currentKey = '$pk::$mid';
     final bool showFavorites =
         widget.limitProviderKey == null && _searchCtrl.text.isEmpty;
     final bool isPinned = settings.pinnedModels.contains(currentKey);
@@ -2036,6 +2120,10 @@ class _DesktopModelSelectDialogBodyState
     targetIndex ??= _modelIndexMap[currentKey];
     // If provider headers are visible, fall back to its section header
     if (widget.limitProviderKey == null) {
+      final separator = currentKey.indexOf('::');
+      final pk = separator == -1
+          ? currentKey
+          : currentKey.substring(0, separator);
       targetIndex ??= _headerIndexMap[pk];
     }
 

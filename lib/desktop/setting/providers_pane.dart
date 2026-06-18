@@ -939,6 +939,7 @@ class _DesktopProviderDetailPaneState
   final Map<String, String> _detectionErrorMessages = {};
   String? _currentDetectingModel;
   final Set<String> _pendingModels = {};
+  int _providerScopedStateEpoch = 0;
 
   // Connection test state for inline dialog
   // Keep local to this file to avoid cross-file coupling
@@ -953,7 +954,13 @@ class _DesktopProviderDetailPaneState
   final TextEditingController _apiPathCtrl = TextEditingController();
   final TextEditingController _balanceApiPathCtrl = TextEditingController();
   final TextEditingController _balanceResultPathCtrl = TextEditingController();
-  final TextEditingController _balanceHeadersCtrl = TextEditingController();
+final TextEditingController _balanceHeadersCtrl = TextEditingController();
+final TextEditingController _providerSettingsNameCtrl =
+      TextEditingController();
+  final TextEditingController _proxyHostCtrl = TextEditingController();
+  final TextEditingController _proxyPortCtrl = TextEditingController();
+  final TextEditingController _proxyUserCtrl = TextEditingController();
+  final TextEditingController _proxyPassCtrl = TextEditingController();
   bool _balanceLoading = false;
 
   void _syncCtrl(TextEditingController c, String newText) {
@@ -999,6 +1006,40 @@ class _DesktopProviderDetailPaneState
     );
   }
 
+  void _syncProviderSettingsControllersFromConfig(ProviderConfig cfg) {
+    _syncCtrl(_providerSettingsNameCtrl, cfg.name);
+    _syncCtrl(_proxyHostCtrl, cfg.proxyHost ?? '');
+    _syncCtrl(_proxyPortCtrl, cfg.proxyPort ?? '8080');
+    _syncCtrl(_proxyUserCtrl, cfg.proxyUsername ?? '');
+    _syncCtrl(_proxyPassCtrl, cfg.proxyPassword ?? '');
+  }
+
+  void _clearProviderScopedState({bool cancelRunningDetection = false}) {
+    if (cancelRunningDetection) {
+      _providerScopedStateEpoch += 1;
+      _isDetecting = false;
+    }
+    _selectedModels.clear();
+    _detectionResults.clear();
+    _detectionErrorMessages.clear();
+    _pendingModels.clear();
+    _currentDetectingModel = null;
+    _isSelectionMode = false;
+  }
+
+  @override
+  void didUpdateWidget(covariant _DesktopProviderDetailPane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.providerKey == widget.providerKey) return;
+    _clearProviderScopedState(cancelRunningDetection: true);
+    final cfg = context.read<SettingsProvider>().getProviderConfig(
+      widget.providerKey,
+      defaultName: widget.displayName,
+    );
+    _syncControllersFromConfig(cfg);
+    _syncProviderSettingsControllersFromConfig(cfg);
+  }
+
   @override
   void dispose() {
     _filterCtrl.dispose();
@@ -1011,7 +1052,12 @@ class _DesktopProviderDetailPaneState
     _apiPathCtrl.dispose();
     _balanceApiPathCtrl.dispose();
     _balanceResultPathCtrl.dispose();
-    _balanceHeadersCtrl.dispose();
+_balanceHeadersCtrl.dispose();
+_providerSettingsNameCtrl.dispose();
+    _proxyHostCtrl.dispose();
+    _proxyPortCtrl.dispose();
+    _proxyUserCtrl.dispose();
+    _proxyPassCtrl.dispose();
     super.dispose();
   }
 
@@ -1128,6 +1174,7 @@ class _DesktopProviderDetailPaneState
     final models = List<String>.from(cfg.models);
     final allSelected =
         _selectedModels.length == models.length && models.isNotEmpty;
+    final hasFailedDetectedModels = _failedDetectedModels(models).isNotEmpty;
     final filtered = _applyFilter(models, _filterCtrl.text.trim());
     final groups = _groupModels(filtered);
 
@@ -1158,6 +1205,9 @@ class _DesktopProviderDetailPaneState
                     ),
                     const SizedBox(width: 8),
                     _IconBtn(
+                      key: ValueKey(
+                        'desktop-provider-settings-${widget.providerKey}',
+                      ),
                       icon: lucide.Lucide.Settings,
                       onTap: () => _showProviderSettingsDialog(context),
                     ),
@@ -1998,6 +2048,18 @@ class _DesktopProviderDetailPaneState
                     ),
                     const SizedBox(width: 6),
                     Tooltip(
+                      message: l10n
+                          .providerDetailPageDeleteFailedDetectedModelsTooltip,
+                      child: _IconBtn(
+                        icon: lucide.Lucide.CircleX,
+                        color: !hasFailedDetectedModels || _isDetecting
+                            ? cs.onSurface.withValues(alpha: 0.4)
+                            : cs.error,
+                        onTap: _confirmDeleteFailedDetectedModels,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Tooltip(
                       message:
                           l10n.providerDetailPageDeleteSelectedModelsTooltip,
                       child: _IconTextBtn(
@@ -2246,27 +2308,16 @@ class _DesktopProviderDetailPaneState
     final cs = Theme.of(context).colorScheme;
     final sp = context.read<SettingsProvider>();
     final l10n = AppLocalizations.of(context)!;
+    _syncProviderSettingsControllersFromConfig(
+      sp.getProviderConfig(widget.providerKey, defaultName: widget.displayName),
+    );
     await showDialog<void>(
       context: context,
       barrierDismissible: true,
       builder: (ctx) {
-        final cfg = sp.getProviderConfig(
-          widget.providerKey,
-          defaultName: widget.displayName,
-        );
         final GlobalKey avatarKey = GlobalKey();
-        final nameCtrl = TextEditingController(text: cfg.name);
-        final proxyHostCtrl = TextEditingController(text: cfg.proxyHost ?? '');
-        final proxyPortCtrl = TextEditingController(
-          text: cfg.proxyPort ?? '8080',
-        );
-        final proxyUserCtrl = TextEditingController(
-          text: cfg.proxyUsername ?? '',
-        );
-        final proxyPassCtrl = TextEditingController(
-          text: cfg.proxyPassword ?? '',
-        );
         return Dialog(
+          key: const ValueKey('desktop-provider-settings-dialog'),
           backgroundColor: cs.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -2298,10 +2349,6 @@ class _DesktopProviderDetailPaneState
                   }
                 }
 
-                syncCtrl(proxyHostCtrl, cfgNow.proxyHost ?? '');
-                syncCtrl(proxyPortCtrl, cfgNow.proxyPort ?? '8080');
-                syncCtrl(proxyUserCtrl, cfgNow.proxyUsername ?? '');
-                syncCtrl(proxyPassCtrl, cfgNow.proxyPassword ?? '');
                 final balanceDefaults = ProviderConfig.defaultsFor(
                   widget.providerKey,
                   displayName: widget.displayName,
@@ -2472,6 +2519,28 @@ class _DesktopProviderDetailPaneState
                                     },
                                   ),
                                   DesktopContextMenuItem(
+                                    icon: lucide.Lucide.Bot,
+                                    label:
+                                        l10n2.providerAvatarChooseBuiltInIcon,
+                                    onTap: () async {
+                                      await _pickProviderBuiltinIcon(
+                                        context,
+                                        widget.providerKey,
+                                      );
+                                    },
+                                  ),
+                                  DesktopContextMenuItem(
+                                    icon: lucide.Lucide.ImageDown,
+                                    label:
+                                        l10n2.providerAvatarChooseLobehubIcon,
+                                    onTap: () async {
+                                      await _inputLobehubIcon(
+                                        context,
+                                        widget.providerKey,
+                                      );
+                                    },
+                                  ),
+                                  DesktopContextMenuItem(
                                     icon: lucide.Lucide.Link,
                                     label: l10n2.sideDrawerEnterLink,
                                     onTap: () async {
@@ -2496,6 +2565,9 @@ class _DesktopProviderDetailPaneState
                               );
                             },
                             child: ProviderAvatar(
+                              key: ValueKey(
+                                'desktop-provider-settings-avatar-${widget.providerKey}',
+                              ),
                               providerKey: widget.providerKey,
                               displayName: widget.displayName,
                               size: 64,
@@ -2514,7 +2586,8 @@ class _DesktopProviderDetailPaneState
                               Focus(
                                 onFocusChange: (has) async {
                                   if (!has) {
-                                    final v = nameCtrl.text.trim();
+                                    final v = _providerSettingsNameCtrl.text
+                                        .trim();
                                     final old = spWatch.getProviderConfig(
                                       widget.providerKey,
                                       defaultName: widget.displayName,
@@ -2530,12 +2603,13 @@ class _DesktopProviderDetailPaneState
                                   }
                                 },
                                 child: TextField(
-                                  controller: nameCtrl,
+                                  controller: _providerSettingsNameCtrl,
                                   style: TextStyle(fontSize: 14),
                                   decoration: _inputDecoration(ctx),
                                   textInputAction: TextInputAction.done,
                                   onSubmitted: (_) async {
-                                    final v = nameCtrl.text.trim();
+                                    final v = _providerSettingsNameCtrl.text
+                                        .trim();
                                     final old = spWatch.getProviderConfig(
                                       widget.providerKey,
                                       defaultName: widget.displayName,
@@ -2550,7 +2624,8 @@ class _DesktopProviderDetailPaneState
                                     );
                                   },
                                   onEditingComplete: () async {
-                                    final v = nameCtrl.text.trim();
+                                    final v = _providerSettingsNameCtrl.text
+                                        .trim();
                                     final old = spWatch.getProviderConfig(
                                       widget.providerKey,
                                       defaultName: widget.displayName,
@@ -3276,7 +3351,8 @@ class _DesktopProviderDetailPaneState
                                       Focus(
                                         onFocusChange: (has) async {
                                           if (!has) {
-                                            final v = proxyHostCtrl.text.trim();
+                                            final v = _proxyHostCtrl.text
+                                                .trim();
                                             final old = spWatch
                                                 .getProviderConfig(
                                                   widget.providerKey,
@@ -3290,13 +3366,13 @@ class _DesktopProviderDetailPaneState
                                           }
                                         },
                                         child: TextField(
-                                          controller: proxyHostCtrl,
+                                          controller: _proxyHostCtrl,
                                           style: TextStyle(fontSize: 13),
                                           decoration: _proxyInputDecoration(
                                             ctx,
                                           ).copyWith(hintText: '127.0.0.1'),
                                           onChanged: (_) async {
-                                            if (proxyHostCtrl
+                                            if (_proxyHostCtrl
                                                 .value
                                                 .composing
                                                 .isValid) {
@@ -3311,7 +3387,7 @@ class _DesktopProviderDetailPaneState
                                             await spWatch.setProviderConfig(
                                               widget.providerKey,
                                               old.copyWith(
-                                                proxyHost: proxyHostCtrl.text
+                                                proxyHost: _proxyHostCtrl.text
                                                     .trim(),
                                               ),
                                             );
@@ -3325,7 +3401,8 @@ class _DesktopProviderDetailPaneState
                                       Focus(
                                         onFocusChange: (has) async {
                                           if (!has) {
-                                            final v = proxyPortCtrl.text.trim();
+                                            final v = _proxyPortCtrl.text
+                                                .trim();
                                             final old = spWatch
                                                 .getProviderConfig(
                                                   widget.providerKey,
@@ -3339,14 +3416,17 @@ class _DesktopProviderDetailPaneState
                                           }
                                         },
                                         child: TextField(
-                                          controller: proxyPortCtrl,
+                                          key: const ValueKey(
+                                            'desktop-provider-proxy-port-field',
+                                          ),
+                                          controller: _proxyPortCtrl,
                                           style: TextStyle(fontSize: 13),
                                           decoration: _proxyInputDecoration(
                                             ctx,
                                           ).copyWith(hintText: '8080'),
                                           keyboardType: TextInputType.number,
                                           onChanged: (_) async {
-                                            if (proxyPortCtrl
+                                            if (_proxyPortCtrl
                                                 .value
                                                 .composing
                                                 .isValid) {
@@ -3361,7 +3441,7 @@ class _DesktopProviderDetailPaneState
                                             await spWatch.setProviderConfig(
                                               widget.providerKey,
                                               old.copyWith(
-                                                proxyPort: proxyPortCtrl.text
+                                                proxyPort: _proxyPortCtrl.text
                                                     .trim(),
                                               ),
                                             );
@@ -3375,7 +3455,8 @@ class _DesktopProviderDetailPaneState
                                       Focus(
                                         onFocusChange: (has) async {
                                           if (!has) {
-                                            final v = proxyUserCtrl.text.trim();
+                                            final v = _proxyUserCtrl.text
+                                                .trim();
                                             final old = spWatch
                                                 .getProviderConfig(
                                                   widget.providerKey,
@@ -3389,13 +3470,13 @@ class _DesktopProviderDetailPaneState
                                           }
                                         },
                                         child: TextField(
-                                          controller: proxyUserCtrl,
+                                          controller: _proxyUserCtrl,
                                           style: TextStyle(fontSize: 13),
                                           decoration: _proxyInputDecoration(
                                             ctx,
                                           ),
                                           onChanged: (_) async {
-                                            if (proxyUserCtrl
+                                            if (_proxyUserCtrl
                                                 .value
                                                 .composing
                                                 .isValid) {
@@ -3410,7 +3491,7 @@ class _DesktopProviderDetailPaneState
                                             await spWatch.setProviderConfig(
                                               widget.providerKey,
                                               old.copyWith(
-                                                proxyUsername: proxyUserCtrl
+                                                proxyUsername: _proxyUserCtrl
                                                     .text
                                                     .trim(),
                                               ),
@@ -3425,7 +3506,8 @@ class _DesktopProviderDetailPaneState
                                       Focus(
                                         onFocusChange: (has) async {
                                           if (!has) {
-                                            final v = proxyPassCtrl.text.trim();
+                                            final v = _proxyPassCtrl.text
+                                                .trim();
                                             final old = spWatch
                                                 .getProviderConfig(
                                                   widget.providerKey,
@@ -3439,14 +3521,14 @@ class _DesktopProviderDetailPaneState
                                           }
                                         },
                                         child: TextField(
-                                          controller: proxyPassCtrl,
+                                          controller: _proxyPassCtrl,
                                           style: TextStyle(fontSize: 13),
                                           obscureText: true,
                                           decoration: _proxyInputDecoration(
                                             ctx,
                                           ),
                                           onChanged: (_) async {
-                                            if (proxyPassCtrl
+                                            if (_proxyPassCtrl
                                                 .value
                                                 .composing
                                                 .isValid) {
@@ -3461,7 +3543,7 @@ class _DesktopProviderDetailPaneState
                                             await spWatch.setProviderConfig(
                                               widget.providerKey,
                                               old.copyWith(
-                                                proxyPassword: proxyPassCtrl
+                                                proxyPassword: _proxyPassCtrl
                                                     .text
                                                     .trim(),
                                               ),
@@ -3577,6 +3659,229 @@ class _DesktopProviderDetailPaneState
     }
   }
 
+  Future<void> _inputLobehubIcon(
+    BuildContext context,
+    String providerKey,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final settings = context.read<SettingsProvider>();
+    final controller = TextEditingController();
+    String value = '';
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.16),
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        bool valid(String s) => s.trim().isNotEmpty;
+        return StatefulBuilder(
+          builder: (ctx2, setLocal) {
+            return Dialog(
+              key: const ValueKey('desktop-provider-lobehub-icon-dialog'),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 24,
+              ),
+              backgroundColor: cs.surface,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      height: 44,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                l10n.providerAvatarLobehubDialogTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: AppFontWeights.emphasis,
+                                ),
+                              ),
+                            ),
+                            _IconBtn(
+                              icon: lucide.Lucide.X,
+                              onTap: () => Navigator.of(ctx).maybePop(false),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: cs.outlineVariant.withValues(alpha: 0.12),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextField(
+                            key: const ValueKey(
+                              'desktop-provider-lobehub-icon-field',
+                            ),
+                            controller: controller,
+                            autofocus: true,
+                            style: const TextStyle(fontSize: 13),
+                            textInputAction: TextInputAction.done,
+                            decoration: _inputDecoration(ctx2).copyWith(
+                              hintText: l10n.providerAvatarLobehubDialogHint,
+                            ),
+                            onChanged: (v) => setLocal(() => value = v),
+                            onSubmitted: (_) {
+                              if (valid(value)) Navigator.of(ctx2).pop(true);
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: _DialogActionButton(
+                              icon: const Icon(lucide.Lucide.Check),
+                              label: l10n.sideDrawerSave,
+                              filled: true,
+                              onTap: valid(value)
+                                  ? () => Navigator.of(ctx2).pop(true)
+                                  : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    if (ok == true) {
+      final name = controller.text.trim();
+      if (name.isNotEmpty) {
+        await settings.setProviderAvatarLobehub(providerKey, name);
+      }
+    }
+  }
+
+  Future<void> _pickProviderBuiltinIcon(
+    BuildContext context,
+    String providerKey,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+    final settings = context.read<SettingsProvider>();
+    final icons = BrandAssets.selectableIcons;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cfg = settings.getProviderConfig(providerKey);
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: cs.surface,
+          title: Text(l10n.providerAvatarIconDialogTitle),
+          content: SizedBox(
+            width: 360,
+            height: 400,
+            child: GridView.builder(
+              itemCount: icons.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 5,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 1,
+              ),
+              itemBuilder: (ctx, i) {
+                final opt = icons[i];
+                final selected =
+                    cfg.avatarType == 'icon' && cfg.avatarValue == opt.asset;
+                final isSvg = opt.asset.endsWith('.svg');
+                final needsMono =
+                    isDark && BrandAssets.assetNeedsDarkInvert(opt.asset);
+                return Semantics(
+                  label: opt.label,
+                  child: Tooltip(
+                    message: opt.label,
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        Future.microtask(() async {
+                          await settings.setProviderAvatarIcon(
+                            providerKey,
+                            opt.asset,
+                          );
+                        });
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Center(
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Colors.white10
+                                    : cs.primary.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                                border: selected
+                                    ? Border.all(color: cs.primary, width: 2)
+                                    : null,
+                              ),
+                              alignment: Alignment.center,
+                              child: FractionallySizedBox(
+                                widthFactor: 0.65,
+                                heightFactor: 0.65,
+                                child: isSvg
+                                    ? SvgPicture.asset(
+                                        opt.asset,
+                                        fit: BoxFit.contain,
+                                        colorFilter: needsMono
+                                            ? const ColorFilter.mode(
+                                                Colors.white,
+                                                BlendMode.srcIn,
+                                              )
+                                            : null,
+                                      )
+                                    : Image.asset(
+                                        opt.asset,
+                                        fit: BoxFit.contain,
+                                        color: needsMono ? Colors.white : null,
+                                        colorBlendMode: needsMono
+                                            ? BlendMode.srcIn
+                                            : null,
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(l10n.sideDrawerCancel),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   bool _isAihubmix(ProviderConfig cfg) {
     final base = cfg.baseUrl.toLowerCase();
     final key = cfg.id.toLowerCase();
@@ -3627,6 +3932,10 @@ class _DesktopProviderDetailPaneState
           final sel = await showModelSelector(
             dctx,
             limitProviderKey: widget.providerKey,
+            initialProviderKey: detectModelId == null
+                ? null
+                : widget.providerKey,
+            initialModelId: detectModelId,
           );
           if (sel != null) {
             detectModelId = sel.modelId;
@@ -4303,6 +4612,10 @@ class _DesktopProviderDetailPaneState
           final sel = await showModelSelector(
             ctx,
             limitProviderKey: widget.providerKey,
+            initialProviderKey: selectedModelId == null
+                ? null
+                : widget.providerKey,
+            initialModelId: selectedModelId,
           );
           if (sel != null) {
             selectedModelId = sel.modelId;
@@ -4546,6 +4859,44 @@ class _DesktopProviderDetailPaneState
   Future<void> _confirmDeleteSelectedModels() async {
     if (_selectedModels.isEmpty || _isDetecting) return;
     final modelsToDelete = Set<String>.from(_selectedModels);
+    final l10n = AppLocalizations.of(context)!;
+    await _confirmDeleteModels(
+      modelsToDelete,
+      l10n.providerDetailPageDeleteSelectedModelsConfirm(modelsToDelete.length),
+    );
+  }
+
+  Set<String> _failedDetectedModels(Iterable<String> models) {
+    final currentModels = models.toSet();
+    return {
+      for (final entry in _detectionResults.entries)
+        if (!entry.value && currentModels.contains(entry.key)) entry.key,
+    };
+  }
+
+  Future<void> _confirmDeleteFailedDetectedModels() async {
+    if (_isDetecting) return;
+    final sp = context.read<SettingsProvider>();
+    final cfg = sp.getProviderConfig(
+      widget.providerKey,
+      defaultName: widget.displayName,
+    );
+    final modelsToDelete = _failedDetectedModels(cfg.models);
+    if (modelsToDelete.isEmpty) return;
+    final l10n = AppLocalizations.of(context)!;
+    await _confirmDeleteModels(
+      modelsToDelete,
+      l10n.providerDetailPageDeleteFailedDetectedModelsConfirm(
+        modelsToDelete.length,
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteModels(
+    Set<String> modelsToDelete,
+    String confirmMessage,
+  ) async {
+    if (modelsToDelete.isEmpty) return;
     final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final ok = await showDialog<bool>(
@@ -4590,9 +4941,7 @@ class _DesktopProviderDetailPaneState
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    l10n.providerDetailPageDeleteSelectedModelsConfirm(
-                      modelsToDelete.length,
-                    ),
+                    confirmMessage,
                     style: TextStyle(
                       color: cs.onSurface.withValues(alpha: 0.85),
                     ),
@@ -4765,6 +5114,7 @@ class _DesktopProviderDetailPaneState
     if (_selectedModels.isEmpty || _isDetecting) return;
 
     final modelsToTest = Set<String>.from(_selectedModels);
+    final detectionEpoch = _providerScopedStateEpoch;
 
     setState(() {
       _isDetecting = true;
@@ -4782,6 +5132,7 @@ class _DesktopProviderDetailPaneState
     );
 
     for (final modelId in modelsToTest) {
+      if (!mounted || detectionEpoch != _providerScopedStateEpoch) return;
       if (mounted) {
         setState(() {
           _currentDetectingModel = modelId;
@@ -4795,14 +5146,14 @@ class _DesktopProviderDetailPaneState
           modelId,
           useStream: _detectUseStream,
         );
-        if (mounted) {
+        if (mounted && detectionEpoch == _providerScopedStateEpoch) {
           setState(() {
             _detectionResults[modelId] = true;
             _detectionErrorMessages.remove(modelId);
           });
         }
       } catch (e) {
-        if (mounted) {
+        if (mounted && detectionEpoch == _providerScopedStateEpoch) {
           setState(() {
             _detectionResults[modelId] = false;
             _detectionErrorMessages[modelId] = e.toString();
@@ -4812,7 +5163,7 @@ class _DesktopProviderDetailPaneState
       await Future.delayed(const Duration(milliseconds: 500));
     }
 
-    if (mounted) {
+    if (mounted && detectionEpoch == _providerScopedStateEpoch) {
       setState(() {
         _isDetecting = false;
         _currentDetectingModel = null;
