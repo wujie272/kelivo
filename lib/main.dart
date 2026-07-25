@@ -387,6 +387,7 @@ class MyApp extends StatelessWidget {
           create: (_) =>
               BackupReminderProvider(preferences: businessPreferences),
         ),
+        ChangeNotifierProvider(create: (_) => SkillProvider()),
 
         // Desktop hotkeys provider
         ChangeNotifierProvider(create: (_) => HotkeyProvider()),
