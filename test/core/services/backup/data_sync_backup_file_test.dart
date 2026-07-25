@@ -378,9 +378,9 @@ void main() {
         await uploadDir.create(recursive: true);
         final uploadFile = File('${uploadDir.path}/large.bin');
         await uploadFile.writeAsBytes(List<int>.filled(1024 * 1024, 7));
-        final fontsDir = Directory('${root.path}/fonts');
-        await fontsDir.create(recursive: true);
-        final fontFile = File('${fontsDir.path}/custom.ttf');
+        final skillsDir = Directory('${root.path}/skills');
+        await skillsDir.create(recursive: true);
+        final fontFile = File('${skillsDir.path}/custom.ttf');
         await fontFile.writeAsBytes(List<int>.filled(256, 9));
 
         final tmpDir = Directory('${root.path}/tmp');
@@ -412,7 +412,7 @@ void main() {
           final settingsEntry = archive.findFile('settings.json');
           final manifestEntry = archive.findFile('manifest.json');
           final uploadEntry = archive.findFile('upload/large.bin');
-          final fontEntry = archive.findFile('fonts/custom.ttf');
+          final fontEntry = archive.findFile('skills/custom.ttf');
 
           expect(settingsEntry, isNotNull);
           expect(manifestEntry, isNotNull);
@@ -432,7 +432,7 @@ void main() {
             await _fileSha256(uploadFile),
           );
           expect(
-            (manifestEntries['fonts/custom.ttf'] as Map)['sha256'],
+            (manifestEntries['skills/custom.ttf'] as Map)['sha256'],
             await _fileSha256(fontFile),
           );
         } finally {
@@ -1169,7 +1169,7 @@ void main() {
     );
 
     test('empty versioned asset roots clear old files on startup', () async {
-      for (final rootName in const ['upload', 'images', 'avatars', 'fonts']) {
+      for (final rootName in const ['upload', 'images', 'avatars', 'skills']) {
         final directory = Directory('${root.path}/$rootName');
         await directory.create(recursive: true);
         await File('${directory.path}/old.bin').writeAsBytes([1, 2, 3]);
@@ -1189,7 +1189,7 @@ void main() {
         const WebDavConfig(includeChats: true, includeFiles: true),
       );
 
-      for (final rootName in const ['upload', 'images', 'avatars', 'fonts']) {
+      for (final rootName in const ['upload', 'images', 'avatars', 'skills']) {
         expect(
           await File('${root.path}/$rootName/old.bin').exists(),
           isTrue,
@@ -1200,7 +1200,7 @@ void main() {
       final terminal = await _recoverAcrossColdRestart(appDataDirectory: root);
       expect(terminal?.state, RestoreReceiptState.committed);
 
-      for (final rootName in const ['upload', 'images', 'avatars', 'fonts']) {
+      for (final rootName in const ['upload', 'images', 'avatars', 'skills']) {
         final directory = Directory('${root.path}/$rootName');
         expect(await directory.exists(), isTrue, reason: rootName);
         expect(await directory.list().toList(), isEmpty, reason: rootName);
