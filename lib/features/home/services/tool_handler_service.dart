@@ -108,6 +108,14 @@ class ToolHandlerService {
       m['properties'] = norm;
     }
 
+    // additionalProperties can itself be a schema.
+    if (m['additionalProperties'] is Map) {
+      m['additionalProperties'] = _sanitizeNode(
+        m['additionalProperties'],
+        kind,
+      );
+    }
+
     // Keep only allowed keys based on provider
     Set<String> allowed;
     switch (kind) {
@@ -130,6 +138,7 @@ class ToolHandlerService {
           'required',
           'items',
           'enum',
+          'additionalProperties',
         };
         break;
     }
@@ -407,6 +416,7 @@ class ToolHandlerService {
     Assistant? assistant, {
     ToolApprovalService? approvalService,
     AskUserInteractionService? askUserService,
+    String? conversationId,
   }) {
     final mcp = contextProvider.read<McpProvider>();
     final toolSvc = contextProvider.read<McpToolService>();
@@ -530,6 +540,7 @@ class ToolHandlerService {
                   ? toolCallId!.trim()
                   : '${name}_${DateTime.now().microsecondsSinceEpoch}',
               arguments: args,
+              conversationId: conversationId,
             );
             return result.toJsonString();
           } on AskUserInvalidRequestException catch (e) {
@@ -549,6 +560,7 @@ class ToolHandlerService {
             toolCallId: toolCallId,
             toolName: name,
             arguments: args,
+            conversationId: conversationId,
           );
           if (!result.approved) {
             return _toolError(

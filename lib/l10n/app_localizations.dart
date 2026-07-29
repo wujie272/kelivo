@@ -3089,6 +3089,18 @@ abstract class AppLocalizations {
   /// **'Diagnostic code: {code}'**
   String backupRestoreFailureDiagnostic(String code);
 
+  /// No description provided for @startupDatabaseUpdateRequiredTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update Kelivo to continue'**
+  String get startupDatabaseUpdateRequiredTitle;
+
+  /// No description provided for @startupDatabaseUpdateRequiredContent.
+  ///
+  /// In en, this message translates to:
+  /// **'The chat database on this device was created by a newer version of Kelivo and cannot be opened by this version. Your data has not been changed. Install the latest version of Kelivo, then open it again.'**
+  String get startupDatabaseUpdateRequiredContent;
+
   /// No description provided for @backupPageRestoreFailedMessage.
   ///
   /// In en, this message translates to:
@@ -4936,6 +4948,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add'**
   String get chatInputBarMoreTooltip;
+
+  /// No description provided for @chatInputBarImageProcessing.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing image'**
+  String get chatInputBarImageProcessing;
 
   /// No description provided for @chatInputBarImageMode.
   ///
@@ -10562,6 +10580,42 @@ abstract class AppLocalizations {
   /// **'Retry Migration'**
   String get migrationRetryButton;
 
+  /// No description provided for @migrationSkipButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip Migration and Start Fresh'**
+  String get migrationSkipButton;
+
+  /// No description provided for @migrationSkipDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip migration?'**
+  String get migrationSkipDialogTitle;
+
+  /// No description provided for @migrationSkipDialogMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Kelivo will start with an empty chat database. Your old chat history stays on disk (renamed with a .retired suffix) but will NOT be migrated and will not appear in the app. Use your backup ZIP if you need to recover it later.'**
+  String get migrationSkipDialogMessage;
+
+  /// No description provided for @migrationSkipDialogCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get migrationSkipDialogCancel;
+
+  /// No description provided for @migrationSkipDialogConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip and Start Fresh'**
+  String get migrationSkipDialogConfirm;
+
+  /// No description provided for @migrationChatsExportDegradedNote.
+  ///
+  /// In en, this message translates to:
+  /// **'The chats.json export was skipped because of an error. The backup ZIP still contains the raw Hive files with your complete chat history.'**
+  String get migrationChatsExportDegradedNote;
+
   /// No description provided for @timelineJumpToLatest.
   ///
   /// In en, this message translates to:
@@ -10579,6 +10633,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Collapse'**
   String get largeContentCollapse;
+
+  /// No description provided for @imageSettingsPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Image Processing'**
+  String get imageSettingsPageTitle;
+
+  /// No description provided for @imageSettingsPageEditSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Editing'**
+  String get imageSettingsPageEditSectionTitle;
+
+  /// No description provided for @imageSettingsPageQualitySectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload Image Quality'**
+  String get imageSettingsPageQualitySectionTitle;
+
+  /// No description provided for @imageSettingsPageQualityOriginal.
+  ///
+  /// In en, this message translates to:
+  /// **'Original'**
+  String get imageSettingsPageQualityOriginal;
+
+  /// No description provided for @imageSettingsPageQualityOriginalSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t compress; upload as-is'**
+  String get imageSettingsPageQualityOriginalSubtitle;
+
+  /// No description provided for @imageSettingsPageQualityHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'High Quality'**
+  String get imageSettingsPageQualityHigh;
+
+  /// No description provided for @imageSettingsPageQualityHighSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Long edge 2048 px · quality 90'**
+  String get imageSettingsPageQualityHighSubtitle;
+
+  /// No description provided for @imageSettingsPageQualityBalanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Balanced'**
+  String get imageSettingsPageQualityBalanced;
+
+  /// No description provided for @imageSettingsPageQualityBalancedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Long edge 1568 px · quality 85'**
+  String get imageSettingsPageQualityBalancedSubtitle;
+
+  /// No description provided for @imageSettingsPageQualitySaver.
+  ///
+  /// In en, this message translates to:
+  /// **'Data Saver'**
+  String get imageSettingsPageQualitySaver;
+
+  /// No description provided for @imageSettingsPageQualitySaverSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Long edge 1024 px · quality 70'**
+  String get imageSettingsPageQualitySaverSubtitle;
+
+  /// No description provided for @imageSettingsPageQualityCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get imageSettingsPageQualityCustom;
+
+  /// No description provided for @imageSettingsPageQualityCustomSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the compression quality'**
+  String get imageSettingsPageQualityCustomSubtitle;
+
+  /// No description provided for @imageSettingsPageCustomQualityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Compression Quality'**
+  String get imageSettingsPageCustomQualityTitle;
+
+  /// No description provided for @imageSettingsPageCompressTransparentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Compress Transparent & Animated Images'**
+  String get imageSettingsPageCompressTransparentTitle;
+
+  /// No description provided for @imageSettingsPageCompressTransparentSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'When enabled, transparent PNG, GIF, and similar formats are compressed; transparent areas become white and animations keep only the first frame.'**
+  String get imageSettingsPageCompressTransparentSubtitle;
+
+  /// No description provided for @imageSettingsPageFooter.
+  ///
+  /// In en, this message translates to:
+  /// **'Compression happens when images are added. Previously saved or sent images are not affected. Compressed images are sent as JPEG files.'**
+  String get imageSettingsPageFooter;
 }
 
 class _AppLocalizationsDelegate

@@ -1558,6 +1558,13 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get startupDatabaseUpdateRequiredTitle => '请更新 Kelivo 以继续';
+
+  @override
+  String get startupDatabaseUpdateRequiredContent =>
+      '本设备上的聊天数据库由更新版本的 Kelivo 创建，当前版本无法打开。数据未被改动。请安装最新版 Kelivo 后重新打开。';
+
+  @override
   String backupPageRestoreFailedMessage(String error) {
     return '恢复失败：$error';
   }
@@ -2538,6 +2545,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get chatInputBarMoreTooltip => '更多';
+
+  @override
+  String get chatInputBarImageProcessing => '正在处理图片';
 
   @override
   String get chatInputBarImageMode => '绘图模式';
@@ -5530,6 +5540,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get migrationRetryButton => '重试迁移';
 
   @override
+  String get migrationSkipButton => '跳过迁移并全新开始';
+
+  @override
+  String get migrationSkipDialogTitle => '跳过迁移？';
+
+  @override
+  String get migrationSkipDialogMessage =>
+      'Kelivo 将以空的聊天数据库启动。旧的聊天记录会保留在磁盘上（重命名为 .retired 后缀），但不会被迁移，也不会在应用中显示。之后如需找回，请使用已保存的备份 ZIP。';
+
+  @override
+  String get migrationSkipDialogCancel => '取消';
+
+  @override
+  String get migrationSkipDialogConfirm => '跳过并全新开始';
+
+  @override
+  String get migrationChatsExportDegradedNote =>
+      'chats.json 导出因出错而被跳过。备份 ZIP 仍包含原始 Hive 文件，完整聊天记录未丢失。';
+
+  @override
   String get timelineJumpToLatest => '跳到最新';
 
   @override
@@ -5539,6 +5569,59 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get largeContentCollapse => '收起';
+
+  @override
+  String get imageSettingsPageTitle => '图片处理';
+
+  @override
+  String get imageSettingsPageEditSectionTitle => '编辑';
+
+  @override
+  String get imageSettingsPageQualitySectionTitle => '上传图片质量';
+
+  @override
+  String get imageSettingsPageQualityOriginal => '原图';
+
+  @override
+  String get imageSettingsPageQualityOriginalSubtitle => '不压缩，原样上传';
+
+  @override
+  String get imageSettingsPageQualityHigh => '高质量';
+
+  @override
+  String get imageSettingsPageQualityHighSubtitle => '最长边 2048 像素 · 质量 90';
+
+  @override
+  String get imageSettingsPageQualityBalanced => '平衡';
+
+  @override
+  String get imageSettingsPageQualityBalancedSubtitle => '最长边 1568 像素 · 质量 85';
+
+  @override
+  String get imageSettingsPageQualitySaver => '节省流量';
+
+  @override
+  String get imageSettingsPageQualitySaverSubtitle => '最长边 1024 像素 · 质量 70';
+
+  @override
+  String get imageSettingsPageQualityCustom => '自定义';
+
+  @override
+  String get imageSettingsPageQualityCustomSubtitle => '自选压缩质量';
+
+  @override
+  String get imageSettingsPageCustomQualityTitle => '压缩质量';
+
+  @override
+  String get imageSettingsPageCompressTransparentTitle => '压缩透明及动态图片';
+
+  @override
+  String get imageSettingsPageCompressTransparentSubtitle =>
+      '开启后将压缩透明 PNG、GIF 等格式；透明区域填充为白色，动图仅保留第一帧。';
+
+  @override
+  String get imageSettingsPageFooter =>
+      '压缩在添加图片时进行，已保存或已发送的图片不受影响；压缩后图片以 JPEG 格式随消息发送。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -7095,6 +7178,13 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   }
 
   @override
+  String get startupDatabaseUpdateRequiredTitle => '请更新 Kelivo 以继续';
+
+  @override
+  String get startupDatabaseUpdateRequiredContent =>
+      '本设备上的聊天数据库由更新版本的 Kelivo 创建，当前版本无法打开。数据未被改动。请安装最新版 Kelivo 后重新打开。';
+
+  @override
   String backupPageRestoreFailedMessage(String error) {
     return '恢复失败：$error';
   }
@@ -8075,6 +8165,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get chatInputBarMoreTooltip => '更多';
+
+  @override
+  String get chatInputBarImageProcessing => '正在处理图片';
 
   @override
   String get chatInputBarImageMode => '绘图模式';
@@ -11065,6 +11158,26 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get migrationRetryButton => '重试迁移';
 
   @override
+  String get migrationSkipButton => '跳过迁移并全新开始';
+
+  @override
+  String get migrationSkipDialogTitle => '跳过迁移？';
+
+  @override
+  String get migrationSkipDialogMessage =>
+      'Kelivo 将以空的聊天数据库启动。旧的聊天记录会保留在磁盘上（重命名为 .retired 后缀），但不会被迁移，也不会在应用中显示。之后如需找回，请使用已保存的备份 ZIP。';
+
+  @override
+  String get migrationSkipDialogCancel => '取消';
+
+  @override
+  String get migrationSkipDialogConfirm => '跳过并全新开始';
+
+  @override
+  String get migrationChatsExportDegradedNote =>
+      'chats.json 导出因出错而被跳过。备份 ZIP 仍包含原始 Hive 文件，完整聊天记录未丢失。';
+
+  @override
   String get timelineJumpToLatest => '跳到最新';
 
   @override
@@ -11074,6 +11187,59 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get largeContentCollapse => '收起';
+
+  @override
+  String get imageSettingsPageTitle => '图片处理';
+
+  @override
+  String get imageSettingsPageEditSectionTitle => '编辑';
+
+  @override
+  String get imageSettingsPageQualitySectionTitle => '上传图片质量';
+
+  @override
+  String get imageSettingsPageQualityOriginal => '原图';
+
+  @override
+  String get imageSettingsPageQualityOriginalSubtitle => '不压缩，原样上传';
+
+  @override
+  String get imageSettingsPageQualityHigh => '高质量';
+
+  @override
+  String get imageSettingsPageQualityHighSubtitle => '最长边 2048 像素 · 质量 90';
+
+  @override
+  String get imageSettingsPageQualityBalanced => '平衡';
+
+  @override
+  String get imageSettingsPageQualityBalancedSubtitle => '最长边 1568 像素 · 质量 85';
+
+  @override
+  String get imageSettingsPageQualitySaver => '节省流量';
+
+  @override
+  String get imageSettingsPageQualitySaverSubtitle => '最长边 1024 像素 · 质量 70';
+
+  @override
+  String get imageSettingsPageQualityCustom => '自定义';
+
+  @override
+  String get imageSettingsPageQualityCustomSubtitle => '自选压缩质量';
+
+  @override
+  String get imageSettingsPageCustomQualityTitle => '压缩质量';
+
+  @override
+  String get imageSettingsPageCompressTransparentTitle => '压缩透明及动态图片';
+
+  @override
+  String get imageSettingsPageCompressTransparentSubtitle =>
+      '开启后将压缩透明 PNG、GIF 等格式；透明区域填充为白色，动图仅保留第一帧。';
+
+  @override
+  String get imageSettingsPageFooter =>
+      '压缩在添加图片时进行，已保存或已发送的图片不受影响；压缩后图片以 JPEG 格式随消息发送。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -12630,6 +12796,13 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
+  String get startupDatabaseUpdateRequiredTitle => '請更新 Kelivo 以繼續';
+
+  @override
+  String get startupDatabaseUpdateRequiredContent =>
+      '本裝置上的聊天資料庫由更新版本的 Kelivo 建立，目前版本無法開啟。資料未被改動。請安裝最新版 Kelivo 後重新開啟。';
+
+  @override
   String backupPageRestoreFailedMessage(String error) {
     return '還原失敗：$error';
   }
@@ -13609,6 +13782,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get chatInputBarMoreTooltip => '更多';
+
+  @override
+  String get chatInputBarImageProcessing => '正在處理圖片';
 
   @override
   String get chatInputBarImageMode => '繪圖模式';
@@ -16601,6 +16777,26 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get migrationRetryButton => '重試遷移';
 
   @override
+  String get migrationSkipButton => '跳過遷移並全新開始';
+
+  @override
+  String get migrationSkipDialogTitle => '跳過遷移？';
+
+  @override
+  String get migrationSkipDialogMessage =>
+      'Kelivo 將以空的聊天資料庫啟動。舊的聊天記錄會保留在磁碟上（重新命名為 .retired 後綴），但不會被遷移，也不會在應用程式中顯示。之後如需找回，請使用已儲存的備份 ZIP。';
+
+  @override
+  String get migrationSkipDialogCancel => '取消';
+
+  @override
+  String get migrationSkipDialogConfirm => '跳過並全新開始';
+
+  @override
+  String get migrationChatsExportDegradedNote =>
+      'chats.json 匯出因出錯而被跳過。備份 ZIP 仍包含原始 Hive 檔案，完整聊天記錄未遺失。';
+
+  @override
   String get timelineJumpToLatest => '跳到最新';
 
   @override
@@ -16610,4 +16806,57 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get largeContentCollapse => '收起';
+
+  @override
+  String get imageSettingsPageTitle => '圖片處理';
+
+  @override
+  String get imageSettingsPageEditSectionTitle => '編輯';
+
+  @override
+  String get imageSettingsPageQualitySectionTitle => '上傳圖片品質';
+
+  @override
+  String get imageSettingsPageQualityOriginal => '原圖';
+
+  @override
+  String get imageSettingsPageQualityOriginalSubtitle => '不壓縮，原樣上傳';
+
+  @override
+  String get imageSettingsPageQualityHigh => '高品質';
+
+  @override
+  String get imageSettingsPageQualityHighSubtitle => '最長邊 2048 像素 · 品質 90';
+
+  @override
+  String get imageSettingsPageQualityBalanced => '平衡';
+
+  @override
+  String get imageSettingsPageQualityBalancedSubtitle => '最長邊 1568 像素 · 品質 85';
+
+  @override
+  String get imageSettingsPageQualitySaver => '節省流量';
+
+  @override
+  String get imageSettingsPageQualitySaverSubtitle => '最長邊 1024 像素 · 品質 70';
+
+  @override
+  String get imageSettingsPageQualityCustom => '自訂';
+
+  @override
+  String get imageSettingsPageQualityCustomSubtitle => '自選壓縮品質';
+
+  @override
+  String get imageSettingsPageCustomQualityTitle => '壓縮品質';
+
+  @override
+  String get imageSettingsPageCompressTransparentTitle => '壓縮透明及動態圖片';
+
+  @override
+  String get imageSettingsPageCompressTransparentSubtitle =>
+      '開啟後將壓縮透明 PNG、GIF 等格式；透明區域填充為白色，動圖僅保留第一幀。';
+
+  @override
+  String get imageSettingsPageFooter =>
+      '壓縮會在加入圖片時進行，已儲存或已傳送的圖片不受影響；壓縮後圖片會以 JPEG 格式隨訊息傳送。';
 }
