@@ -233,7 +233,7 @@ void main() {
 
     test('rejects candidate components not selected by the receipt', () async {
       final candidate = Directory(p.join(store.runDirectory.path, 'candidate'));
-      for (final rootName in const ['upload', 'images', 'avatars', 'fonts']) {
+      for (final rootName in const ['upload', 'images', 'avatars', 'fonts', 'skills']) {
         await Directory(p.join(candidate.path, rootName)).create();
       }
       final asset = File(p.join(candidate.path, 'upload', 'extra.txt'));

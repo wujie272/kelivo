@@ -140,7 +140,7 @@ void main() {
         ).exists(),
         isFalse,
       );
-      for (final rootName in const ['upload', 'images', 'avatars', 'fonts']) {
+      for (final rootName in const ['upload', 'images', 'avatars', 'fonts', 'skills']) {
         expect(
           await Directory(
             p.join(prepared.candidateDirectory.path, rootName),
