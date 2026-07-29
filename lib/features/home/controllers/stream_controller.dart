@@ -1620,41 +1620,8 @@ class _StreamSmoothState {
 // JSON Helpers (to avoid circular imports)
 // ============================================================================
 
-String _jsonEncode(dynamic obj) {
-  return _JsonEncoder.encode(obj);
-}
-
 dynamic _jsonDecode(String json) {
   return _JsonDecoder.decode(json);
-}
-
-class _JsonEncoder {
-  static String encode(dynamic obj) {
-    if (obj == null) return 'null';
-    if (obj is bool) return obj.toString();
-    if (obj is num) return obj.toString();
-    if (obj is String) return '"${_escapeString(obj)}"';
-    if (obj is List) {
-      final items = obj.map((e) => encode(e)).join(',');
-      return '[$items]';
-    }
-    if (obj is Map) {
-      final entries = obj.entries
-          .map((e) => '"${_escapeString(e.key.toString())}":${encode(e.value)}')
-          .join(',');
-      return '{$entries}';
-    }
-    return '"${_escapeString(obj.toString())}"';
-  }
-
-  static String _escapeString(String s) {
-    return s
-        .replaceAll('\\', '\\\\')
-        .replaceAll('"', '\\"')
-        .replaceAll('\n', '\\n')
-        .replaceAll('\r', '\\r')
-        .replaceAll('\t', '\\t');
-  }
 }
 
 class _JsonDecoder {
