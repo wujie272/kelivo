@@ -57,7 +57,7 @@ final class RestoreBundleStaging {
   static const workspaceRootName = RestoreWorkspaceLock.workspaceRootName;
   static const _backupFormat = 'kelivo-backup';
   static const _backupFormatVersion = 2;
-  static const _assetRoots = ['upload', 'images', 'avatars', 'fonts'];
+  static const _assetRoots = ['upload', 'images', 'avatars', 'fonts', 'skills'];
   static const _databaseEntry = 'database/kelivo.db';
   static const _maximumManifestBytes = 16 * 1024 * 1024;
   // Settings contain structured preferences, never chat rows or binary assets.

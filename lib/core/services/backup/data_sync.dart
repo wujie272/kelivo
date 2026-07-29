@@ -1024,7 +1024,8 @@ class DataSync {
           name.startsWith('upload/') ||
           name.startsWith('avatars/') ||
           name.startsWith('images/') ||
-          name.startsWith('fonts/');
+          name.startsWith('fonts/') ||
+          name.startsWith('skills/');
       if (!knownEntry) {
         throw FormatException('manifest_entry_scope:$name');
       }
@@ -1032,7 +1033,8 @@ class DataSync {
           (name.startsWith('upload/') ||
               name.startsWith('avatars/') ||
               name.startsWith('images/') ||
-              name.startsWith('fonts/'))) {
+              name.startsWith('fonts/') ||
+              name.startsWith('skills/'))) {
         throw FormatException('manifest_files:$name');
       }
     }
