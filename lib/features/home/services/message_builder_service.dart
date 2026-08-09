@@ -10,6 +10,7 @@ import '../../../core/models/conversation.dart';
 import '../../../core/models/instruction_injection.dart';
 import '../../../core/models/memory_entry.dart';
 import '../../../core/models/world_book.dart';
+import '../../../core/providers/assistant_provider.dart';
 
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/skill_provider.dart';
