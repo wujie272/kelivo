@@ -303,14 +303,27 @@ class _TranslatePageState extends State<TranslatePage> {
               ),
             ),
           ),
-          // Model brand icon (keep original colors)
+          // Model brand icon
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: IosIconButton(
               padding: const EdgeInsets.all(8),
               builder: (color) {
                 if (asset != null && asset.toLowerCase().endsWith('.svg')) {
-                  return SvgPicture.asset(asset, width: 22, height: 22);
+                  final isDark =
+                      Theme.of(context).brightness == Brightness.dark;
+                  return SvgPicture.asset(
+                    asset,
+                    width: 22,
+                    height: 22,
+                    colorFilter:
+                        isDark && BrandAssets.assetNeedsDarkInvert(asset)
+                        ? ColorFilter.mode(
+                            Theme.of(context).colorScheme.onSurface,
+                            BlendMode.srcIn,
+                          )
+                        : null,
+                  );
                 }
                 if (asset != null) {
                   return Image.asset(asset, width: 22, height: 22);
@@ -444,7 +457,7 @@ class _TranslatePageState extends State<TranslatePage> {
                                   width: 18,
                                   height: 18,
                                   colorFilter: ColorFilter.mode(
-                                    isDark ? Colors.black : Colors.white,
+                                    cs.onPrimary,
                                     BlendMode.srcIn,
                                   ),
                                 ),
@@ -452,7 +465,7 @@ class _TranslatePageState extends State<TranslatePage> {
                                 Text(
                                   l10n.chatMessageWidgetStopTooltip,
                                   style: TextStyle(
-                                    color: isDark ? Colors.black : Colors.white,
+                                    color: cs.onPrimary,
                                     fontWeight: AppFontWeights.emphasis,
                                   ),
                                 ),
@@ -465,13 +478,13 @@ class _TranslatePageState extends State<TranslatePage> {
                                 Icon(
                                   lucide.Lucide.Languages,
                                   size: 18,
-                                  color: isDark ? Colors.black : Colors.white,
+                                  color: cs.onPrimary,
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
                                   l10n.chatMessageWidgetTranslateTooltip,
                                   style: TextStyle(
-                                    color: isDark ? Colors.black : Colors.white,
+                                    color: cs.onPrimary,
                                     fontWeight: AppFontWeights.emphasis,
                                   ),
                                 ),

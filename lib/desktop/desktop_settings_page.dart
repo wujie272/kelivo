@@ -49,6 +49,7 @@ import 'setting/default_model_pane.dart';
 import 'setting/search_services_pane.dart';
 import 'setting/mcp_pane.dart';
 import 'setting/tts_services_pane.dart';
+import 'setting/memory_settings_pane.dart';
 import 'setting/quick_phrases_pane.dart';
 import 'setting/instruction_injection_pane.dart';
 import 'setting/world_book_pane.dart';
@@ -68,6 +69,9 @@ import '../features/provider/widgets/share_provider_sheet.dart'
     show encodeProviderConfig;
 import '../utils/clipboard_images.dart';
 import '../utils/provider_grouping_logic.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
+import '../theme/custom_theme.dart';
+import '../features/settings/widgets/custom_theme_widgets.dart';
 
 part 'setting/assistants_pane.dart';
 part 'setting/providers_pane.dart';
@@ -95,6 +99,7 @@ enum _SettingsMenuItem {
   quickPhrases,
   instructionInjection,
   worldBook,
+  memory,
   tts,
   networkProxy,
   backup,
@@ -230,6 +235,10 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
                           return const DesktopWorldBookPane(
                             key: ValueKey('worldBook'),
                           );
+                        case _SettingsMenuItem.memory:
+                          return const DesktopMemorySettingsPane(
+                            key: ValueKey('memory'),
+                          );
                         case _SettingsMenuItem.tts:
                           return const DesktopTtsServicesPane(
                             key: ValueKey('tts'),
@@ -302,6 +311,7 @@ class _SettingsMenu extends StatelessWidget {
         lucide.Lucide.BookOpen,
         l10n.settingsPageWorldBook,
       ),
+      (_SettingsMenuItem.memory, lucide.Lucide.Brain, l10n.settingsPageMemory),
       (_SettingsMenuItem.tts, lucide.Lucide.Volume2, l10n.settingsPageTts),
       (
         _SettingsMenuItem.networkProxy,
@@ -344,9 +354,7 @@ class _SettingsMenu extends StatelessWidget {
               onTap: () => onSelect(items[i].$1),
               color: cs.onSurface.withValues(alpha: 0.9),
               selectedColor: cs.primary,
-              hoverBg: isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : Colors.black.withValues(alpha: 0.04),
+              hoverBg: cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.04),
             ),
             if (i != items.length - 1) const SizedBox(height: 8),
           ],

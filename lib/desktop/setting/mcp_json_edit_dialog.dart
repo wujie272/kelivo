@@ -10,6 +10,7 @@ import '../../shared/widgets/snackbar.dart';
 import '../../l10n/app_localizations.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../theme/app_font_weights.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 Future<void> showDesktopMcpJsonEditDialog(BuildContext context) async {
   final cs = Theme.of(context).colorScheme;
@@ -83,7 +84,6 @@ class _DesktopMcpJsonEditDialogState extends State<_DesktopMcpJsonEditDialog> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     // Resolve user-preferred code font family (Google/local/system)
     final settings = context.watch<SettingsProvider>();
     String resolveCodeFont() {
@@ -140,7 +140,7 @@ class _DesktopMcpJsonEditDialogState extends State<_DesktopMcpJsonEditDialog> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: isDark ? Colors.white10 : Colors.white,
+                    color: context.appColors.surfaceCard,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: cs.outlineVariant.withValues(alpha: 0.3),
@@ -173,7 +173,7 @@ class _DesktopMcpJsonEditDialogState extends State<_DesktopMcpJsonEditDialog> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     _error!,
-                    style: TextStyle(color: Colors.redAccent, fontSize: 12),
+                    style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12),
                   ),
                 ),
               ),
@@ -232,9 +232,7 @@ class _SmallIconBtnState extends State<_SmallIconBtn> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = _hover
-        ? (isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.05))
+        ? (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05))
         : Colors.transparent;
     final btn = Container(
       width: 28,
@@ -275,9 +273,7 @@ class _TextBtnState extends State<_TextBtn> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = _hover
-        ? (isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.05))
+        ? (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05))
         : Colors.transparent;
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),

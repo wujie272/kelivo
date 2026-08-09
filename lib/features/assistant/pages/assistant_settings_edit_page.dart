@@ -13,6 +13,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import '../../../core/services/chat/prompt_transformer.dart';
+import '../../../core/services/memory/memory_prompts.dart';
 import 'package:provider/provider.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
 import 'package:syncfusion_flutter_sliders/sliders.dart';
@@ -30,18 +31,27 @@ import '../../../core/models/quick_phrase.dart';
 import '../../../core/providers/assistant_provider.dart';
 import '../../../core/providers/mcp_provider.dart';
 import '../../../core/providers/quick_phrase_provider.dart';
-import '../../../core/providers/memory_provider.dart';
+import '../../../core/models/memory_entry.dart';
+import '../../../core/providers/memory_provider_v2.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/services/chat/chat_service.dart';
+import '../../../core/services/memory/memory_gatekeeper.dart';
+import '../../../core/services/memory/memory_pipeline.dart';
+import '../../settings/pages/legacy_memory_page.dart';
+import '../../settings/pages/memory_settings_page.dart';
+import '../../settings/widgets/memory_ui.dart';
 import '../../../core/services/haptics.dart';
 import '../../../core/providers/skill_provider.dart';
 import '../../../core/models/skill.dart';
 import '../../../desktop/desktop_context_menu.dart';
+import '../../../desktop/setting/memory_dialogs.dart';
+import '../../../desktop/widgets/desktop_select_dropdown.dart';
 import '../../home/services/local_tools_service.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/emoji_picker_dialog.dart';
 import '../../../shared/widgets/emoji_text.dart';
+import '../../../shared/widgets/ios_form_text_field.dart';
 import '../../../shared/widgets/ios_switch.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import '../../../shared/widgets/snackbar.dart';
@@ -49,9 +59,11 @@ import '../../../theme/app_font_weights.dart';
 import '../../../theme/design_tokens.dart';
 import '../../../utils/avatar_cache.dart';
 import '../../../utils/brand_assets.dart';
+import '../../../utils/platform_utils.dart';
 import '../../../utils/sandbox_path_resolver.dart';
 import '../utils/assistant_edit_tab_layout.dart';
 import 'assistant_regex_tab.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 part 'assistant_settings_edit_basic_tab.dart';
 part 'assistant_settings_edit_prompt_tab.dart';
@@ -454,7 +466,7 @@ class _AssistantOutlineHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white10 : Colors.white.withValues(alpha: 0.96),
+        color: context.appColors.surfaceCard,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: cs.outlineVariant.withValues(alpha: isDark ? 0.1 : 0.08),
@@ -785,7 +797,7 @@ class _AssistantTabLayoutTile extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final bg = isDark ? Colors.white10 : Colors.white.withValues(alpha: 0.96);
+    final bg = context.appColors.surfaceCard;
     final fg = visible
         ? cs.onSurface.withValues(alpha: 0.9)
         : cs.onSurface.withValues(alpha: 0.42);
@@ -885,9 +897,7 @@ class _SegTabBar extends StatelessWidget {
             final double rowWidth =
                 segWidth * tabs.length + gap * (tabs.length - 1);
 
-            final Color shellBg = isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.white; // 白底胶囊，无边框阴影
+            final Color shellBg = context.appColors.surfaceCard; // 白底胶囊，无边框阴影
 
             List<Widget> children = [];
             for (int index = 0; index < tabs.length; index++) {
@@ -911,7 +921,11 @@ class _SegTabBar extends StatelessWidget {
                                 .primary // 选中文字：主题色
                           : cs.onSurface.withValues(alpha: 0.82); // 未选中：深灰
                       final Color targetTextColor = pressed
-                          ? Color.lerp(baseTextColor, Colors.white, 0.22) ??
+                          ? Color.lerp(
+                                  baseTextColor,
+                                  isDark ? cs.onSurface : cs.surface,
+                                  0.22,
+                                ) ??
                                 baseTextColor
                           : baseTextColor;
 
@@ -996,7 +1010,6 @@ class _InputRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1007,7 +1020,7 @@ class _InputRow extends StatelessWidget {
         const SizedBox(height: 6),
         Container(
           decoration: BoxDecoration(
-            color: isDark ? Colors.white10 : const Color(0xFFF7F7F9),
+            color: context.appColors.surfaceFill,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: cs.outlineVariant.withValues(alpha: 0.35),
@@ -1049,15 +1062,15 @@ class _BrandAvatarLike extends StatelessWidget {
     final asset = BrandAssets.assetForName(name);
     if (asset != null) {
       if (asset.endsWith('.svg')) {
-        final isColorful = asset.contains('color');
-        final ColorFilter? tint = (isDark && !isColorful)
-            ? const ColorFilter.mode(Colors.white, BlendMode.srcIn)
+        final ColorFilter? tint =
+            (isDark && BrandAssets.assetNeedsDarkInvert(asset))
+            ? ColorFilter.mode(cs.onSurface, BlendMode.srcIn)
             : null;
         return Container(
           width: size,
           height: size,
           decoration: BoxDecoration(
-            color: isDark ? Colors.white10 : cs.primary.withValues(alpha: 0.1),
+            color: cs.primary.withValues(alpha: isDark ? 0.18 : 0.1),
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
@@ -1073,7 +1086,7 @@ class _BrandAvatarLike extends StatelessWidget {
           width: size,
           height: size,
           decoration: BoxDecoration(
-            color: isDark ? Colors.white10 : cs.primary.withValues(alpha: 0.1),
+            color: cs.primary.withValues(alpha: isDark ? 0.18 : 0.1),
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
@@ -1090,7 +1103,7 @@ class _BrandAvatarLike extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: isDark ? Colors.white10 : cs.primary.withValues(alpha: 0.1),
+        color: cs.primary.withValues(alpha: isDark ? 0.18 : 0.1),
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
@@ -1164,9 +1177,7 @@ Widget _iosSectionCard({required List<Widget> children}) {
       final theme = Theme.of(context);
       final cs = theme.colorScheme;
       final isDark = theme.brightness == Brightness.dark;
-      final Color bg = isDark
-          ? Colors.white10
-          : Colors.white.withValues(alpha: 0.96);
+      final Color bg = context.appColors.surfaceCard;
       return Container(
         decoration: BoxDecoration(
           color: bg,
@@ -1209,9 +1220,9 @@ class _AnimatedPressColor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
     final target = pressed
-        ? (Color.lerp(base, isDark ? Colors.black : Colors.white, 0.55) ?? base)
+        ? (Color.lerp(base, cs.surface, 0.55) ?? base)
         : base;
     return TweenAnimationBuilder<Color?>(
       tween: ColorTween(end: target),
@@ -1228,13 +1239,11 @@ class _TactileRow extends StatefulWidget {
     this.onTap,
     this.haptics = true,
     this.pressedScale = 1.0,
-    this.releaseDelayMs = 60,
   });
   final Widget Function(bool pressed) builder;
   final VoidCallback? onTap;
   final bool haptics;
   final double pressedScale;
-  final int releaseDelayMs;
 
   @override
   State<_TactileRow> createState() => _TactileRowState();
@@ -1264,11 +1273,7 @@ class _TactileRowState extends State<_TactileRow> {
       onTapUp: widget.onTap == null
           ? null
           : (_) async {
-              if (widget.releaseDelayMs > 0) {
-                await Future.delayed(
-                  Duration(milliseconds: widget.releaseDelayMs),
-                );
-              }
+              await Future.delayed(const Duration(milliseconds: 60));
               if (mounted) _setPressed(false);
             },
       onTapCancel: widget.onTap == null ? null : () => _setPressed(false),
@@ -1406,7 +1411,6 @@ class _IosButtonState extends State<_IosButton> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Determine if this is a Material icon (needs more spacing)
     final isMaterialIcon =
@@ -1441,9 +1445,7 @@ class _IosButtonState extends State<_IosButton> {
         curve: Curves.easeOutCubic,
         child: Container(
           decoration: BoxDecoration(
-            color: widget.filled
-                ? cs.primary
-                : (isDark ? Colors.white10 : const Color(0xFFF2F3F5)),
+            color: widget.filled ? cs.primary : (context.appColors.surfaceFill),
             borderRadius: BorderRadius.circular(12),
             border: widget.filled ? null : Border.all(color: borderColor),
           ),
@@ -1660,9 +1662,7 @@ class _DesktopAssistantMenuState extends State<_DesktopAssistantMenu> {
           final bg = selected
               ? cs.primary.withValues(alpha: 0.10)
               : (_hover == i
-                    ? (isDark
-                          ? Colors.white.withValues(alpha: 0.06)
-                          : Colors.black.withValues(alpha: 0.04))
+                    ? (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.04))
                     : Colors.transparent);
           final fg = selected
               ? cs.primary
@@ -1864,9 +1864,7 @@ class _DesktopAssistantBasicPaneState
                     labelText: l10n.assistantEditAssistantNameLabel,
                     isDense: true,
                     filled: true,
-                    fillColor: isDark
-                        ? Colors.white10
-                        : const Color(0xFFF7F7F9),
+                    fillColor: context.appColors.surfaceFill,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                       borderSide: BorderSide(
@@ -2006,7 +2004,10 @@ class _DesktopAssistantBasicPaneState
                     onChanged: (v) async {
                       if (v) {
                         await context.read<AssistantProvider>().updateAssistant(
-                          a.copyWith(temperature: (a.temperature ?? 0.6)),
+                          a.copyWith(
+                            temperature:
+                                a.temperature ?? Assistant.defaultTemperature,
+                          ),
                         );
                       } else {
                         await context.read<AssistantProvider>().updateAssistant(
@@ -2021,14 +2022,15 @@ class _DesktopAssistantBasicPaneState
                     child: Opacity(
                       opacity: a.temperature == null ? 0.5 : 1.0,
                       child: _SliderTileNew(
-                        value: (a.temperature ?? 0.6).clamp(0.0, 2.0),
+                        value: (a.temperature ?? Assistant.defaultTemperature)
+                            .clamp(0.0, 2.0),
                         min: 0.0,
                         max: 2.0,
                         divisions: 40,
-                        label: ((a.temperature ?? 0.6).clamp(
-                          0.0,
-                          2.0,
-                        )).toStringAsFixed(2),
+                        label:
+                            ((a.temperature ?? Assistant.defaultTemperature)
+                                    .clamp(0.0, 2.0))
+                                .toStringAsFixed(2),
                         onChanged: (v) => context
                             .read<AssistantProvider>()
                             .updateAssistant(a.copyWith(temperature: v)),
@@ -2200,9 +2202,7 @@ class _DesktopAssistantBasicPaneState
                           vertical: 20,
                         ),
                         filled: true,
-                        fillColor: isDark
-                            ? Colors.white10
-                            : const Color(0xFFF7F7F9),
+                        fillColor: context.appColors.surfaceFill,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: BorderSide(
@@ -2324,15 +2324,13 @@ class _DesktopAssistantBasicPaneState
                       },
                       pressedScale: 0.98,
                       builder: (pressed) {
-                        final base = isDark
-                            ? Colors.white10
-                            : const Color(0xFFF2F3F5);
-                        final pressOv = isDark
-                            ? Colors.white.withValues(alpha: 0.06)
-                            : Colors.black.withValues(alpha: 0.05);
-                        final hoverOv = isDark
-                            ? Colors.white.withValues(alpha: 0.04)
-                            : Colors.black.withValues(alpha: 0.04);
+                        final base = context.appColors.surfaceFill;
+                        final pressOv = cs.onSurface.withValues(
+                          alpha: isDark ? 0.06 : 0.05,
+                        );
+                        final hoverOv = cs.onSurface.withValues(
+                          alpha: isDark ? 0.04 : 0.04,
+                        );
                         final bgColor = pressed
                             ? Color.alphaBlend(pressOv, base)
                             : (_hoverChatModel
@@ -2417,15 +2415,13 @@ class _DesktopAssistantBasicPaneState
                         onTap: () => _pickBackground(context, a),
                         pressedScale: 0.98,
                         builder: (pressed) {
-                          final base = isDark
-                              ? Colors.white10
-                              : const Color(0xFFF2F3F5);
-                          final pressOv = isDark
-                              ? Colors.white.withValues(alpha: 0.06)
-                              : Colors.black.withValues(alpha: 0.05);
-                          final hoverOv = isDark
-                              ? Colors.white.withValues(alpha: 0.04)
-                              : Colors.black.withValues(alpha: 0.04);
+                          final base = context.appColors.surfaceFill;
+                          final pressOv = cs.onSurface.withValues(
+                            alpha: isDark ? 0.06 : 0.05,
+                          );
+                          final hoverOv = cs.onSurface.withValues(
+                            alpha: isDark ? 0.04 : 0.04,
+                          );
                           final bg = pressed
                               ? Color.alphaBlend(pressOv, base)
                               : (_hoverBgChooser
@@ -2638,9 +2634,7 @@ class _DesktopAssistantBasicPaneState
             decoration: InputDecoration(
               hintText: l10n.assistantEditImageUrlDialogHint,
               filled: true,
-              fillColor: Theme.of(ctx).brightness == Brightness.dark
-                  ? Colors.white10
-                  : const Color(0xFFF2F3F5),
+              fillColor: ctx.appColors.surfaceFill,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(color: Colors.transparent),
@@ -2745,9 +2739,7 @@ class _DesktopAssistantBasicPaneState
                 decoration: InputDecoration(
                   hintText: l10n.assistantEditQQAvatarDialogHint,
                   filled: true,
-                  fillColor: Theme.of(ctx).brightness == Brightness.dark
-                      ? Colors.white10
-                      : const Color(0xFFF2F3F5),
+                  fillColor: ctx.appColors.surfaceFill,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: Colors.transparent),

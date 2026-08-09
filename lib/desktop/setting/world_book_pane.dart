@@ -15,6 +15,7 @@ import '../../shared/widgets/ios_switch.dart';
 import '../../shared/widgets/snackbar.dart';
 import '../widgets/desktop_select_dropdown.dart';
 import '../../theme/app_font_weights.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 class DesktopWorldBookPane extends StatefulWidget {
   const DesktopWorldBookPane({super.key});
@@ -254,7 +255,7 @@ class _DesktopWorldBookPaneState extends State<DesktopWorldBookPane> {
               onPressed: () => Navigator.of(ctx).pop(true),
               child: Text(
                 l10n.worldBookDelete,
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ),
           ],
@@ -466,9 +467,7 @@ class _WorldBookCardState extends State<_WorldBookCard> {
     final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final baseBg = isDark
-        ? Colors.white10
-        : Colors.white.withValues(alpha: 0.96);
+    final baseBg = context.appColors.surfaceCard;
     final borderColor = _hover
         ? cs.primary.withValues(alpha: isDark ? 0.35 : 0.45)
         : cs.outlineVariant.withValues(alpha: isDark ? 0.12 : 0.08);
@@ -630,9 +629,7 @@ class _EntriesPanel extends StatelessWidget {
     final borderColor = cs.outlineVariant.withValues(
       alpha: isDark ? 0.16 : 0.12,
     );
-    final bg = isDark
-        ? Colors.white.withValues(alpha: 0.04)
-        : const Color(0xFFF8F8FA);
+    final bg = context.appColors.surfaceFill;
 
     if (entries.isEmpty) {
       return Container(
@@ -699,7 +696,7 @@ class _EntryRowState extends State<_EntryRow> {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final hoverBg = (isDark ? Colors.white : Colors.black).withValues(
+    final hoverBg = cs.onSurface.withValues(
       alpha: isDark ? 0.08 : 0.04,
     );
 
@@ -1084,9 +1081,7 @@ class _WorldBookEntryEditDialogState extends State<_WorldBookEntryEditDialog> {
     required bool isDark,
     required Widget child,
   }) {
-    final bg = isDark
-        ? Colors.white.withValues(alpha: 0.05)
-        : Colors.black.withValues(alpha: 0.03);
+    final bg = cs.onSurface.withValues(alpha: isDark ? 0.05 : 0.03);
     final border = cs.outlineVariant.withValues(alpha: 0.12);
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1178,7 +1173,7 @@ class _WorldBookEntryEditDialogState extends State<_WorldBookEntryEditDialog> {
     required List<DesktopSelectOption<T>> options,
     required ValueChanged<T> onSelected,
   }) {
-    final fillColor = isDark ? Colors.white10 : const Color(0xFFF7F7F9);
+    final fillColor = context.appColors.surfaceFill;
     return DesktopSelectDropdown<T>(
       value: value,
       options: options,
@@ -1551,9 +1546,7 @@ class _SmallIconBtnState extends State<_SmallIconBtn> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = _hover
-        ? (isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.05))
+        ? (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05))
         : Colors.transparent;
     final btn = MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
@@ -1608,9 +1601,7 @@ class _DeskIosButtonState extends State<_DeskIosButton> {
     final bg = widget.filled
         ? (_hover ? cs.primary.withValues(alpha: 0.92) : cs.primary)
         : (_hover
-              ? (isDark
-                    ? Colors.white.withValues(alpha: 0.06)
-                    : Colors.black.withValues(alpha: 0.05))
+              ? (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05))
               : Colors.transparent);
     final borderColor = widget.filled
         ? Colors.transparent
@@ -1656,12 +1647,11 @@ class _DeskIosButtonState extends State<_DeskIosButton> {
 }
 
 InputDecoration _deskInputDecoration(BuildContext context) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
   final cs = Theme.of(context).colorScheme;
   return InputDecoration(
     isDense: false,
     filled: true,
-    fillColor: isDark ? Colors.white10 : const Color(0xFFF7F7F9),
+    fillColor: context.appColors.surfaceFill,
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
       borderSide: BorderSide(

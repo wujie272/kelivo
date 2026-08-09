@@ -11,7 +11,10 @@ import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/ios_tile_button.dart';
 import '../../../core/services/haptics.dart';
 import 'tts_settings_page.dart';
+import '../widgets/asr_services_section.dart';
+import '../widgets/voice_service_widgets.dart';
 import '../../../theme/app_font_weights.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 class TtsServicesPage extends StatelessWidget {
   const TtsServicesPage({super.key});
@@ -48,16 +51,6 @@ class TtsServicesPage extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 6),
-          Tooltip(
-            message: l10n.ttsServicesPageAddTooltip,
-            child: _TactileIconButton(
-              icon: Lucide.Plus,
-              color: cs.onSurface,
-              size: 22,
-              onTap: () => _handleAddNetworkTts(context),
-            ),
-          ),
           const SizedBox(width: 12),
         ],
       ),
@@ -80,7 +73,12 @@ class TtsServicesPage extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             children: [
-              _header(context, l10n.ttsServicesPageTitle, first: true),
+              VoiceServiceSectionHeader(
+                title: l10n.ttsServicesSectionTitle,
+                addTooltip: l10n.ttsServicesPageAddTooltip,
+                onAdd: () => _handleAddNetworkTts(context),
+                first: true,
+              ),
               _iosSectionCard(
                 children: [
                   // System TTS as first row
@@ -102,9 +100,9 @@ class TtsServicesPage extends StatelessWidget {
                           final isDark =
                               Theme.of(context).brightness == Brightness.dark;
                           final overlay = pressed
-                              ? (isDark
-                                    ? Colors.black.withValues(alpha: 0.06)
-                                    : Colors.white.withValues(alpha: 0.05))
+                              ? cs2.surface.withValues(
+                                  alpha: isDark ? 0.06 : 0.05,
+                                )
                               : Colors.transparent;
                           return Padding(
                             padding: const EdgeInsets.symmetric(
@@ -196,6 +194,7 @@ class TtsServicesPage extends StatelessWidget {
                   ],
                 ],
               ),
+              const AsrServicesSection(),
             ],
           );
         },
@@ -339,9 +338,9 @@ class _AnimatedPressColor extends StatelessWidget {
   final Widget Function(Color c) builder;
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
     final target = pressed
-        ? (Color.lerp(base, isDark ? Colors.black : Colors.white, 0.55) ?? base)
+        ? (Color.lerp(base, cs.surface, 0.55) ?? base)
         : base;
     return TweenAnimationBuilder<Color?>(
       tween: ColorTween(end: target),
@@ -358,9 +357,7 @@ Widget _iosSectionCard({required List<Widget> children}) {
       final theme = Theme.of(context);
       final cs = theme.colorScheme;
       final isDark = theme.brightness == Brightness.dark;
-      final Color bg = isDark
-          ? Colors.white10
-          : Colors.white.withValues(alpha: 0.96);
+      final Color bg = context.appColors.surfaceCard;
       return Container(
         decoration: BoxDecoration(
           color: bg,
@@ -444,7 +441,7 @@ class _AvatarBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final baseBg = isDark ? Colors.white10 : cs.primary.withValues(alpha: 0.1);
+    final baseBg = cs.primary.withValues(alpha: isDark ? 0.18 : 0.1);
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -481,7 +478,7 @@ class _AvatarBrandBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final baseBg = isDark ? Colors.white10 : cs.primary.withValues(alpha: 0.1);
+    final baseBg = cs.primary.withValues(alpha: isDark ? 0.18 : 0.1);
     final asset =
         BrandAssets.assetForName(name) ??
         BrandAssets.assetForName(name.split(' ').first);
@@ -503,7 +500,15 @@ class _AvatarBrandBadge extends StatelessWidget {
                   ),
                 )
               : (asset.endsWith('.svg')
-                    ? SvgPicture.asset(asset, width: 20, height: 20)
+                    ? SvgPicture.asset(
+                        asset,
+                        width: 20,
+                        height: 20,
+                        colorFilter:
+                            isDark && BrandAssets.assetNeedsDarkInvert(asset)
+                            ? ColorFilter.mode(cs.onSurface, BlendMode.srcIn)
+                            : null,
+                      )
                     : Image.asset(
                         asset,
                         width: 20,
@@ -556,9 +561,7 @@ class _NetworkTtsRowMobileState extends State<_NetworkTtsRowMobile> {
               builder: (c) {
                 final isDark = Theme.of(context).brightness == Brightness.dark;
                 final overlay = pressed
-                    ? (isDark
-                          ? Colors.black.withValues(alpha: 0.06)
-                          : Colors.white.withValues(alpha: 0.05))
+                    ? cs.surface.withValues(alpha: isDark ? 0.06 : 0.05)
                     : Colors.transparent;
                 return Padding(
                   padding: const EdgeInsets.symmetric(
@@ -1212,8 +1215,7 @@ class _TtsEditorTextFieldState extends State<_TtsEditorTextField> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fieldBg = isDark ? Colors.white12 : const Color(0xFFF2F3F5);
+    final fieldBg = context.appColors.surfaceFill;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Column(
@@ -1528,13 +1530,10 @@ Widget _sheetOption(
     builder: (pressed) {
       final base = cs.onSurface;
       final target = pressed
-          ? (Color.lerp(base, isDark ? Colors.black : Colors.white, 0.55) ??
-                base)
+          ? (Color.lerp(base, cs.surface, 0.55) ?? base)
           : base;
       final bgTarget = pressed
-          ? (isDark
-                ? Colors.white.withValues(alpha: 0.06)
-                : Colors.black.withValues(alpha: 0.05))
+          ? (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05))
           : Colors.transparent;
       return TweenAnimationBuilder<Color?>(
         tween: ColorTween(end: target),

@@ -1,18 +1,14 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
 import '../../../../l10n/app_localizations.dart';
 import '../search_service.dart';
 
 class QueritSearchService extends SearchService<QueritOptions> {
-  QueritSearchService({http.Client? client})
-    : _client = client ?? http.Client();
+  QueritSearchService({super.client});
 
   static const String endpoint = 'https://api.querit.ai/v1/search';
-
-  final http.Client _client;
 
   @override
   String get name => 'Querit';
@@ -33,7 +29,9 @@ class QueritSearchService extends SearchService<QueritOptions> {
     required QueritOptions serviceOptions,
   }) async {
     try {
-      final apiKey = serviceOptions.apiKey.trim();
+      final apiKey = serviceOptions
+          .effectiveApiKey(serviceOptions.apiKey)
+          .trim();
       if (apiKey.isEmpty) {
         throw Exception('Querit API key is required');
       }
@@ -47,16 +45,18 @@ class QueritSearchService extends SearchService<QueritOptions> {
         body['filters'] = filters;
       }
 
-      final response = await _client
-          .post(
-            Uri.parse(endpoint),
-            headers: {
-              'Authorization': 'Bearer $apiKey',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode(body),
-          )
-          .timeout(Duration(milliseconds: commonOptions.timeout));
+      final response = await withHttpClient(
+        (client) => client
+            .post(
+              Uri.parse(endpoint),
+              headers: {
+                'Authorization': 'Bearer $apiKey',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode(body),
+            )
+            .timeout(Duration(milliseconds: commonOptions.timeout)),
+      );
 
       if (response.statusCode != 200) {
         throw Exception(

@@ -48,6 +48,7 @@ import '../../../features/search/services/global_session_search_service.dart';
 import '../controllers/chat_actions.dart';
 import 'assistant_avatar.dart';
 import 'assistant_entry_actions.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 class SideDrawer extends StatefulWidget {
   const SideDrawer({
@@ -131,6 +132,9 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
   String? _selectedResultConversationId;
   String? _hoveredResultConversationId;
   bool _globalSearchHasRun = false;
+  bool _globalSearchLoading = false;
+  int _globalSearchRequestId = 0;
+  String? _runningGlobalSearchQuery;
 
   @override
   void initState() {
@@ -236,6 +240,7 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
             icon: Lucide.Shuffle,
             label: l10n.sideDrawerMenuMoveTo,
             onTap: () async {
+              if (widget.loadingConversationIds.contains(chat.id)) return;
               final conv = chatService.getConversation(chat.id);
               final movingCurrent =
                   chatService.currentConversationId == chat.id;
@@ -266,11 +271,11 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
               );
               if (!mounted) return;
               if (targetId != null) {
-                await chatService.moveConversationToAssistant(
+                final moved = await chatService.moveConversationToAssistant(
                   conversationId: chat.id,
                   assistantId: targetId,
                 );
-                if (!mounted) return;
+                if (!mounted || !moved) return;
                 if (movingCurrent ||
                     chatService.currentConversationId == null) {
                   final closeDrawer = !keepSidebarOpenOnTopicTap;
@@ -422,6 +427,9 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
                       icon: Lucide.Shuffle,
                       label: l10n.sideDrawerMenuMoveTo,
                       action: () async {
+                        if (widget.loadingConversationIds.contains(chat.id)) {
+                          return;
+                        }
                         final conv = chatService.getConversation(chat.id);
                         final movingCurrent =
                             chatService.currentConversationId == chat.id;
@@ -458,11 +466,12 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
                         );
                         if (!mounted) return;
                         if (targetId != null) {
-                          await chatService.moveConversationToAssistant(
-                            conversationId: chat.id,
-                            assistantId: targetId,
-                          );
-                          if (!mounted) return;
+                          final moved = await chatService
+                              .moveConversationToAssistant(
+                                conversationId: chat.id,
+                                assistantId: targetId,
+                              );
+                          if (!mounted || !moved) return;
                           if (movingCurrent ||
                               chatService.currentConversationId == null) {
                             final closeDrawer = !keepSidebarOpenOnTopicTap;
@@ -483,7 +492,7 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
                     row(
                       icon: Lucide.Trash,
                       label: l10n.sideDrawerMenuDelete,
-                      color: Colors.redAccent,
+                      color: Theme.of(context).colorScheme.error,
                       action: () async {
                         final confirmed = await _confirmDeleteConversation(
                           context,
@@ -545,7 +554,7 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
               onPressed: () => Navigator.of(ctx).pop(true),
               child: Text(
                 l10n.sideDrawerMenuDelete,
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ),
           ],
@@ -741,19 +750,44 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
   }
 
   Future<void> _runGlobalSearch() async {
-    if (_query.trim().isEmpty) {
+    final query = _query.trim();
+    if (query.isEmpty) {
       _clearGlobalSearchState(clearText: false);
       return;
     }
-    final chatService = context.read<ChatService>();
-    final results = await GlobalSessionSearchService.search(
-      chatService: chatService,
-      query: _query,
-    );
+    if (_globalSearchLoading && _runningGlobalSearchQuery == query) return;
+
+    final requestId = ++_globalSearchRequestId;
     setState(() {
-      _globalSearchResults = results;
-      _globalSearchHasRun = true;
+      _globalSearchLoading = true;
+      _runningGlobalSearchQuery = query;
+      _globalSearchResults = const [];
+      _globalSearchHasRun = false;
     });
+
+    final chatService = context.read<ChatService>();
+    try {
+      final results = await GlobalSessionSearchService.search(
+        chatService: chatService,
+        query: query,
+      );
+      if (!mounted ||
+          requestId != _globalSearchRequestId ||
+          query != _query.trim()) {
+        return;
+      }
+      setState(() {
+        _globalSearchResults = results;
+        _globalSearchHasRun = true;
+      });
+    } finally {
+      if (mounted && requestId == _globalSearchRequestId) {
+        setState(() {
+          _globalSearchLoading = false;
+          _runningGlobalSearchQuery = null;
+        });
+      }
+    }
   }
 
   void _submitMobileGlobalSearch() {
@@ -767,6 +801,7 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
   }
 
   void _clearGlobalSearchState({bool clearText = false}) {
+    _globalSearchRequestId++;
     if (clearText && _searchController.text.isNotEmpty) {
       _searchController.clear();
     }
@@ -774,6 +809,8 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
       _query = clearText ? '' : _searchController.text;
       _globalSearchResults = const [];
       _globalSearchHasRun = false;
+      _globalSearchLoading = false;
+      _runningGlobalSearchQuery = null;
       _selectedResultConversationId = null;
       _hoveredResultConversationId = null;
     });
@@ -856,17 +893,28 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-    final textBase = isDark ? Colors.white : Colors.black;
+    final textBase = cs.onSurface;
     final tokens = _query
         .trim()
         .toLowerCase()
         .split(RegExp(r'\s+'))
         .where((e) => e.isNotEmpty)
         .toList();
-    final highlightColor = isDark
-        ? const Color(0xFFB8860B).withValues(alpha: 0.55)
-        : const Color(0xFFFFD700).withValues(alpha: 0.55);
+    final highlightColor = context.appColors.searchHighlight;
+
+    if (_globalSearchLoading) {
+      return Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 28),
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+          ),
+        ),
+      );
+    }
 
     if (!_globalSearchHasRun) {
       if (!_isDesktop) {
@@ -1193,8 +1241,7 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-    final textBase = isDark ? Colors.white : Colors.black; // 纯黑（白天），夜间自动适配
+    final textBase = cs.onSurface; // 纯黑（白天），夜间自动适配
     final ap = context.watch<AssistantProvider>();
     final currentAssistantId = ap.currentAssistantId;
 
@@ -1387,11 +1434,7 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
                                       return l10n.sideDrawerSearchHint;
                                     })(),
                                     filled: true,
-                                    fillColor: isDark
-                                        ? Colors.white10
-                                        : Colors.grey.shade200.withValues(
-                                            alpha: 0.80,
-                                          ),
+                                    fillColor: context.appColors.surfaceFill,
                                     isDense: true,
                                     isCollapsed: true,
                                     prefixIcon: Padding(
@@ -1641,9 +1684,7 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
                                                   ? ''
                                                   : _mobileSearchHint(),
                                               filled: true,
-                                              fillColor: isDark
-                                                  ? Colors.white10
-                                                  : Colors.grey.shade200
+                                              fillColor: context.appColors.surfaceFill
                                                         .withValues(
                                                           alpha: 0.80,
                                                         ),
@@ -2652,9 +2693,7 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
                       decoration: InputDecoration(
                         hintText: l10n.sideDrawerEmojiDialogHint,
                         filled: true,
-                        fillColor: Theme.of(ctx).brightness == Brightness.dark
-                            ? Colors.white10
-                            : const Color(0xFFF2F3F5),
+                        fillColor: ctx.appColors.surfaceFill,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(color: Colors.transparent),
@@ -2764,9 +2803,7 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
                 decoration: InputDecoration(
                   hintText: l10n.sideDrawerImageUrlDialogHint,
                   filled: true,
-                  fillColor: Theme.of(ctx).brightness == Brightness.dark
-                      ? Colors.white10
-                      : const Color(0xFFF2F3F5),
+                  fillColor: ctx.appColors.surfaceFill,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: Colors.transparent),
@@ -2891,9 +2928,7 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
                 decoration: InputDecoration(
                   hintText: l10n.sideDrawerQQAvatarInputHint,
                   filled: true,
-                  fillColor: Theme.of(ctx).brightness == Brightness.dark
-                      ? Colors.white10
-                      : const Color(0xFFF2F3F5),
+                  fillColor: ctx.appColors.surfaceFill,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: Colors.transparent),
@@ -3044,7 +3079,6 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
       context: context,
       builder: (ctx) {
         final cs = Theme.of(ctx).colorScheme;
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         String value = controller.text;
         bool valid(String v) => v.trim().isNotEmpty && v.trim() != initial;
         return StatefulBuilder(
@@ -3073,9 +3107,7 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
                       labelText: l10n.sideDrawerNicknameLabel,
                       hintText: l10n.sideDrawerNicknameHint,
                       filled: true,
-                      fillColor: isDark
-                          ? Colors.white10
-                          : const Color(0xFFF2F3F5),
+                      fillColor: context.appColors.surfaceFill,
                       counterText: '',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -3146,8 +3178,7 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
   Widget _buildAssistantsList(BuildContext context, {bool inlineMode = false}) {
     final ap2 = context.watch<AssistantProvider>();
     final tp = context.watch<TagProvider>();
-    final isDark2 = Theme.of(context).brightness == Brightness.dark;
-    final textBase2 = isDark2 ? Colors.white : Colors.black;
+    final textBase2 = Theme.of(context).colorScheme.onSurface;
 
     List<Assistant> assistants = ap2.assistants;
     // Apply search filter when:
@@ -3317,11 +3348,10 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
                 ? l10n.sideDrawerUpdateTitleWithBuild(ver, build)
                 : l10n.sideDrawerUpdateTitle(ver);
             final cs2 = Theme.of(context).colorScheme;
-            final isDark2 = Theme.of(context).brightness == Brightness.dark;
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Material(
-                color: isDark2 ? Colors.white10 : const Color(0xFFF2F3F5),
+                color: context.appColors.surfaceFill,
                 borderRadius: BorderRadius.circular(12),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
@@ -3838,9 +3868,7 @@ class _DesktopSidebarTabsState extends State<_DesktopSidebarTabs> {
             final double segW = (constraints.maxWidth - pad * 2) / 2;
             return Container(
               decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white10
-                    : Colors.grey.shade200.withValues(alpha: 0.80),
+                color: context.appColors.surfaceFill,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Stack(

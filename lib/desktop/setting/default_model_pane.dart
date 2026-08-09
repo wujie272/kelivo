@@ -10,6 +10,7 @@ import '../../features/model/utils/ocr_model_capability.dart';
 import '../../utils/brand_assets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../theme/app_font_weights.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 class DesktopDefaultModelPane extends StatelessWidget {
   const DesktopDefaultModelPane({super.key});
@@ -907,16 +908,12 @@ class _ModelCardState extends State<_ModelCard> {
           : l10n.defaultModelPageUseCurrentModel;
     }
 
-    final baseBg = isDark
-        ? Colors.white10
-        : Colors.white.withValues(alpha: 0.96);
+    final baseBg = context.appColors.surfaceCard;
     final borderColor = cs.outlineVariant.withValues(
       alpha: isDark ? 0.08 : 0.06,
     );
-    final rowBase = isDark ? Colors.white10 : const Color(0xFFF2F3F5);
-    final hoverOverlay = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : Colors.black.withValues(alpha: 0.05);
+    final rowBase = context.appColors.surfaceFill;
+    final hoverOverlay = cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05);
 
     return Container(
       decoration: BoxDecoration(
@@ -1106,13 +1103,11 @@ class _DeskIosButtonState extends State<_DeskIosButton> {
     final baseColor = widget.filled
         ? cs.primary
         : cs.onSurface.withValues(alpha: 0.8);
-    final textColor = widget.filled ? Colors.white : baseColor;
+    final textColor = widget.filled ? cs.onPrimary : baseColor;
     final bg = widget.filled
         ? (_hover ? cs.primary.withValues(alpha: 0.92) : cs.primary)
         : (_hover
-              ? (isDark
-                    ? Colors.white.withValues(alpha: 0.06)
-                    : Colors.black.withValues(alpha: 0.05))
+              ? (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05))
               : Colors.transparent);
     final borderColor = widget.filled
         ? Colors.transparent
@@ -1172,9 +1167,7 @@ class _SmallIconBtnState extends State<_SmallIconBtn> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = _hover
-        ? (isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.05))
+        ? (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05))
         : Colors.transparent;
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
@@ -1222,6 +1215,9 @@ class _BrandCircle extends StatelessWidget {
         width: size * 0.62,
         height: size * 0.62,
         fit: BoxFit.contain,
+        colorFilter: isDark && BrandAssets.assetNeedsDarkInvert(asset)
+            ? ColorFilter.mode(cs.onSurface, BlendMode.srcIn)
+            : null,
       );
     } else {
       inner = Image.asset(
@@ -1235,7 +1231,7 @@ class _BrandCircle extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: isDark ? Colors.white10 : cs.primary.withValues(alpha: 0.10),
+        color: cs.primary.withValues(alpha: isDark ? 0.18 : 0.10),
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
@@ -1268,12 +1264,11 @@ Widget _promptEditor(
 }
 
 InputDecoration _deskInputDecoration(BuildContext context) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
   final cs = Theme.of(context).colorScheme;
   return InputDecoration(
     isDense: false,
     filled: true,
-    fillColor: isDark ? Colors.white10 : const Color(0xFFF7F7F9),
+    fillColor: context.appColors.surfaceFill,
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
       borderSide: BorderSide(

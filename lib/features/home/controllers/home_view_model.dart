@@ -10,6 +10,8 @@ import '../../../core/providers/settings_provider.dart';
 import '../../../core/services/api/chat_api_service.dart';
 import '../../../core/services/chat/chat_service.dart';
 import '../../../core/services/logging/flutter_logger.dart';
+import '../../../core/services/memory/memory_pipeline.dart';
+import '../../../core/services/memory/memory_trace.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../chat/widgets/chat_message_widget.dart' show ToolUIPart;
 import '../services/message_builder_service.dart';
@@ -213,11 +215,12 @@ class HomeViewModel extends ChangeNotifier {
   Conversation? get currentConversation => _chatController.currentConversation;
   List<ChatMessage> get messages => _chatController.messages;
   Map<String, int> get versionSelections => _chatController.versionSelections;
-  Set<String> get loadingConversationIds =>
-      _chatController.loadingConversationIds;
+  Set<String> get loadingConversationIds => <String>{
+    for (final id in _chatController.loadingConversationIds)
+      if (!_chatActions.isStopping(id)) id,
+  };
 
-  /// Whether a send/regenerate for [conversationId] has been claimed but has
-  /// not yet handed exclusion off to the loading guard.
+  /// Whether send/regenerate or cancellation teardown owns [conversationId].
   bool isConversationSendInFlight(String conversationId) =>
       _chatActions.isSendInFlight(conversationId);
   Map<String, StreamSubscription<dynamic>> get conversationStreams =>
@@ -232,9 +235,13 @@ class HomeViewModel extends ChangeNotifier {
       _streamController.contentSplits;
   Map<String, List<ToolUIPart>> get toolParts => _streamController.toolParts;
 
-  /// Whether the current conversation is actively generating.
-  bool get isCurrentConversationLoading =>
-      _chatController.isCurrentConversationLoading;
+  /// Whether the current conversation should show the generating state.
+  bool get isCurrentConversationLoading {
+    final cid = currentConversation?.id;
+    if (cid == null) return false;
+    return _chatController.isConversationLoading(cid) &&
+        !_chatActions.isStopping(cid);
+  }
 
   QueuedChatInput? get currentQueuedInput {
     final cid = currentConversation?.id;
@@ -300,6 +307,32 @@ class HomeViewModel extends ChangeNotifier {
 
   void _onAssistantMessageFinished(ChatMessage message) {
     onAssistantMessageFinished?.call(message);
+    _onMaybeOrganizeMemory(message.conversationId);
+  }
+
+  /// Schedule background memory organize after a successful finalize (§12.1).
+  /// Never awaited; failures must not surface as chat errors.
+  void _onMaybeOrganizeMemory(String conversationId) {
+    try {
+      final convo = _chatService.getConversation(conversationId);
+      if (convo == null) return;
+      final assistantProvider = _contextProvider.read<AssistantProvider>();
+      final assistant = convo.assistantId != null
+          ? assistantProvider.getById(convo.assistantId!)
+          : assistantProvider.currentAssistant;
+      if (assistant == null || !assistant.enableMemory) return;
+      if (!assistant.autoOrganizeMemory) return;
+      final pipeline = _contextProvider.read<MemoryPipelineService>();
+      pipeline.scheduleIfNeeded(
+        conversationId: conversationId,
+        assistantId: assistant.id,
+      );
+    } catch (e, st) {
+      FlutterLogger.log(
+        '[MemoryPipeline] schedule failed: $e\n$st',
+        tag: 'HomeViewModel',
+      );
+    }
   }
 
   void _onFileProcessingStarted() {
@@ -499,6 +532,7 @@ class HomeViewModel extends ChangeNotifier {
     );
 
     if (!result.success) {
+      if (result.errorMessage == 'in_flight') return false;
       if (result.errorMessage == 'no_model') {
         onWarning?.call('no_model');
       } else {
@@ -559,30 +593,27 @@ class HomeViewModel extends ChangeNotifier {
       ..sort((a, b) => a.version.compareTo(b.version));
     if (sorted.isEmpty) return null;
 
-    final remainingCount = sorted
-        .where((message) => !deletedMessageIds.contains(message.id))
-        .length;
-    if (remainingCount <= 0) return null;
+    final remainingVersions =
+        sorted
+            .where((message) => !deletedMessageIds.contains(message.id))
+            .map((message) => message.version)
+            .toSet()
+            .toList()
+          ..sort();
+    if (remainingVersions.isEmpty) return null;
 
-    int newSelection = oldSelection ?? (sorted.length - 1);
-    final deletedIndices = <int>[];
-    for (int i = 0; i < sorted.length; i++) {
-      if (deletedMessageIds.contains(sorted[i].id)) {
-        deletedIndices.add(i);
-      }
+    final newSelection = oldSelection ?? sorted.last.version;
+    final selectedVersionWasDeleted = sorted.any(
+      (message) =>
+          deletedMessageIds.contains(message.id) &&
+          message.version == newSelection,
+    );
+    if (!selectedVersionWasDeleted) return newSelection;
+
+    for (final version in remainingVersions.reversed) {
+      if (version < newSelection) return version;
     }
-
-    for (final deletedIndex in deletedIndices) {
-      if (deletedIndex < newSelection) {
-        newSelection -= 1;
-      } else if (deletedIndex == newSelection) {
-        newSelection = newSelection > 0 ? newSelection - 1 : 0;
-      }
-    }
-
-    if (newSelection < 0) return 0;
-    if (newSelection > remainingCount - 1) return remainingCount - 1;
-    return newSelection;
+    return remainingVersions.first;
   }
 
   @visibleForTesting
@@ -625,7 +656,7 @@ class HomeViewModel extends ChangeNotifier {
           : Set<String>.of(entry.value);
       final oldSelection =
           versionSelections[groupId] ??
-          (versionsBefore.isNotEmpty ? versionsBefore.length - 1 : 0);
+          (versionsBefore.isNotEmpty ? versionsBefore.last.version : 0);
       final nextVersionSelection = computeNextVersionSelection(
         versionsBefore: versionsBefore,
         deletedMessageIds: deletedMessageIds,
@@ -723,7 +754,7 @@ class HomeViewModel extends ChangeNotifier {
 
     final oldSel =
         versionSelections[gid] ??
-        (versionsBefore.isNotEmpty ? versionsBefore.length - 1 : 0);
+        (versionsBefore.isNotEmpty ? versionsBefore.last.version : 0);
     final newSel = computeNextVersionSelection(
       versionsBefore: versionsBefore,
       deletedMessageIds: deletedMessageIds,
@@ -830,7 +861,10 @@ class HomeViewModel extends ChangeNotifier {
   void commitConversationSwitch(PreparedConversationSwitch prepared) {
     final id = prepared.conversation.id;
     _chatService.setCurrentConversation(id);
-    _chatController.commitConversationWindow(prepared.window);
+    _chatController.commitConversationWindow(
+      prepared.window,
+      onDeferredGroupDataLoaded: notifyListeners,
+    );
     // Same concurrency as switchConversation: the assistant change notifies
     // before its disk write completes.
     final assistantProvider = _contextProvider.read<AssistantProvider>();
@@ -1181,7 +1215,7 @@ class HomeViewModel extends ChangeNotifier {
     final assistant = _contextProvider
         .read<AssistantProvider>()
         .currentAssistant;
-    final configured = (assistant?.limitContextMessages ?? true)
+    final configured = (assistant?.limitContextMessages ?? false)
         ? (assistant?.contextMessageSize ?? 0)
         : 0;
     // Pure count from the persisted total: no message bodies needed, exact
@@ -1200,6 +1234,11 @@ class HomeViewModel extends ChangeNotifier {
     }
     return defaultLabel;
   }
+
+  /// Test entry for [_maybeGenerateSummaryFor].
+  @visibleForTesting
+  Future<void> debugMaybeGenerateSummaryFor(String conversationId) =>
+      _maybeGenerateSummaryFor(conversationId);
 
   @visibleForTesting
   static int computeClearContextRemainingMessageCount({
@@ -1304,6 +1343,8 @@ class HomeViewModel extends ChangeNotifier {
   Future<void> _maybeGenerateSummaryFor(String conversationId) async {
     final convo = _chatService.getConversation(conversationId);
     if (convo == null) return;
+    // Summaries only feed past-conversation search; temporary chats are never searchable.
+    if (_chatService.isTemporaryConversation(convo.id)) return;
 
     final settings = _contextProvider.read<SettingsProvider>();
     final msgCount = _chatService.getMessageCount(conversationId);
@@ -1316,8 +1357,15 @@ class HomeViewModel extends ChangeNotifier {
 
     final budget = assistant?.thinkingBudget ?? settings.thinkingBudget;
 
-    // Only generate summary if assistant has recent chats reference enabled
-    if (assistant?.enableRecentChatsReference != true) return;
+    // §12.10 / D-27: both switches must be on.
+    if (!MemoryPipelineService.shouldGenerateConversationSummary(
+      allowPastConversationRecall:
+          assistant?.allowPastConversationRecall == true,
+      generateConversationSummary:
+          assistant?.generateConversationSummary == true,
+    )) {
+      return;
+    }
 
     final triggerMessageCount =
         assistant?.recentChatsSummaryMessageCount ??
@@ -1380,6 +1428,12 @@ class HomeViewModel extends ChangeNotifier {
         .replaceAll('{previous_summary}', previousSummary)
         .replaceAll('{user_messages}', content);
 
+    final traceHandle = _beginSummaryTrace(convo, assistant);
+    final traceStep = traceHandle?.beginStep(
+      MemoryTraceStepKind.conversationSummary,
+    );
+    traceStep?.appendPrompt(prompt);
+
     try {
       final summary = (await ChatApiService.generateText(
         config: cfg,
@@ -1387,6 +1441,7 @@ class HomeViewModel extends ChangeNotifier {
         prompt: prompt,
         thinkingBudget: budget,
       )).trim();
+      traceStep?.appendResponse(summary);
 
       if (summary.isNotEmpty) {
         await _chatService.updateConversationSummary(
@@ -1394,6 +1449,18 @@ class HomeViewModel extends ChangeNotifier {
           summary,
           msgCount,
         );
+        traceStep?.addMutation(
+          MemoryTraceMutation(
+            kind: MemoryTraceMutationKind.conversationSummaryWritten,
+            targetId: convo.id,
+            before: previousSummary.isEmpty ? null : previousSummary,
+            after: summary,
+          ),
+        );
+      }
+      traceStep?.finish(MemoryTraceStepStatus.success);
+      traceHandle?.commit(advanced: summary.isNotEmpty);
+      if (summary.isNotEmpty) {
         if (currentConversation?.id == convo.id) {
           _chatController.updateCurrentConversation(
             _chatService.getConversation(convo.id),
@@ -1401,8 +1468,36 @@ class HomeViewModel extends ChangeNotifier {
           notifyListeners();
         }
       }
-    } catch (_) {
+    } catch (e) {
       // Keep old summary on failure, ignore silently
+      traceStep?.finish(MemoryTraceStepStatus.failed, error: e.toString());
+      traceHandle?.commit(error: e.toString());
+    }
+  }
+
+  /// Open a trace for background summary generation (feeds past-conversation
+  /// recall). Never throws.
+  MemoryTraceHandle? _beginSummaryTrace(
+    Conversation convo,
+    Assistant? assistant,
+  ) {
+    // Temporary chats are discarded on exit; keep their traces out of the UI.
+    if (_chatService.isTemporaryConversation(convo.id)) {
+      return null;
+    }
+    try {
+      return MemoryTraceRecorder.instance.begin(
+        trigger: MemoryTraceTrigger.conversationSummary,
+        scope: assistant == null
+            ? MemoryTraceScope.global
+            : memoryTraceScopeOf(assistant.memoryWriteScope),
+        conversationId: convo.id,
+        conversationTitle: convo.title,
+        assistantId: assistant?.id,
+        assistantName: assistant?.name,
+      );
+    } catch (_) {
+      return null;
     }
   }
 

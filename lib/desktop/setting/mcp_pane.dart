@@ -9,6 +9,7 @@ import 'mcp_edit_dialog.dart' show showDesktopMcpEditDialog;
 import 'mcp_json_edit_dialog.dart' show showDesktopMcpJsonEditDialog;
 import 'mcp_timeout_dialog.dart' show showDesktopMcpTimeoutDialog;
 import '../../theme/app_font_weights.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 class DesktopMcpPane extends StatelessWidget {
   const DesktopMcpPane({super.key});
@@ -111,7 +112,8 @@ class DesktopMcpPane extends StatelessWidget {
                             toolsTotal: s.tools.length,
                             status: status,
                             showError:
-                                status == McpStatus.error &&
+                                (status == McpStatus.error ||
+                                    status == McpStatus.needsAuthorization) &&
                                 (error?.isNotEmpty ?? false),
                             onTap: () async {
                               await showDesktopMcpEditDialog(
@@ -121,6 +123,9 @@ class DesktopMcpPane extends StatelessWidget {
                             },
                             onReconnect: () async {
                               await context.read<McpProvider>().reconnect(s.id);
+                            },
+                            onAuthorize: () async {
+                              await context.read<McpProvider>().authorize(s.id);
                             },
                             onDelete: () async {
                               final mcpProvider = context.read<McpProvider>();
@@ -172,6 +177,7 @@ class _ServerCard extends StatefulWidget {
     required this.status,
     required this.onTap,
     required this.onReconnect,
+    required this.onAuthorize,
     required this.onDelete,
     required this.onDetails,
     required this.showError,
@@ -184,6 +190,7 @@ class _ServerCard extends StatefulWidget {
   final McpStatus status;
   final VoidCallback onTap;
   final VoidCallback onReconnect;
+  final VoidCallback onAuthorize;
   final VoidCallback onDelete;
   final VoidCallback onDetails;
   final bool showError;
@@ -201,9 +208,7 @@ class _ServerCardState extends State<_ServerCard> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context)!;
 
-    final baseBg = isDark
-        ? Colors.white10
-        : Colors.white.withValues(alpha: 0.96);
+    final baseBg = context.appColors.surfaceCard;
     final borderColor = _hover
         ? cs.primary.withValues(alpha: isDark ? 0.35 : 0.45)
         : cs.outlineVariant.withValues(alpha: isDark ? 0.12 : 0.08);
@@ -212,16 +217,24 @@ class _ServerCardState extends State<_ServerCard> {
     String statusText;
     switch (widget.status) {
       case McpStatus.connected:
-        statusColor = Colors.green;
+        statusColor = context.appColors.success;
         statusText = l10n.mcpPageStatusConnected;
         break;
       case McpStatus.connecting:
         statusColor = cs.primary;
         statusText = l10n.mcpPageStatusConnecting;
         break;
+      case McpStatus.needsAuthorization:
+        statusColor = context.appColors.warning;
+        statusText = l10n.mcpPageStatusAuthorizationRequired;
+        break;
+      case McpStatus.authorizing:
+        statusColor = cs.primary;
+        statusText = l10n.mcpPageStatusAuthorizing;
+        break;
       case McpStatus.error:
       case McpStatus.idle:
-        statusColor = Colors.redAccent;
+        statusColor = Theme.of(context).colorScheme.error;
         statusText = l10n.mcpPageStatusDisconnected;
         break;
     }
@@ -286,7 +299,7 @@ class _ServerCardState extends State<_ServerCard> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: isDark ? Colors.white10 : const Color(0xFFF2F3F5),
+                      color: context.appColors.surfaceFill,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     alignment: Alignment.center,
@@ -299,7 +312,9 @@ class _ServerCardState extends State<_ServerCard> {
                   Positioned(
                     right: -2,
                     bottom: -2,
-                    child: widget.status == McpStatus.connecting
+                    child:
+                        widget.status == McpStatus.connecting ||
+                            widget.status == McpStatus.authorizing
                         ? SizedBox(
                             width: 12,
                             height: 12,
@@ -368,13 +383,13 @@ class _ServerCardState extends State<_ServerCard> {
                           Icon(
                             lucide.Lucide.MessageCircleWarning,
                             size: 14,
-                            color: Colors.red,
+                            color: Theme.of(context).colorScheme.error,
                           ),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               l10n.mcpPageConnectionFailed,
-                              style: TextStyle(fontSize: 12, color: Colors.red),
+                              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.error),
                             ),
                           ),
                           TextButton(
@@ -386,6 +401,32 @@ class _ServerCardState extends State<_ServerCard> {
                               ),
                             ),
                             child: Text(l10n.mcpPageDetails),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (widget.status == McpStatus.needsAuthorization) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            lucide.Lucide.KeyRound,
+                            size: 14,
+                            color: context.appColors.warning,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              l10n.mcpPageOAuthRequired,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: context.appColors.warning,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: widget.onAuthorize,
+                            child: Text(l10n.mcpPageOAuthSignIn),
                           ),
                         ],
                       ),
@@ -425,9 +466,7 @@ class _SmallIconBtnState extends State<_SmallIconBtn> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = _hover
-        ? (isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.05))
+        ? (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05))
         : Colors.transparent;
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
@@ -507,9 +546,7 @@ Future<void> _showErrorDetails(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white10
-                        : const Color(0xFFF7F7F9),
+                    color: context.appColors.surfaceFill,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: cs.outlineVariant.withValues(alpha: 0.2),
@@ -605,9 +642,7 @@ Future<bool?> _confirmDelete(BuildContext context) async {
                               states,
                             ) {
                               if (states.contains(WidgetState.hovered)) {
-                                return isDark
-                                    ? Colors.white.withValues(alpha: 0.06)
-                                    : Colors.black.withValues(alpha: 0.05);
+                                return cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05);
                               }
                               return Colors.transparent;
                             }),
@@ -639,7 +674,14 @@ Future<bool?> _confirmDelete(BuildContext context) async {
                               states,
                             ) {
                               if (states.contains(WidgetState.hovered)) {
-                                return Color.lerp(cs.error, Colors.white, 0.08);
+                                final isDark =
+                                    Theme.of(context).brightness ==
+                                    Brightness.dark;
+                                return Color.lerp(
+                                  cs.error,
+                                  isDark ? cs.onSurface : cs.surface,
+                                  0.08,
+                                );
                               }
                               return cs.error;
                             }),

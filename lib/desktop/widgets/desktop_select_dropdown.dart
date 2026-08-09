@@ -85,7 +85,6 @@ class _DesktopSelectDropdownState<T> extends State<DesktopSelectDropdown<T>> {
   }
 
   Color _defaultMenuBackground(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     SettingsProvider? sp;
     try {
       sp = Provider.of<SettingsProvider>(context, listen: false);
@@ -93,8 +92,8 @@ class _DesktopSelectDropdownState<T> extends State<DesktopSelectDropdown<T>> {
       sp = null;
     }
     final usePure = sp?.usePureBackground ?? false;
-    if (usePure) return isDark ? Colors.black : Colors.white;
-    return isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    if (usePure) return Theme.of(context).colorScheme.surface;
+    return Theme.of(context).colorScheme.surfaceContainerHigh;
   }
 
   void _openMenu() {
@@ -143,7 +142,6 @@ class _DesktopSelectDropdownState<T> extends State<DesktopSelectDropdown<T>> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final label = _labelForValue(widget.value);
 
     final baseBorder = cs.outlineVariant.withValues(alpha: 0.18);
@@ -152,7 +150,7 @@ class _DesktopSelectDropdownState<T> extends State<DesktopSelectDropdown<T>> {
 
     final fillColor =
         widget.triggerFillColor ??
-        (isDark ? const Color(0xFF141414) : Colors.white);
+        (Theme.of(context).colorScheme.surfaceContainerHigh);
 
     return CompositedTransformTarget(
       link: _link,
@@ -310,7 +308,7 @@ class _DesktopSelectOverlayState<T> extends State<_DesktopSelectOverlay<T>>
               border: Border.all(color: borderColor, width: 0.5),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.32 : 0.08),
+                  color: cs.shadow.withValues(alpha: isDark ? 0.32 : 0.08),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
@@ -362,9 +360,7 @@ class _DesktopSelectOptionTileState extends State<_DesktopSelectOptionTile> {
     final bg = widget.selected
         ? cs.primary.withValues(alpha: 0.12)
         : (_hover
-              ? (isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : Colors.black.withValues(alpha: 0.04))
+              ? (cs.onSurface.withValues(alpha: isDark ? 0.08 : 0.04))
               : Colors.transparent);
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),

@@ -133,6 +133,31 @@ class $ConversationRowsTable extends ConversationRows
         requiredDuringInsert: false,
         defaultValue: const Constant('[]'),
       );
+  static const VerificationMeta _injectedMemoryHashMeta =
+      const VerificationMeta('injectedMemoryHash');
+  @override
+  late final GeneratedColumn<String> injectedMemoryHash =
+      GeneratedColumn<String>(
+        'injected_memory_hash',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _lastMemoryExtractedOrderMeta =
+      const VerificationMeta('lastMemoryExtractedOrder');
+  @override
+  late final GeneratedColumn<int> lastMemoryExtractedOrder =
+      GeneratedColumn<int>(
+        'last_memory_extracted_order',
+        aliasedName,
+        false,
+        check: () =>
+            ComparableExpr(lastMemoryExtractedOrder).isBiggerOrEqualValue(-1),
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(-1),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -146,6 +171,8 @@ class $ConversationRowsTable extends ConversationRows
     summary,
     lastSummarizedMessageCount,
     chatSuggestionsJson,
+    injectedMemoryHash,
+    lastMemoryExtractedOrder,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -229,6 +256,24 @@ class $ConversationRowsTable extends ConversationRows
         ),
       );
     }
+    if (data.containsKey('injected_memory_hash')) {
+      context.handle(
+        _injectedMemoryHashMeta,
+        injectedMemoryHash.isAcceptableOrUnknown(
+          data['injected_memory_hash']!,
+          _injectedMemoryHashMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_memory_extracted_order')) {
+      context.handle(
+        _lastMemoryExtractedOrderMeta,
+        lastMemoryExtractedOrder.isAcceptableOrUnknown(
+          data['last_memory_extracted_order']!,
+          _lastMemoryExtractedOrderMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -286,6 +331,14 @@ class $ConversationRowsTable extends ConversationRows
         DriftSqlType.string,
         data['${effectivePrefix}chat_suggestions_json'],
       )!,
+      injectedMemoryHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}injected_memory_hash'],
+      ),
+      lastMemoryExtractedOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_memory_extracted_order'],
+      )!,
     );
   }
 
@@ -312,6 +365,8 @@ class ConversationRow extends DataClass implements Insertable<ConversationRow> {
   final String? summary;
   final int lastSummarizedMessageCount;
   final String chatSuggestionsJson;
+  final String? injectedMemoryHash;
+  final int lastMemoryExtractedOrder;
   const ConversationRow({
     required this.id,
     required this.title,
@@ -324,6 +379,8 @@ class ConversationRow extends DataClass implements Insertable<ConversationRow> {
     this.summary,
     required this.lastSummarizedMessageCount,
     required this.chatSuggestionsJson,
+    this.injectedMemoryHash,
+    required this.lastMemoryExtractedOrder,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -353,6 +410,12 @@ class ConversationRow extends DataClass implements Insertable<ConversationRow> {
       lastSummarizedMessageCount,
     );
     map['chat_suggestions_json'] = Variable<String>(chatSuggestionsJson);
+    if (!nullToAbsent || injectedMemoryHash != null) {
+      map['injected_memory_hash'] = Variable<String>(injectedMemoryHash);
+    }
+    map['last_memory_extracted_order'] = Variable<int>(
+      lastMemoryExtractedOrder,
+    );
     return map;
   }
 
@@ -373,6 +436,10 @@ class ConversationRow extends DataClass implements Insertable<ConversationRow> {
           : Value(summary),
       lastSummarizedMessageCount: Value(lastSummarizedMessageCount),
       chatSuggestionsJson: Value(chatSuggestionsJson),
+      injectedMemoryHash: injectedMemoryHash == null && nullToAbsent
+          ? const Value.absent()
+          : Value(injectedMemoryHash),
+      lastMemoryExtractedOrder: Value(lastMemoryExtractedOrder),
     );
   }
 
@@ -399,6 +466,12 @@ class ConversationRow extends DataClass implements Insertable<ConversationRow> {
       chatSuggestionsJson: serializer.fromJson<String>(
         json['chatSuggestionsJson'],
       ),
+      injectedMemoryHash: serializer.fromJson<String?>(
+        json['injectedMemoryHash'],
+      ),
+      lastMemoryExtractedOrder: serializer.fromJson<int>(
+        json['lastMemoryExtractedOrder'],
+      ),
     );
   }
   @override
@@ -418,6 +491,10 @@ class ConversationRow extends DataClass implements Insertable<ConversationRow> {
         lastSummarizedMessageCount,
       ),
       'chatSuggestionsJson': serializer.toJson<String>(chatSuggestionsJson),
+      'injectedMemoryHash': serializer.toJson<String?>(injectedMemoryHash),
+      'lastMemoryExtractedOrder': serializer.toJson<int>(
+        lastMemoryExtractedOrder,
+      ),
     };
   }
 
@@ -433,6 +510,8 @@ class ConversationRow extends DataClass implements Insertable<ConversationRow> {
     Value<String?> summary = const Value.absent(),
     int? lastSummarizedMessageCount,
     String? chatSuggestionsJson,
+    Value<String?> injectedMemoryHash = const Value.absent(),
+    int? lastMemoryExtractedOrder,
   }) => ConversationRow(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -446,6 +525,11 @@ class ConversationRow extends DataClass implements Insertable<ConversationRow> {
     lastSummarizedMessageCount:
         lastSummarizedMessageCount ?? this.lastSummarizedMessageCount,
     chatSuggestionsJson: chatSuggestionsJson ?? this.chatSuggestionsJson,
+    injectedMemoryHash: injectedMemoryHash.present
+        ? injectedMemoryHash.value
+        : this.injectedMemoryHash,
+    lastMemoryExtractedOrder:
+        lastMemoryExtractedOrder ?? this.lastMemoryExtractedOrder,
   );
   ConversationRow copyWithCompanion(ConversationRowsCompanion data) {
     return ConversationRow(
@@ -470,6 +554,12 @@ class ConversationRow extends DataClass implements Insertable<ConversationRow> {
       chatSuggestionsJson: data.chatSuggestionsJson.present
           ? data.chatSuggestionsJson.value
           : this.chatSuggestionsJson,
+      injectedMemoryHash: data.injectedMemoryHash.present
+          ? data.injectedMemoryHash.value
+          : this.injectedMemoryHash,
+      lastMemoryExtractedOrder: data.lastMemoryExtractedOrder.present
+          ? data.lastMemoryExtractedOrder.value
+          : this.lastMemoryExtractedOrder,
     );
   }
 
@@ -486,7 +576,9 @@ class ConversationRow extends DataClass implements Insertable<ConversationRow> {
           ..write('versionSelectionsJson: $versionSelectionsJson, ')
           ..write('summary: $summary, ')
           ..write('lastSummarizedMessageCount: $lastSummarizedMessageCount, ')
-          ..write('chatSuggestionsJson: $chatSuggestionsJson')
+          ..write('chatSuggestionsJson: $chatSuggestionsJson, ')
+          ..write('injectedMemoryHash: $injectedMemoryHash, ')
+          ..write('lastMemoryExtractedOrder: $lastMemoryExtractedOrder')
           ..write(')'))
         .toString();
   }
@@ -504,6 +596,8 @@ class ConversationRow extends DataClass implements Insertable<ConversationRow> {
     summary,
     lastSummarizedMessageCount,
     chatSuggestionsJson,
+    injectedMemoryHash,
+    lastMemoryExtractedOrder,
   );
   @override
   bool operator ==(Object other) =>
@@ -519,7 +613,9 @@ class ConversationRow extends DataClass implements Insertable<ConversationRow> {
           other.versionSelectionsJson == this.versionSelectionsJson &&
           other.summary == this.summary &&
           other.lastSummarizedMessageCount == this.lastSummarizedMessageCount &&
-          other.chatSuggestionsJson == this.chatSuggestionsJson);
+          other.chatSuggestionsJson == this.chatSuggestionsJson &&
+          other.injectedMemoryHash == this.injectedMemoryHash &&
+          other.lastMemoryExtractedOrder == this.lastMemoryExtractedOrder);
 }
 
 class ConversationRowsCompanion extends UpdateCompanion<ConversationRow> {
@@ -534,6 +630,8 @@ class ConversationRowsCompanion extends UpdateCompanion<ConversationRow> {
   final Value<String?> summary;
   final Value<int> lastSummarizedMessageCount;
   final Value<String> chatSuggestionsJson;
+  final Value<String?> injectedMemoryHash;
+  final Value<int> lastMemoryExtractedOrder;
   final Value<int> rowid;
   const ConversationRowsCompanion({
     this.id = const Value.absent(),
@@ -547,6 +645,8 @@ class ConversationRowsCompanion extends UpdateCompanion<ConversationRow> {
     this.summary = const Value.absent(),
     this.lastSummarizedMessageCount = const Value.absent(),
     this.chatSuggestionsJson = const Value.absent(),
+    this.injectedMemoryHash = const Value.absent(),
+    this.lastMemoryExtractedOrder = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ConversationRowsCompanion.insert({
@@ -561,6 +661,8 @@ class ConversationRowsCompanion extends UpdateCompanion<ConversationRow> {
     this.summary = const Value.absent(),
     this.lastSummarizedMessageCount = const Value.absent(),
     this.chatSuggestionsJson = const Value.absent(),
+    this.injectedMemoryHash = const Value.absent(),
+    this.lastMemoryExtractedOrder = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -578,6 +680,8 @@ class ConversationRowsCompanion extends UpdateCompanion<ConversationRow> {
     Expression<String>? summary,
     Expression<int>? lastSummarizedMessageCount,
     Expression<String>? chatSuggestionsJson,
+    Expression<String>? injectedMemoryHash,
+    Expression<int>? lastMemoryExtractedOrder,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -595,6 +699,10 @@ class ConversationRowsCompanion extends UpdateCompanion<ConversationRow> {
         'last_summarized_message_count': lastSummarizedMessageCount,
       if (chatSuggestionsJson != null)
         'chat_suggestions_json': chatSuggestionsJson,
+      if (injectedMemoryHash != null)
+        'injected_memory_hash': injectedMemoryHash,
+      if (lastMemoryExtractedOrder != null)
+        'last_memory_extracted_order': lastMemoryExtractedOrder,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -611,6 +719,8 @@ class ConversationRowsCompanion extends UpdateCompanion<ConversationRow> {
     Value<String?>? summary,
     Value<int>? lastSummarizedMessageCount,
     Value<String>? chatSuggestionsJson,
+    Value<String?>? injectedMemoryHash,
+    Value<int>? lastMemoryExtractedOrder,
     Value<int>? rowid,
   }) {
     return ConversationRowsCompanion(
@@ -627,6 +737,9 @@ class ConversationRowsCompanion extends UpdateCompanion<ConversationRow> {
       lastSummarizedMessageCount:
           lastSummarizedMessageCount ?? this.lastSummarizedMessageCount,
       chatSuggestionsJson: chatSuggestionsJson ?? this.chatSuggestionsJson,
+      injectedMemoryHash: injectedMemoryHash ?? this.injectedMemoryHash,
+      lastMemoryExtractedOrder:
+          lastMemoryExtractedOrder ?? this.lastMemoryExtractedOrder,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -677,6 +790,14 @@ class ConversationRowsCompanion extends UpdateCompanion<ConversationRow> {
         chatSuggestionsJson.value,
       );
     }
+    if (injectedMemoryHash.present) {
+      map['injected_memory_hash'] = Variable<String>(injectedMemoryHash.value);
+    }
+    if (lastMemoryExtractedOrder.present) {
+      map['last_memory_extracted_order'] = Variable<int>(
+        lastMemoryExtractedOrder.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -697,6 +818,8 @@ class ConversationRowsCompanion extends UpdateCompanion<ConversationRow> {
           ..write('summary: $summary, ')
           ..write('lastSummarizedMessageCount: $lastSummarizedMessageCount, ')
           ..write('chatSuggestionsJson: $chatSuggestionsJson, ')
+          ..write('injectedMemoryHash: $injectedMemoryHash, ')
+          ..write('lastMemoryExtractedOrder: $lastMemoryExtractedOrder, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -739,17 +862,6 @@ class $MessageRowsTable extends MessageRows
     aliasedName,
     false,
     check: () => role.isNotValue(''),
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _contentMeta = const VerificationMeta(
-    'content',
-  );
-  @override
-  late final GeneratedColumn<String> content = GeneratedColumn<String>(
-    'content',
-    aliasedName,
-    false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
@@ -810,17 +922,6 @@ class $MessageRowsTable extends MessageRows
       'CHECK ("is_streaming" IN (0, 1))',
     ),
     defaultValue: const Constant(false),
-  );
-  static const VerificationMeta _reasoningTextMeta = const VerificationMeta(
-    'reasoningText',
-  );
-  @override
-  late final GeneratedColumn<String> reasoningText = GeneratedColumn<String>(
-    'reasoning_text',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
   );
   @override
   late final GeneratedColumnWithTypeConverter<DateTime?, int> reasoningStartAt =
@@ -951,13 +1052,11 @@ class $MessageRowsTable extends MessageRows
     id,
     conversationId,
     role,
-    content,
     timestamp,
     modelId,
     providerId,
     totalTokens,
     isStreaming,
-    reasoningText,
     reasoningStartAt,
     reasoningFinishedAt,
     translation,
@@ -1006,14 +1105,6 @@ class $MessageRowsTable extends MessageRows
     } else if (isInserting) {
       context.missing(_roleMeta);
     }
-    if (data.containsKey('content')) {
-      context.handle(
-        _contentMeta,
-        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_contentMeta);
-    }
     if (data.containsKey('model_id')) {
       context.handle(
         _modelIdMeta,
@@ -1041,15 +1132,6 @@ class $MessageRowsTable extends MessageRows
         isStreaming.isAcceptableOrUnknown(
           data['is_streaming']!,
           _isStreamingMeta,
-        ),
-      );
-    }
-    if (data.containsKey('reasoning_text')) {
-      context.handle(
-        _reasoningTextMeta,
-        reasoningText.isAcceptableOrUnknown(
-          data['reasoning_text']!,
-          _reasoningTextMeta,
         ),
       );
     }
@@ -1153,10 +1235,6 @@ class $MessageRowsTable extends MessageRows
         DriftSqlType.string,
         data['${effectivePrefix}role'],
       )!,
-      content: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}content'],
-      )!,
       timestamp: $MessageRowsTable.$convertertimestamp.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.int,
@@ -1179,10 +1257,6 @@ class $MessageRowsTable extends MessageRows
         DriftSqlType.bool,
         data['${effectivePrefix}is_streaming'],
       )!,
-      reasoningText: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}reasoning_text'],
-      ),
       reasoningStartAt: $MessageRowsTable.$converterreasoningStartAtn.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.int,
@@ -1256,13 +1330,11 @@ class MessageRow extends DataClass implements Insertable<MessageRow> {
   final String id;
   final String conversationId;
   final String role;
-  final String content;
   final DateTime timestamp;
   final String? modelId;
   final String? providerId;
   final int? totalTokens;
   final bool isStreaming;
-  final String? reasoningText;
   final DateTime? reasoningStartAt;
   final DateTime? reasoningFinishedAt;
   final String? translation;
@@ -1278,13 +1350,11 @@ class MessageRow extends DataClass implements Insertable<MessageRow> {
     required this.id,
     required this.conversationId,
     required this.role,
-    required this.content,
     required this.timestamp,
     this.modelId,
     this.providerId,
     this.totalTokens,
     required this.isStreaming,
-    this.reasoningText,
     this.reasoningStartAt,
     this.reasoningFinishedAt,
     this.translation,
@@ -1303,7 +1373,6 @@ class MessageRow extends DataClass implements Insertable<MessageRow> {
     map['id'] = Variable<String>(id);
     map['conversation_id'] = Variable<String>(conversationId);
     map['role'] = Variable<String>(role);
-    map['content'] = Variable<String>(content);
     {
       map['timestamp'] = Variable<int>(
         $MessageRowsTable.$convertertimestamp.toSql(timestamp),
@@ -1319,9 +1388,6 @@ class MessageRow extends DataClass implements Insertable<MessageRow> {
       map['total_tokens'] = Variable<int>(totalTokens);
     }
     map['is_streaming'] = Variable<bool>(isStreaming);
-    if (!nullToAbsent || reasoningText != null) {
-      map['reasoning_text'] = Variable<String>(reasoningText);
-    }
     if (!nullToAbsent || reasoningStartAt != null) {
       map['reasoning_start_at'] = Variable<int>(
         $MessageRowsTable.$converterreasoningStartAtn.toSql(reasoningStartAt),
@@ -1365,7 +1431,6 @@ class MessageRow extends DataClass implements Insertable<MessageRow> {
       id: Value(id),
       conversationId: Value(conversationId),
       role: Value(role),
-      content: Value(content),
       timestamp: Value(timestamp),
       modelId: modelId == null && nullToAbsent
           ? const Value.absent()
@@ -1377,9 +1442,6 @@ class MessageRow extends DataClass implements Insertable<MessageRow> {
           ? const Value.absent()
           : Value(totalTokens),
       isStreaming: Value(isStreaming),
-      reasoningText: reasoningText == null && nullToAbsent
-          ? const Value.absent()
-          : Value(reasoningText),
       reasoningStartAt: reasoningStartAt == null && nullToAbsent
           ? const Value.absent()
           : Value(reasoningStartAt),
@@ -1421,13 +1483,11 @@ class MessageRow extends DataClass implements Insertable<MessageRow> {
       id: serializer.fromJson<String>(json['id']),
       conversationId: serializer.fromJson<String>(json['conversationId']),
       role: serializer.fromJson<String>(json['role']),
-      content: serializer.fromJson<String>(json['content']),
       timestamp: serializer.fromJson<DateTime>(json['timestamp']),
       modelId: serializer.fromJson<String?>(json['modelId']),
       providerId: serializer.fromJson<String?>(json['providerId']),
       totalTokens: serializer.fromJson<int?>(json['totalTokens']),
       isStreaming: serializer.fromJson<bool>(json['isStreaming']),
-      reasoningText: serializer.fromJson<String?>(json['reasoningText']),
       reasoningStartAt: serializer.fromJson<DateTime?>(
         json['reasoningStartAt'],
       ),
@@ -1454,13 +1514,11 @@ class MessageRow extends DataClass implements Insertable<MessageRow> {
       'id': serializer.toJson<String>(id),
       'conversationId': serializer.toJson<String>(conversationId),
       'role': serializer.toJson<String>(role),
-      'content': serializer.toJson<String>(content),
       'timestamp': serializer.toJson<DateTime>(timestamp),
       'modelId': serializer.toJson<String?>(modelId),
       'providerId': serializer.toJson<String?>(providerId),
       'totalTokens': serializer.toJson<int?>(totalTokens),
       'isStreaming': serializer.toJson<bool>(isStreaming),
-      'reasoningText': serializer.toJson<String?>(reasoningText),
       'reasoningStartAt': serializer.toJson<DateTime?>(reasoningStartAt),
       'reasoningFinishedAt': serializer.toJson<DateTime?>(reasoningFinishedAt),
       'translation': serializer.toJson<String?>(translation),
@@ -1481,13 +1539,11 @@ class MessageRow extends DataClass implements Insertable<MessageRow> {
     String? id,
     String? conversationId,
     String? role,
-    String? content,
     DateTime? timestamp,
     Value<String?> modelId = const Value.absent(),
     Value<String?> providerId = const Value.absent(),
     Value<int?> totalTokens = const Value.absent(),
     bool? isStreaming,
-    Value<String?> reasoningText = const Value.absent(),
     Value<DateTime?> reasoningStartAt = const Value.absent(),
     Value<DateTime?> reasoningFinishedAt = const Value.absent(),
     Value<String?> translation = const Value.absent(),
@@ -1503,15 +1559,11 @@ class MessageRow extends DataClass implements Insertable<MessageRow> {
     id: id ?? this.id,
     conversationId: conversationId ?? this.conversationId,
     role: role ?? this.role,
-    content: content ?? this.content,
     timestamp: timestamp ?? this.timestamp,
     modelId: modelId.present ? modelId.value : this.modelId,
     providerId: providerId.present ? providerId.value : this.providerId,
     totalTokens: totalTokens.present ? totalTokens.value : this.totalTokens,
     isStreaming: isStreaming ?? this.isStreaming,
-    reasoningText: reasoningText.present
-        ? reasoningText.value
-        : this.reasoningText,
     reasoningStartAt: reasoningStartAt.present
         ? reasoningStartAt.value
         : this.reasoningStartAt,
@@ -1539,7 +1591,6 @@ class MessageRow extends DataClass implements Insertable<MessageRow> {
           ? data.conversationId.value
           : this.conversationId,
       role: data.role.present ? data.role.value : this.role,
-      content: data.content.present ? data.content.value : this.content,
       timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
       modelId: data.modelId.present ? data.modelId.value : this.modelId,
       providerId: data.providerId.present
@@ -1551,9 +1602,6 @@ class MessageRow extends DataClass implements Insertable<MessageRow> {
       isStreaming: data.isStreaming.present
           ? data.isStreaming.value
           : this.isStreaming,
-      reasoningText: data.reasoningText.present
-          ? data.reasoningText.value
-          : this.reasoningText,
       reasoningStartAt: data.reasoningStartAt.present
           ? data.reasoningStartAt.value
           : this.reasoningStartAt,
@@ -1592,13 +1640,11 @@ class MessageRow extends DataClass implements Insertable<MessageRow> {
           ..write('id: $id, ')
           ..write('conversationId: $conversationId, ')
           ..write('role: $role, ')
-          ..write('content: $content, ')
           ..write('timestamp: $timestamp, ')
           ..write('modelId: $modelId, ')
           ..write('providerId: $providerId, ')
           ..write('totalTokens: $totalTokens, ')
           ..write('isStreaming: $isStreaming, ')
-          ..write('reasoningText: $reasoningText, ')
           ..write('reasoningStartAt: $reasoningStartAt, ')
           ..write('reasoningFinishedAt: $reasoningFinishedAt, ')
           ..write('translation: $translation, ')
@@ -1615,17 +1661,15 @@ class MessageRow extends DataClass implements Insertable<MessageRow> {
   }
 
   @override
-  int get hashCode => Object.hashAll([
+  int get hashCode => Object.hash(
     id,
     conversationId,
     role,
-    content,
     timestamp,
     modelId,
     providerId,
     totalTokens,
     isStreaming,
-    reasoningText,
     reasoningStartAt,
     reasoningFinishedAt,
     translation,
@@ -1637,7 +1681,7 @@ class MessageRow extends DataClass implements Insertable<MessageRow> {
     cachedTokens,
     durationMs,
     messageOrder,
-  ]);
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1645,13 +1689,11 @@ class MessageRow extends DataClass implements Insertable<MessageRow> {
           other.id == this.id &&
           other.conversationId == this.conversationId &&
           other.role == this.role &&
-          other.content == this.content &&
           other.timestamp == this.timestamp &&
           other.modelId == this.modelId &&
           other.providerId == this.providerId &&
           other.totalTokens == this.totalTokens &&
           other.isStreaming == this.isStreaming &&
-          other.reasoningText == this.reasoningText &&
           other.reasoningStartAt == this.reasoningStartAt &&
           other.reasoningFinishedAt == this.reasoningFinishedAt &&
           other.translation == this.translation &&
@@ -1669,13 +1711,11 @@ class MessageRowsCompanion extends UpdateCompanion<MessageRow> {
   final Value<String> id;
   final Value<String> conversationId;
   final Value<String> role;
-  final Value<String> content;
   final Value<DateTime> timestamp;
   final Value<String?> modelId;
   final Value<String?> providerId;
   final Value<int?> totalTokens;
   final Value<bool> isStreaming;
-  final Value<String?> reasoningText;
   final Value<DateTime?> reasoningStartAt;
   final Value<DateTime?> reasoningFinishedAt;
   final Value<String?> translation;
@@ -1692,13 +1732,11 @@ class MessageRowsCompanion extends UpdateCompanion<MessageRow> {
     this.id = const Value.absent(),
     this.conversationId = const Value.absent(),
     this.role = const Value.absent(),
-    this.content = const Value.absent(),
     this.timestamp = const Value.absent(),
     this.modelId = const Value.absent(),
     this.providerId = const Value.absent(),
     this.totalTokens = const Value.absent(),
     this.isStreaming = const Value.absent(),
-    this.reasoningText = const Value.absent(),
     this.reasoningStartAt = const Value.absent(),
     this.reasoningFinishedAt = const Value.absent(),
     this.translation = const Value.absent(),
@@ -1716,13 +1754,11 @@ class MessageRowsCompanion extends UpdateCompanion<MessageRow> {
     required String id,
     required String conversationId,
     required String role,
-    required String content,
     required DateTime timestamp,
     this.modelId = const Value.absent(),
     this.providerId = const Value.absent(),
     this.totalTokens = const Value.absent(),
     this.isStreaming = const Value.absent(),
-    this.reasoningText = const Value.absent(),
     this.reasoningStartAt = const Value.absent(),
     this.reasoningFinishedAt = const Value.absent(),
     this.translation = const Value.absent(),
@@ -1738,20 +1774,17 @@ class MessageRowsCompanion extends UpdateCompanion<MessageRow> {
   }) : id = Value(id),
        conversationId = Value(conversationId),
        role = Value(role),
-       content = Value(content),
        timestamp = Value(timestamp),
        messageOrder = Value(messageOrder);
   static Insertable<MessageRow> custom({
     Expression<String>? id,
     Expression<String>? conversationId,
     Expression<String>? role,
-    Expression<String>? content,
     Expression<int>? timestamp,
     Expression<String>? modelId,
     Expression<String>? providerId,
     Expression<int>? totalTokens,
     Expression<bool>? isStreaming,
-    Expression<String>? reasoningText,
     Expression<int>? reasoningStartAt,
     Expression<int>? reasoningFinishedAt,
     Expression<String>? translation,
@@ -1769,13 +1802,11 @@ class MessageRowsCompanion extends UpdateCompanion<MessageRow> {
       if (id != null) 'id': id,
       if (conversationId != null) 'conversation_id': conversationId,
       if (role != null) 'role': role,
-      if (content != null) 'content': content,
       if (timestamp != null) 'timestamp': timestamp,
       if (modelId != null) 'model_id': modelId,
       if (providerId != null) 'provider_id': providerId,
       if (totalTokens != null) 'total_tokens': totalTokens,
       if (isStreaming != null) 'is_streaming': isStreaming,
-      if (reasoningText != null) 'reasoning_text': reasoningText,
       if (reasoningStartAt != null) 'reasoning_start_at': reasoningStartAt,
       if (reasoningFinishedAt != null)
         'reasoning_finished_at': reasoningFinishedAt,
@@ -1797,13 +1828,11 @@ class MessageRowsCompanion extends UpdateCompanion<MessageRow> {
     Value<String>? id,
     Value<String>? conversationId,
     Value<String>? role,
-    Value<String>? content,
     Value<DateTime>? timestamp,
     Value<String?>? modelId,
     Value<String?>? providerId,
     Value<int?>? totalTokens,
     Value<bool>? isStreaming,
-    Value<String?>? reasoningText,
     Value<DateTime?>? reasoningStartAt,
     Value<DateTime?>? reasoningFinishedAt,
     Value<String?>? translation,
@@ -1821,13 +1850,11 @@ class MessageRowsCompanion extends UpdateCompanion<MessageRow> {
       id: id ?? this.id,
       conversationId: conversationId ?? this.conversationId,
       role: role ?? this.role,
-      content: content ?? this.content,
       timestamp: timestamp ?? this.timestamp,
       modelId: modelId ?? this.modelId,
       providerId: providerId ?? this.providerId,
       totalTokens: totalTokens ?? this.totalTokens,
       isStreaming: isStreaming ?? this.isStreaming,
-      reasoningText: reasoningText ?? this.reasoningText,
       reasoningStartAt: reasoningStartAt ?? this.reasoningStartAt,
       reasoningFinishedAt: reasoningFinishedAt ?? this.reasoningFinishedAt,
       translation: translation ?? this.translation,
@@ -1856,9 +1883,6 @@ class MessageRowsCompanion extends UpdateCompanion<MessageRow> {
     if (role.present) {
       map['role'] = Variable<String>(role.value);
     }
-    if (content.present) {
-      map['content'] = Variable<String>(content.value);
-    }
     if (timestamp.present) {
       map['timestamp'] = Variable<int>(
         $MessageRowsTable.$convertertimestamp.toSql(timestamp.value),
@@ -1875,9 +1899,6 @@ class MessageRowsCompanion extends UpdateCompanion<MessageRow> {
     }
     if (isStreaming.present) {
       map['is_streaming'] = Variable<bool>(isStreaming.value);
-    }
-    if (reasoningText.present) {
-      map['reasoning_text'] = Variable<String>(reasoningText.value);
     }
     if (reasoningStartAt.present) {
       map['reasoning_start_at'] = Variable<int>(
@@ -1934,13 +1955,11 @@ class MessageRowsCompanion extends UpdateCompanion<MessageRow> {
           ..write('id: $id, ')
           ..write('conversationId: $conversationId, ')
           ..write('role: $role, ')
-          ..write('content: $content, ')
           ..write('timestamp: $timestamp, ')
           ..write('modelId: $modelId, ')
           ..write('providerId: $providerId, ')
           ..write('totalTokens: $totalTokens, ')
           ..write('isStreaming: $isStreaming, ')
-          ..write('reasoningText: $reasoningText, ')
           ..write('reasoningStartAt: $reasoningStartAt, ')
           ..write('reasoningFinishedAt: $reasoningFinishedAt, ')
           ..write('translation: $translation, ')
@@ -2462,6 +2481,19 @@ class $MessagePartRowsTable extends MessagePartRows
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $MessagePartRowsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _partIdMeta = const VerificationMeta('partId');
+  @override
+  late final GeneratedColumn<int> partId = GeneratedColumn<int>(
+    'part_id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
   static const VerificationMeta _conversationIdMeta = const VerificationMeta(
     'conversationId',
   );
@@ -2502,8 +2534,7 @@ class $MessagePartRowsTable extends MessagePartRows
     'kind',
     aliasedName,
     false,
-    check: () =>
-        kind.isIn(const ['text', 'reasoning', 'tool_call', 'tool_result']),
+    check: () => kind.isIn(const ['text', 'reasoning', 'tool_call']),
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
@@ -2538,6 +2569,7 @@ class $MessagePartRowsTable extends MessagePartRows
       ).withConverter<DateTime>($MessagePartRowsTable.$converterupdatedAt);
   @override
   List<GeneratedColumn> get $columns => [
+    partId,
     conversationId,
     revisionId,
     ordinal,
@@ -2558,6 +2590,12 @@ class $MessagePartRowsTable extends MessagePartRows
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
+    if (data.containsKey('part_id')) {
+      context.handle(
+        _partIdMeta,
+        partId.isAcceptableOrUnknown(data['part_id']!, _partIdMeta),
+      );
+    }
     if (data.containsKey('conversation_id')) {
       context.handle(
         _conversationIdMeta,
@@ -2605,15 +2643,19 @@ class $MessagePartRowsTable extends MessagePartRows
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {revisionId, ordinal};
+  Set<GeneratedColumn> get $primaryKey => {partId};
   @override
   List<Set<GeneratedColumn>> get uniqueKeys => [
-    {conversationId, revisionId, ordinal},
+    {revisionId, ordinal},
   ];
   @override
   MessagePartRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return MessagePartRow(
+      partId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}part_id'],
+      )!,
       conversationId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}conversation_id'],
@@ -2661,6 +2703,7 @@ class $MessagePartRowsTable extends MessagePartRows
 }
 
 class MessagePartRow extends DataClass implements Insertable<MessagePartRow> {
+  final int partId;
   final String conversationId;
   final String revisionId;
   final int ordinal;
@@ -2669,6 +2712,7 @@ class MessagePartRow extends DataClass implements Insertable<MessagePartRow> {
   final DateTime createdAt;
   final DateTime updatedAt;
   const MessagePartRow({
+    required this.partId,
     required this.conversationId,
     required this.revisionId,
     required this.ordinal,
@@ -2680,6 +2724,7 @@ class MessagePartRow extends DataClass implements Insertable<MessagePartRow> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    map['part_id'] = Variable<int>(partId);
     map['conversation_id'] = Variable<String>(conversationId);
     map['revision_id'] = Variable<String>(revisionId);
     map['ordinal'] = Variable<int>(ordinal);
@@ -2700,6 +2745,7 @@ class MessagePartRow extends DataClass implements Insertable<MessagePartRow> {
 
   MessagePartRowsCompanion toCompanion(bool nullToAbsent) {
     return MessagePartRowsCompanion(
+      partId: Value(partId),
       conversationId: Value(conversationId),
       revisionId: Value(revisionId),
       ordinal: Value(ordinal),
@@ -2716,6 +2762,7 @@ class MessagePartRow extends DataClass implements Insertable<MessagePartRow> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return MessagePartRow(
+      partId: serializer.fromJson<int>(json['partId']),
       conversationId: serializer.fromJson<String>(json['conversationId']),
       revisionId: serializer.fromJson<String>(json['revisionId']),
       ordinal: serializer.fromJson<int>(json['ordinal']),
@@ -2729,6 +2776,7 @@ class MessagePartRow extends DataClass implements Insertable<MessagePartRow> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
+      'partId': serializer.toJson<int>(partId),
       'conversationId': serializer.toJson<String>(conversationId),
       'revisionId': serializer.toJson<String>(revisionId),
       'ordinal': serializer.toJson<int>(ordinal),
@@ -2740,6 +2788,7 @@ class MessagePartRow extends DataClass implements Insertable<MessagePartRow> {
   }
 
   MessagePartRow copyWith({
+    int? partId,
     String? conversationId,
     String? revisionId,
     int? ordinal,
@@ -2748,6 +2797,7 @@ class MessagePartRow extends DataClass implements Insertable<MessagePartRow> {
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => MessagePartRow(
+    partId: partId ?? this.partId,
     conversationId: conversationId ?? this.conversationId,
     revisionId: revisionId ?? this.revisionId,
     ordinal: ordinal ?? this.ordinal,
@@ -2758,6 +2808,7 @@ class MessagePartRow extends DataClass implements Insertable<MessagePartRow> {
   );
   MessagePartRow copyWithCompanion(MessagePartRowsCompanion data) {
     return MessagePartRow(
+      partId: data.partId.present ? data.partId.value : this.partId,
       conversationId: data.conversationId.present
           ? data.conversationId.value
           : this.conversationId,
@@ -2775,6 +2826,7 @@ class MessagePartRow extends DataClass implements Insertable<MessagePartRow> {
   @override
   String toString() {
     return (StringBuffer('MessagePartRow(')
+          ..write('partId: $partId, ')
           ..write('conversationId: $conversationId, ')
           ..write('revisionId: $revisionId, ')
           ..write('ordinal: $ordinal, ')
@@ -2788,6 +2840,7 @@ class MessagePartRow extends DataClass implements Insertable<MessagePartRow> {
 
   @override
   int get hashCode => Object.hash(
+    partId,
     conversationId,
     revisionId,
     ordinal,
@@ -2800,6 +2853,7 @@ class MessagePartRow extends DataClass implements Insertable<MessagePartRow> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is MessagePartRow &&
+          other.partId == this.partId &&
           other.conversationId == this.conversationId &&
           other.revisionId == this.revisionId &&
           other.ordinal == this.ordinal &&
@@ -2810,6 +2864,7 @@ class MessagePartRow extends DataClass implements Insertable<MessagePartRow> {
 }
 
 class MessagePartRowsCompanion extends UpdateCompanion<MessagePartRow> {
+  final Value<int> partId;
   final Value<String> conversationId;
   final Value<String> revisionId;
   final Value<int> ordinal;
@@ -2817,8 +2872,8 @@ class MessagePartRowsCompanion extends UpdateCompanion<MessagePartRow> {
   final Value<String> payload;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
-  final Value<int> rowid;
   const MessagePartRowsCompanion({
+    this.partId = const Value.absent(),
     this.conversationId = const Value.absent(),
     this.revisionId = const Value.absent(),
     this.ordinal = const Value.absent(),
@@ -2826,9 +2881,9 @@ class MessagePartRowsCompanion extends UpdateCompanion<MessagePartRow> {
     this.payload = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
-    this.rowid = const Value.absent(),
   });
   MessagePartRowsCompanion.insert({
+    this.partId = const Value.absent(),
     required String conversationId,
     required String revisionId,
     required int ordinal,
@@ -2836,7 +2891,6 @@ class MessagePartRowsCompanion extends UpdateCompanion<MessagePartRow> {
     required String payload,
     required DateTime createdAt,
     required DateTime updatedAt,
-    this.rowid = const Value.absent(),
   }) : conversationId = Value(conversationId),
        revisionId = Value(revisionId),
        ordinal = Value(ordinal),
@@ -2845,6 +2899,7 @@ class MessagePartRowsCompanion extends UpdateCompanion<MessagePartRow> {
        createdAt = Value(createdAt),
        updatedAt = Value(updatedAt);
   static Insertable<MessagePartRow> custom({
+    Expression<int>? partId,
     Expression<String>? conversationId,
     Expression<String>? revisionId,
     Expression<int>? ordinal,
@@ -2852,9 +2907,9 @@ class MessagePartRowsCompanion extends UpdateCompanion<MessagePartRow> {
     Expression<String>? payload,
     Expression<int>? createdAt,
     Expression<int>? updatedAt,
-    Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
+      if (partId != null) 'part_id': partId,
       if (conversationId != null) 'conversation_id': conversationId,
       if (revisionId != null) 'revision_id': revisionId,
       if (ordinal != null) 'ordinal': ordinal,
@@ -2862,11 +2917,11 @@ class MessagePartRowsCompanion extends UpdateCompanion<MessagePartRow> {
       if (payload != null) 'payload': payload,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
-      if (rowid != null) 'rowid': rowid,
     });
   }
 
   MessagePartRowsCompanion copyWith({
+    Value<int>? partId,
     Value<String>? conversationId,
     Value<String>? revisionId,
     Value<int>? ordinal,
@@ -2874,9 +2929,9 @@ class MessagePartRowsCompanion extends UpdateCompanion<MessagePartRow> {
     Value<String>? payload,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
-    Value<int>? rowid,
   }) {
     return MessagePartRowsCompanion(
+      partId: partId ?? this.partId,
       conversationId: conversationId ?? this.conversationId,
       revisionId: revisionId ?? this.revisionId,
       ordinal: ordinal ?? this.ordinal,
@@ -2884,13 +2939,15 @@ class MessagePartRowsCompanion extends UpdateCompanion<MessagePartRow> {
       payload: payload ?? this.payload,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      rowid: rowid ?? this.rowid,
     );
   }
 
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (partId.present) {
+      map['part_id'] = Variable<int>(partId.value);
+    }
     if (conversationId.present) {
       map['conversation_id'] = Variable<String>(conversationId.value);
     }
@@ -2916,23 +2973,20 @@ class MessagePartRowsCompanion extends UpdateCompanion<MessagePartRow> {
         $MessagePartRowsTable.$converterupdatedAt.toSql(updatedAt.value),
       );
     }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
     return map;
   }
 
   @override
   String toString() {
     return (StringBuffer('MessagePartRowsCompanion(')
+          ..write('partId: $partId, ')
           ..write('conversationId: $conversationId, ')
           ..write('revisionId: $revisionId, ')
           ..write('ordinal: $ordinal, ')
           ..write('kind: $kind, ')
           ..write('payload: $payload, ')
           ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt, ')
-          ..write('rowid: $rowid')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
@@ -9508,6 +9562,1438 @@ class PreferenceRowsCompanion extends UpdateCompanion<PreferenceRow> {
   }
 }
 
+class $MemoryEntryRowsTable extends MemoryEntryRows
+    with TableInfo<$MemoryEntryRowsTable, MemoryEntryRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MemoryEntryRowsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    check: () => ComparableExpr(sortOrder).isBiggerOrEqualValue(0),
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _scopeMeta = const VerificationMeta('scope');
+  @override
+  late final GeneratedColumn<String> scope = GeneratedColumn<String>(
+    'scope',
+    aliasedName,
+    false,
+    check: () => scope.isIn(const ['global', 'assistant']),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _assistantIdMeta = const VerificationMeta(
+    'assistantId',
+  );
+  @override
+  late final GeneratedColumn<String> assistantId = GeneratedColumn<String>(
+    'assistant_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    check: () =>
+        type.isIn(const ['identity', 'workflow', 'voice', 'instruction']),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    check: () => status.isIn(const ['active', 'archived']),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentNormalizedMeta = const VerificationMeta(
+    'contentNormalized',
+  );
+  @override
+  late final GeneratedColumn<String> contentNormalized =
+      GeneratedColumn<String>(
+        'content_normalized',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime, int> entryCreatedAt =
+      GeneratedColumn<int>(
+        'entry_created_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($MemoryEntryRowsTable.$converterentryCreatedAt);
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime, int> entryUpdatedAt =
+      GeneratedColumn<int>(
+        'entry_updated_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($MemoryEntryRowsTable.$converterentryUpdatedAt);
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime, int> updatedAt =
+      GeneratedColumn<int>(
+        'updated_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($MemoryEntryRowsTable.$converterupdatedAt);
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    sortOrder,
+    scope,
+    assistantId,
+    type,
+    status,
+    content,
+    contentNormalized,
+    entryCreatedAt,
+    entryUpdatedAt,
+    payload,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'memory_entry_rows';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MemoryEntryRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sortOrderMeta);
+    }
+    if (data.containsKey('scope')) {
+      context.handle(
+        _scopeMeta,
+        scope.isAcceptableOrUnknown(data['scope']!, _scopeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_scopeMeta);
+    }
+    if (data.containsKey('assistant_id')) {
+      context.handle(
+        _assistantIdMeta,
+        assistantId.isAcceptableOrUnknown(
+          data['assistant_id']!,
+          _assistantIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('content_normalized')) {
+      context.handle(
+        _contentNormalizedMeta,
+        contentNormalized.isAcceptableOrUnknown(
+          data['content_normalized']!,
+          _contentNormalizedMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_contentNormalizedMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MemoryEntryRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MemoryEntryRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
+      scope: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}scope'],
+      )!,
+      assistantId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}assistant_id'],
+      ),
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      )!,
+      contentNormalized: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_normalized'],
+      )!,
+      entryCreatedAt: $MemoryEntryRowsTable.$converterentryCreatedAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}entry_created_at'],
+        )!,
+      ),
+      entryUpdatedAt: $MemoryEntryRowsTable.$converterentryUpdatedAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}entry_updated_at'],
+        )!,
+      ),
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+      updatedAt: $MemoryEntryRowsTable.$converterupdatedAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}updated_at'],
+        )!,
+      ),
+    );
+  }
+
+  @override
+  $MemoryEntryRowsTable createAlias(String alias) {
+    return $MemoryEntryRowsTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<DateTime, int> $converterentryCreatedAt =
+      const MicrosecondDateTimeConverter();
+  static TypeConverter<DateTime, int> $converterentryUpdatedAt =
+      const MicrosecondDateTimeConverter();
+  static TypeConverter<DateTime, int> $converterupdatedAt =
+      const MicrosecondDateTimeConverter();
+}
+
+class MemoryEntryRow extends DataClass implements Insertable<MemoryEntryRow> {
+  final String id;
+  final int sortOrder;
+  final String scope;
+  final String? assistantId;
+  final String type;
+  final String status;
+  final String content;
+  final String contentNormalized;
+  final DateTime entryCreatedAt;
+  final DateTime entryUpdatedAt;
+  final String payload;
+  final DateTime updatedAt;
+  const MemoryEntryRow({
+    required this.id,
+    required this.sortOrder,
+    required this.scope,
+    this.assistantId,
+    required this.type,
+    required this.status,
+    required this.content,
+    required this.contentNormalized,
+    required this.entryCreatedAt,
+    required this.entryUpdatedAt,
+    required this.payload,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['sort_order'] = Variable<int>(sortOrder);
+    map['scope'] = Variable<String>(scope);
+    if (!nullToAbsent || assistantId != null) {
+      map['assistant_id'] = Variable<String>(assistantId);
+    }
+    map['type'] = Variable<String>(type);
+    map['status'] = Variable<String>(status);
+    map['content'] = Variable<String>(content);
+    map['content_normalized'] = Variable<String>(contentNormalized);
+    {
+      map['entry_created_at'] = Variable<int>(
+        $MemoryEntryRowsTable.$converterentryCreatedAt.toSql(entryCreatedAt),
+      );
+    }
+    {
+      map['entry_updated_at'] = Variable<int>(
+        $MemoryEntryRowsTable.$converterentryUpdatedAt.toSql(entryUpdatedAt),
+      );
+    }
+    map['payload'] = Variable<String>(payload);
+    {
+      map['updated_at'] = Variable<int>(
+        $MemoryEntryRowsTable.$converterupdatedAt.toSql(updatedAt),
+      );
+    }
+    return map;
+  }
+
+  MemoryEntryRowsCompanion toCompanion(bool nullToAbsent) {
+    return MemoryEntryRowsCompanion(
+      id: Value(id),
+      sortOrder: Value(sortOrder),
+      scope: Value(scope),
+      assistantId: assistantId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assistantId),
+      type: Value(type),
+      status: Value(status),
+      content: Value(content),
+      contentNormalized: Value(contentNormalized),
+      entryCreatedAt: Value(entryCreatedAt),
+      entryUpdatedAt: Value(entryUpdatedAt),
+      payload: Value(payload),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory MemoryEntryRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MemoryEntryRow(
+      id: serializer.fromJson<String>(json['id']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      scope: serializer.fromJson<String>(json['scope']),
+      assistantId: serializer.fromJson<String?>(json['assistantId']),
+      type: serializer.fromJson<String>(json['type']),
+      status: serializer.fromJson<String>(json['status']),
+      content: serializer.fromJson<String>(json['content']),
+      contentNormalized: serializer.fromJson<String>(json['contentNormalized']),
+      entryCreatedAt: serializer.fromJson<DateTime>(json['entryCreatedAt']),
+      entryUpdatedAt: serializer.fromJson<DateTime>(json['entryUpdatedAt']),
+      payload: serializer.fromJson<String>(json['payload']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'sortOrder': serializer.toJson<int>(sortOrder),
+      'scope': serializer.toJson<String>(scope),
+      'assistantId': serializer.toJson<String?>(assistantId),
+      'type': serializer.toJson<String>(type),
+      'status': serializer.toJson<String>(status),
+      'content': serializer.toJson<String>(content),
+      'contentNormalized': serializer.toJson<String>(contentNormalized),
+      'entryCreatedAt': serializer.toJson<DateTime>(entryCreatedAt),
+      'entryUpdatedAt': serializer.toJson<DateTime>(entryUpdatedAt),
+      'payload': serializer.toJson<String>(payload),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  MemoryEntryRow copyWith({
+    String? id,
+    int? sortOrder,
+    String? scope,
+    Value<String?> assistantId = const Value.absent(),
+    String? type,
+    String? status,
+    String? content,
+    String? contentNormalized,
+    DateTime? entryCreatedAt,
+    DateTime? entryUpdatedAt,
+    String? payload,
+    DateTime? updatedAt,
+  }) => MemoryEntryRow(
+    id: id ?? this.id,
+    sortOrder: sortOrder ?? this.sortOrder,
+    scope: scope ?? this.scope,
+    assistantId: assistantId.present ? assistantId.value : this.assistantId,
+    type: type ?? this.type,
+    status: status ?? this.status,
+    content: content ?? this.content,
+    contentNormalized: contentNormalized ?? this.contentNormalized,
+    entryCreatedAt: entryCreatedAt ?? this.entryCreatedAt,
+    entryUpdatedAt: entryUpdatedAt ?? this.entryUpdatedAt,
+    payload: payload ?? this.payload,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  MemoryEntryRow copyWithCompanion(MemoryEntryRowsCompanion data) {
+    return MemoryEntryRow(
+      id: data.id.present ? data.id.value : this.id,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      scope: data.scope.present ? data.scope.value : this.scope,
+      assistantId: data.assistantId.present
+          ? data.assistantId.value
+          : this.assistantId,
+      type: data.type.present ? data.type.value : this.type,
+      status: data.status.present ? data.status.value : this.status,
+      content: data.content.present ? data.content.value : this.content,
+      contentNormalized: data.contentNormalized.present
+          ? data.contentNormalized.value
+          : this.contentNormalized,
+      entryCreatedAt: data.entryCreatedAt.present
+          ? data.entryCreatedAt.value
+          : this.entryCreatedAt,
+      entryUpdatedAt: data.entryUpdatedAt.present
+          ? data.entryUpdatedAt.value
+          : this.entryUpdatedAt,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MemoryEntryRow(')
+          ..write('id: $id, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('scope: $scope, ')
+          ..write('assistantId: $assistantId, ')
+          ..write('type: $type, ')
+          ..write('status: $status, ')
+          ..write('content: $content, ')
+          ..write('contentNormalized: $contentNormalized, ')
+          ..write('entryCreatedAt: $entryCreatedAt, ')
+          ..write('entryUpdatedAt: $entryUpdatedAt, ')
+          ..write('payload: $payload, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    sortOrder,
+    scope,
+    assistantId,
+    type,
+    status,
+    content,
+    contentNormalized,
+    entryCreatedAt,
+    entryUpdatedAt,
+    payload,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MemoryEntryRow &&
+          other.id == this.id &&
+          other.sortOrder == this.sortOrder &&
+          other.scope == this.scope &&
+          other.assistantId == this.assistantId &&
+          other.type == this.type &&
+          other.status == this.status &&
+          other.content == this.content &&
+          other.contentNormalized == this.contentNormalized &&
+          other.entryCreatedAt == this.entryCreatedAt &&
+          other.entryUpdatedAt == this.entryUpdatedAt &&
+          other.payload == this.payload &&
+          other.updatedAt == this.updatedAt);
+}
+
+class MemoryEntryRowsCompanion extends UpdateCompanion<MemoryEntryRow> {
+  final Value<String> id;
+  final Value<int> sortOrder;
+  final Value<String> scope;
+  final Value<String?> assistantId;
+  final Value<String> type;
+  final Value<String> status;
+  final Value<String> content;
+  final Value<String> contentNormalized;
+  final Value<DateTime> entryCreatedAt;
+  final Value<DateTime> entryUpdatedAt;
+  final Value<String> payload;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const MemoryEntryRowsCompanion({
+    this.id = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.scope = const Value.absent(),
+    this.assistantId = const Value.absent(),
+    this.type = const Value.absent(),
+    this.status = const Value.absent(),
+    this.content = const Value.absent(),
+    this.contentNormalized = const Value.absent(),
+    this.entryCreatedAt = const Value.absent(),
+    this.entryUpdatedAt = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MemoryEntryRowsCompanion.insert({
+    required String id,
+    required int sortOrder,
+    required String scope,
+    this.assistantId = const Value.absent(),
+    required String type,
+    required String status,
+    required String content,
+    required String contentNormalized,
+    required DateTime entryCreatedAt,
+    required DateTime entryUpdatedAt,
+    required String payload,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       sortOrder = Value(sortOrder),
+       scope = Value(scope),
+       type = Value(type),
+       status = Value(status),
+       content = Value(content),
+       contentNormalized = Value(contentNormalized),
+       entryCreatedAt = Value(entryCreatedAt),
+       entryUpdatedAt = Value(entryUpdatedAt),
+       payload = Value(payload),
+       updatedAt = Value(updatedAt);
+  static Insertable<MemoryEntryRow> custom({
+    Expression<String>? id,
+    Expression<int>? sortOrder,
+    Expression<String>? scope,
+    Expression<String>? assistantId,
+    Expression<String>? type,
+    Expression<String>? status,
+    Expression<String>? content,
+    Expression<String>? contentNormalized,
+    Expression<int>? entryCreatedAt,
+    Expression<int>? entryUpdatedAt,
+    Expression<String>? payload,
+    Expression<int>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (scope != null) 'scope': scope,
+      if (assistantId != null) 'assistant_id': assistantId,
+      if (type != null) 'type': type,
+      if (status != null) 'status': status,
+      if (content != null) 'content': content,
+      if (contentNormalized != null) 'content_normalized': contentNormalized,
+      if (entryCreatedAt != null) 'entry_created_at': entryCreatedAt,
+      if (entryUpdatedAt != null) 'entry_updated_at': entryUpdatedAt,
+      if (payload != null) 'payload': payload,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MemoryEntryRowsCompanion copyWith({
+    Value<String>? id,
+    Value<int>? sortOrder,
+    Value<String>? scope,
+    Value<String?>? assistantId,
+    Value<String>? type,
+    Value<String>? status,
+    Value<String>? content,
+    Value<String>? contentNormalized,
+    Value<DateTime>? entryCreatedAt,
+    Value<DateTime>? entryUpdatedAt,
+    Value<String>? payload,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return MemoryEntryRowsCompanion(
+      id: id ?? this.id,
+      sortOrder: sortOrder ?? this.sortOrder,
+      scope: scope ?? this.scope,
+      assistantId: assistantId ?? this.assistantId,
+      type: type ?? this.type,
+      status: status ?? this.status,
+      content: content ?? this.content,
+      contentNormalized: contentNormalized ?? this.contentNormalized,
+      entryCreatedAt: entryCreatedAt ?? this.entryCreatedAt,
+      entryUpdatedAt: entryUpdatedAt ?? this.entryUpdatedAt,
+      payload: payload ?? this.payload,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (scope.present) {
+      map['scope'] = Variable<String>(scope.value);
+    }
+    if (assistantId.present) {
+      map['assistant_id'] = Variable<String>(assistantId.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (contentNormalized.present) {
+      map['content_normalized'] = Variable<String>(contentNormalized.value);
+    }
+    if (entryCreatedAt.present) {
+      map['entry_created_at'] = Variable<int>(
+        $MemoryEntryRowsTable.$converterentryCreatedAt.toSql(
+          entryCreatedAt.value,
+        ),
+      );
+    }
+    if (entryUpdatedAt.present) {
+      map['entry_updated_at'] = Variable<int>(
+        $MemoryEntryRowsTable.$converterentryUpdatedAt.toSql(
+          entryUpdatedAt.value,
+        ),
+      );
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(
+        $MemoryEntryRowsTable.$converterupdatedAt.toSql(updatedAt.value),
+      );
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MemoryEntryRowsCompanion(')
+          ..write('id: $id, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('scope: $scope, ')
+          ..write('assistantId: $assistantId, ')
+          ..write('type: $type, ')
+          ..write('status: $status, ')
+          ..write('content: $content, ')
+          ..write('contentNormalized: $contentNormalized, ')
+          ..write('entryCreatedAt: $entryCreatedAt, ')
+          ..write('entryUpdatedAt: $entryUpdatedAt, ')
+          ..write('payload: $payload, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $UserProfileFieldRowsTable extends UserProfileFieldRows
+    with TableInfo<$UserProfileFieldRowsTable, UserProfileFieldRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $UserProfileFieldRowsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    check: () => ComparableExpr(sortOrder).isBiggerOrEqualValue(0),
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime, int> updatedAt =
+      GeneratedColumn<int>(
+        'updated_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($UserProfileFieldRowsTable.$converterupdatedAt);
+  @override
+  List<GeneratedColumn> get $columns => [id, sortOrder, payload, updatedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'user_profile_field_rows';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<UserProfileFieldRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sortOrderMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  UserProfileFieldRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return UserProfileFieldRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+      updatedAt: $UserProfileFieldRowsTable.$converterupdatedAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}updated_at'],
+        )!,
+      ),
+    );
+  }
+
+  @override
+  $UserProfileFieldRowsTable createAlias(String alias) {
+    return $UserProfileFieldRowsTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<DateTime, int> $converterupdatedAt =
+      const MicrosecondDateTimeConverter();
+}
+
+class UserProfileFieldRow extends DataClass
+    implements Insertable<UserProfileFieldRow> {
+  final String id;
+  final int sortOrder;
+  final String payload;
+  final DateTime updatedAt;
+  const UserProfileFieldRow({
+    required this.id,
+    required this.sortOrder,
+    required this.payload,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['sort_order'] = Variable<int>(sortOrder);
+    map['payload'] = Variable<String>(payload);
+    {
+      map['updated_at'] = Variable<int>(
+        $UserProfileFieldRowsTable.$converterupdatedAt.toSql(updatedAt),
+      );
+    }
+    return map;
+  }
+
+  UserProfileFieldRowsCompanion toCompanion(bool nullToAbsent) {
+    return UserProfileFieldRowsCompanion(
+      id: Value(id),
+      sortOrder: Value(sortOrder),
+      payload: Value(payload),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory UserProfileFieldRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return UserProfileFieldRow(
+      id: serializer.fromJson<String>(json['id']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      payload: serializer.fromJson<String>(json['payload']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'sortOrder': serializer.toJson<int>(sortOrder),
+      'payload': serializer.toJson<String>(payload),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  UserProfileFieldRow copyWith({
+    String? id,
+    int? sortOrder,
+    String? payload,
+    DateTime? updatedAt,
+  }) => UserProfileFieldRow(
+    id: id ?? this.id,
+    sortOrder: sortOrder ?? this.sortOrder,
+    payload: payload ?? this.payload,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  UserProfileFieldRow copyWithCompanion(UserProfileFieldRowsCompanion data) {
+    return UserProfileFieldRow(
+      id: data.id.present ? data.id.value : this.id,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserProfileFieldRow(')
+          ..write('id: $id, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('payload: $payload, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, sortOrder, payload, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is UserProfileFieldRow &&
+          other.id == this.id &&
+          other.sortOrder == this.sortOrder &&
+          other.payload == this.payload &&
+          other.updatedAt == this.updatedAt);
+}
+
+class UserProfileFieldRowsCompanion
+    extends UpdateCompanion<UserProfileFieldRow> {
+  final Value<String> id;
+  final Value<int> sortOrder;
+  final Value<String> payload;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const UserProfileFieldRowsCompanion({
+    this.id = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  UserProfileFieldRowsCompanion.insert({
+    required String id,
+    required int sortOrder,
+    required String payload,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       sortOrder = Value(sortOrder),
+       payload = Value(payload),
+       updatedAt = Value(updatedAt);
+  static Insertable<UserProfileFieldRow> custom({
+    Expression<String>? id,
+    Expression<int>? sortOrder,
+    Expression<String>? payload,
+    Expression<int>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (payload != null) 'payload': payload,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  UserProfileFieldRowsCompanion copyWith({
+    Value<String>? id,
+    Value<int>? sortOrder,
+    Value<String>? payload,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return UserProfileFieldRowsCompanion(
+      id: id ?? this.id,
+      sortOrder: sortOrder ?? this.sortOrder,
+      payload: payload ?? this.payload,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(
+        $UserProfileFieldRowsTable.$converterupdatedAt.toSql(updatedAt.value),
+      );
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserProfileFieldRowsCompanion(')
+          ..write('id: $id, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('payload: $payload, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $MessagePromptRowsTable extends MessagePromptRows
+    with TableInfo<$MessagePromptRowsTable, MessagePromptRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MessagePromptRowsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _revisionIdMeta = const VerificationMeta(
+    'revisionId',
+  );
+  @override
+  late final GeneratedColumn<String> revisionId = GeneratedColumn<String>(
+    'revision_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _conversationIdMeta = const VerificationMeta(
+    'conversationId',
+  );
+  @override
+  late final GeneratedColumn<String> conversationId = GeneratedColumn<String>(
+    'conversation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _carriesMemorySnapshotMeta =
+      const VerificationMeta('carriesMemorySnapshot');
+  @override
+  late final GeneratedColumn<bool> carriesMemorySnapshot =
+      GeneratedColumn<bool>(
+        'carries_memory_snapshot',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("carries_memory_snapshot" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime, int> createdAt =
+      GeneratedColumn<int>(
+        'created_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($MessagePromptRowsTable.$convertercreatedAt);
+  @override
+  List<GeneratedColumn> get $columns => [
+    revisionId,
+    conversationId,
+    payload,
+    carriesMemorySnapshot,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'message_prompt_rows';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MessagePromptRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('revision_id')) {
+      context.handle(
+        _revisionIdMeta,
+        revisionId.isAcceptableOrUnknown(data['revision_id']!, _revisionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_revisionIdMeta);
+    }
+    if (data.containsKey('conversation_id')) {
+      context.handle(
+        _conversationIdMeta,
+        conversationId.isAcceptableOrUnknown(
+          data['conversation_id']!,
+          _conversationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_conversationIdMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    if (data.containsKey('carries_memory_snapshot')) {
+      context.handle(
+        _carriesMemorySnapshotMeta,
+        carriesMemorySnapshot.isAcceptableOrUnknown(
+          data['carries_memory_snapshot']!,
+          _carriesMemorySnapshotMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {revisionId};
+  @override
+  MessagePromptRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MessagePromptRow(
+      revisionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}revision_id'],
+      )!,
+      conversationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}conversation_id'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+      carriesMemorySnapshot: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}carries_memory_snapshot'],
+      )!,
+      createdAt: $MessagePromptRowsTable.$convertercreatedAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}created_at'],
+        )!,
+      ),
+    );
+  }
+
+  @override
+  $MessagePromptRowsTable createAlias(String alias) {
+    return $MessagePromptRowsTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<DateTime, int> $convertercreatedAt =
+      const MicrosecondDateTimeConverter();
+}
+
+class MessagePromptRow extends DataClass
+    implements Insertable<MessagePromptRow> {
+  final String revisionId;
+  final String conversationId;
+  final String payload;
+  final bool carriesMemorySnapshot;
+  final DateTime createdAt;
+  const MessagePromptRow({
+    required this.revisionId,
+    required this.conversationId,
+    required this.payload,
+    required this.carriesMemorySnapshot,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['revision_id'] = Variable<String>(revisionId);
+    map['conversation_id'] = Variable<String>(conversationId);
+    map['payload'] = Variable<String>(payload);
+    map['carries_memory_snapshot'] = Variable<bool>(carriesMemorySnapshot);
+    {
+      map['created_at'] = Variable<int>(
+        $MessagePromptRowsTable.$convertercreatedAt.toSql(createdAt),
+      );
+    }
+    return map;
+  }
+
+  MessagePromptRowsCompanion toCompanion(bool nullToAbsent) {
+    return MessagePromptRowsCompanion(
+      revisionId: Value(revisionId),
+      conversationId: Value(conversationId),
+      payload: Value(payload),
+      carriesMemorySnapshot: Value(carriesMemorySnapshot),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory MessagePromptRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MessagePromptRow(
+      revisionId: serializer.fromJson<String>(json['revisionId']),
+      conversationId: serializer.fromJson<String>(json['conversationId']),
+      payload: serializer.fromJson<String>(json['payload']),
+      carriesMemorySnapshot: serializer.fromJson<bool>(
+        json['carriesMemorySnapshot'],
+      ),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'revisionId': serializer.toJson<String>(revisionId),
+      'conversationId': serializer.toJson<String>(conversationId),
+      'payload': serializer.toJson<String>(payload),
+      'carriesMemorySnapshot': serializer.toJson<bool>(carriesMemorySnapshot),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  MessagePromptRow copyWith({
+    String? revisionId,
+    String? conversationId,
+    String? payload,
+    bool? carriesMemorySnapshot,
+    DateTime? createdAt,
+  }) => MessagePromptRow(
+    revisionId: revisionId ?? this.revisionId,
+    conversationId: conversationId ?? this.conversationId,
+    payload: payload ?? this.payload,
+    carriesMemorySnapshot: carriesMemorySnapshot ?? this.carriesMemorySnapshot,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  MessagePromptRow copyWithCompanion(MessagePromptRowsCompanion data) {
+    return MessagePromptRow(
+      revisionId: data.revisionId.present
+          ? data.revisionId.value
+          : this.revisionId,
+      conversationId: data.conversationId.present
+          ? data.conversationId.value
+          : this.conversationId,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      carriesMemorySnapshot: data.carriesMemorySnapshot.present
+          ? data.carriesMemorySnapshot.value
+          : this.carriesMemorySnapshot,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MessagePromptRow(')
+          ..write('revisionId: $revisionId, ')
+          ..write('conversationId: $conversationId, ')
+          ..write('payload: $payload, ')
+          ..write('carriesMemorySnapshot: $carriesMemorySnapshot, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    revisionId,
+    conversationId,
+    payload,
+    carriesMemorySnapshot,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MessagePromptRow &&
+          other.revisionId == this.revisionId &&
+          other.conversationId == this.conversationId &&
+          other.payload == this.payload &&
+          other.carriesMemorySnapshot == this.carriesMemorySnapshot &&
+          other.createdAt == this.createdAt);
+}
+
+class MessagePromptRowsCompanion extends UpdateCompanion<MessagePromptRow> {
+  final Value<String> revisionId;
+  final Value<String> conversationId;
+  final Value<String> payload;
+  final Value<bool> carriesMemorySnapshot;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const MessagePromptRowsCompanion({
+    this.revisionId = const Value.absent(),
+    this.conversationId = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.carriesMemorySnapshot = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MessagePromptRowsCompanion.insert({
+    required String revisionId,
+    required String conversationId,
+    required String payload,
+    this.carriesMemorySnapshot = const Value.absent(),
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : revisionId = Value(revisionId),
+       conversationId = Value(conversationId),
+       payload = Value(payload),
+       createdAt = Value(createdAt);
+  static Insertable<MessagePromptRow> custom({
+    Expression<String>? revisionId,
+    Expression<String>? conversationId,
+    Expression<String>? payload,
+    Expression<bool>? carriesMemorySnapshot,
+    Expression<int>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (revisionId != null) 'revision_id': revisionId,
+      if (conversationId != null) 'conversation_id': conversationId,
+      if (payload != null) 'payload': payload,
+      if (carriesMemorySnapshot != null)
+        'carries_memory_snapshot': carriesMemorySnapshot,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MessagePromptRowsCompanion copyWith({
+    Value<String>? revisionId,
+    Value<String>? conversationId,
+    Value<String>? payload,
+    Value<bool>? carriesMemorySnapshot,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return MessagePromptRowsCompanion(
+      revisionId: revisionId ?? this.revisionId,
+      conversationId: conversationId ?? this.conversationId,
+      payload: payload ?? this.payload,
+      carriesMemorySnapshot:
+          carriesMemorySnapshot ?? this.carriesMemorySnapshot,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (revisionId.present) {
+      map['revision_id'] = Variable<String>(revisionId.value);
+    }
+    if (conversationId.present) {
+      map['conversation_id'] = Variable<String>(conversationId.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (carriesMemorySnapshot.present) {
+      map['carries_memory_snapshot'] = Variable<bool>(
+        carriesMemorySnapshot.value,
+      );
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(
+        $MessagePromptRowsTable.$convertercreatedAt.toSql(createdAt.value),
+      );
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MessagePromptRowsCompanion(')
+          ..write('revisionId: $revisionId, ')
+          ..write('conversationId: $conversationId, ')
+          ..write('payload: $payload, ')
+          ..write('carriesMemorySnapshot: $carriesMemorySnapshot, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -9554,6 +11040,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $PreferenceRowsTable preferenceRows = $PreferenceRowsTable(this);
+  late final $MemoryEntryRowsTable memoryEntryRows = $MemoryEntryRowsTable(
+    this,
+  );
+  late final $UserProfileFieldRowsTable userProfileFieldRows =
+      $UserProfileFieldRowsTable(this);
+  late final $MessagePromptRowsTable messagePromptRows =
+      $MessagePromptRowsTable(this);
   late final Index idxConversationsUpdatedAt = Index(
     'idx_conversations_updated_at',
     'CREATE INDEX idx_conversations_updated_at ON conversation_rows (updated_at DESC, id ASC)',
@@ -9598,6 +11091,22 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'idx_assistant_memories_assistant',
     'CREATE INDEX idx_assistant_memories_assistant ON assistant_memory_rows (assistant_id, id)',
   );
+  late final Index idxMemoryEntriesVisible = Index(
+    'idx_memory_entries_visible',
+    'CREATE INDEX idx_memory_entries_visible ON memory_entry_rows (status, type, scope, assistant_id)',
+  );
+  late final Index idxMemoryEntriesRecent = Index(
+    'idx_memory_entries_recent',
+    'CREATE INDEX idx_memory_entries_recent ON memory_entry_rows (status, type, entry_updated_at, id)',
+  );
+  late final Index idxMemoryEntriesDedupe = Index(
+    'idx_memory_entries_dedupe',
+    'CREATE INDEX idx_memory_entries_dedupe ON memory_entry_rows (scope, assistant_id, type, content_normalized)',
+  );
+  late final Index idxMessagePromptsConversationSnapshot = Index(
+    'idx_message_prompts_conversation_snapshot',
+    'CREATE INDEX idx_message_prompts_conversation_snapshot ON message_prompt_rows (conversation_id, carries_memory_snapshot)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -9627,6 +11136,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     instructionInjectionRows,
     assistantTagRows,
     preferenceRows,
+    memoryEntryRows,
+    userProfileFieldRows,
+    messagePromptRows,
     idxConversationsUpdatedAt,
     idxConversationsAssistant,
     idxMessagesConversationOrder,
@@ -9638,6 +11150,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     idxGenerationRunsActiveTarget,
     idxGenerationRunsStateUpdated,
     idxAssistantMemoriesAssistant,
+    idxMemoryEntriesVisible,
+    idxMemoryEntriesRecent,
+    idxMemoryEntriesDedupe,
+    idxMessagePromptsConversationSnapshot,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -9710,6 +11226,8 @@ typedef $$ConversationRowsTableCreateCompanionBuilder =
       Value<String?> summary,
       Value<int> lastSummarizedMessageCount,
       Value<String> chatSuggestionsJson,
+      Value<String?> injectedMemoryHash,
+      Value<int> lastMemoryExtractedOrder,
       Value<int> rowid,
     });
 typedef $$ConversationRowsTableUpdateCompanionBuilder =
@@ -9725,6 +11243,8 @@ typedef $$ConversationRowsTableUpdateCompanionBuilder =
       Value<String?> summary,
       Value<int> lastSummarizedMessageCount,
       Value<String> chatSuggestionsJson,
+      Value<String?> injectedMemoryHash,
+      Value<int> lastMemoryExtractedOrder,
       Value<int> rowid,
     });
 
@@ -9871,6 +11391,16 @@ class $$ConversationRowsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get injectedMemoryHash => $composableBuilder(
+    column: $table.injectedMemoryHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastMemoryExtractedOrder => $composableBuilder(
+    column: $table.lastMemoryExtractedOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> messageRowsRefs(
     Expression<bool> Function($$MessageRowsTableFilterComposer f) f,
   ) {
@@ -10012,6 +11542,16 @@ class $$ConversationRowsTableOrderingComposer
     column: $table.chatSuggestionsJson,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get injectedMemoryHash => $composableBuilder(
+    column: $table.injectedMemoryHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastMemoryExtractedOrder => $composableBuilder(
+    column: $table.lastMemoryExtractedOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ConversationRowsTableAnnotationComposer
@@ -10063,6 +11603,16 @@ class $$ConversationRowsTableAnnotationComposer
 
   GeneratedColumn<String> get chatSuggestionsJson => $composableBuilder(
     column: $table.chatSuggestionsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get injectedMemoryHash => $composableBuilder(
+    column: $table.injectedMemoryHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lastMemoryExtractedOrder => $composableBuilder(
+    column: $table.lastMemoryExtractedOrder,
     builder: (column) => column,
   );
 
@@ -10190,6 +11740,8 @@ class $$ConversationRowsTableTableManager
                 Value<String?> summary = const Value.absent(),
                 Value<int> lastSummarizedMessageCount = const Value.absent(),
                 Value<String> chatSuggestionsJson = const Value.absent(),
+                Value<String?> injectedMemoryHash = const Value.absent(),
+                Value<int> lastMemoryExtractedOrder = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ConversationRowsCompanion(
                 id: id,
@@ -10203,6 +11755,8 @@ class $$ConversationRowsTableTableManager
                 summary: summary,
                 lastSummarizedMessageCount: lastSummarizedMessageCount,
                 chatSuggestionsJson: chatSuggestionsJson,
+                injectedMemoryHash: injectedMemoryHash,
+                lastMemoryExtractedOrder: lastMemoryExtractedOrder,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -10218,6 +11772,8 @@ class $$ConversationRowsTableTableManager
                 Value<String?> summary = const Value.absent(),
                 Value<int> lastSummarizedMessageCount = const Value.absent(),
                 Value<String> chatSuggestionsJson = const Value.absent(),
+                Value<String?> injectedMemoryHash = const Value.absent(),
+                Value<int> lastMemoryExtractedOrder = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ConversationRowsCompanion.insert(
                 id: id,
@@ -10231,6 +11787,8 @@ class $$ConversationRowsTableTableManager
                 summary: summary,
                 lastSummarizedMessageCount: lastSummarizedMessageCount,
                 chatSuggestionsJson: chatSuggestionsJson,
+                injectedMemoryHash: injectedMemoryHash,
+                lastMemoryExtractedOrder: lastMemoryExtractedOrder,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -10352,13 +11910,11 @@ typedef $$MessageRowsTableCreateCompanionBuilder =
       required String id,
       required String conversationId,
       required String role,
-      required String content,
       required DateTime timestamp,
       Value<String?> modelId,
       Value<String?> providerId,
       Value<int?> totalTokens,
       Value<bool> isStreaming,
-      Value<String?> reasoningText,
       Value<DateTime?> reasoningStartAt,
       Value<DateTime?> reasoningFinishedAt,
       Value<String?> translation,
@@ -10377,13 +11933,11 @@ typedef $$MessageRowsTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> conversationId,
       Value<String> role,
-      Value<String> content,
       Value<DateTime> timestamp,
       Value<String?> modelId,
       Value<String?> providerId,
       Value<int?> totalTokens,
       Value<bool> isStreaming,
-      Value<String?> reasoningText,
       Value<DateTime?> reasoningStartAt,
       Value<DateTime?> reasoningFinishedAt,
       Value<String?> translation,
@@ -10485,11 +12039,6 @@ class $$MessageRowsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get content => $composableBuilder(
-    column: $table.content,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnWithTypeConverterFilters<DateTime, DateTime, int> get timestamp =>
       $composableBuilder(
         column: $table.timestamp,
@@ -10513,11 +12062,6 @@ class $$MessageRowsTableFilterComposer
 
   ColumnFilters<bool> get isStreaming => $composableBuilder(
     column: $table.isStreaming,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get reasoningText => $composableBuilder(
-    column: $table.reasoningText,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10672,11 +12216,6 @@ class $$MessageRowsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get content => $composableBuilder(
-    column: $table.content,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<int> get timestamp => $composableBuilder(
     column: $table.timestamp,
     builder: (column) => ColumnOrderings(column),
@@ -10699,11 +12238,6 @@ class $$MessageRowsTableOrderingComposer
 
   ColumnOrderings<bool> get isStreaming => $composableBuilder(
     column: $table.isStreaming,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get reasoningText => $composableBuilder(
-    column: $table.reasoningText,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -10801,9 +12335,6 @@ class $$MessageRowsTableAnnotationComposer
   GeneratedColumn<String> get role =>
       $composableBuilder(column: $table.role, builder: (column) => column);
 
-  GeneratedColumn<String> get content =>
-      $composableBuilder(column: $table.content, builder: (column) => column);
-
   GeneratedColumnWithTypeConverter<DateTime, int> get timestamp =>
       $composableBuilder(column: $table.timestamp, builder: (column) => column);
 
@@ -10822,11 +12353,6 @@ class $$MessageRowsTableAnnotationComposer
 
   GeneratedColumn<bool> get isStreaming => $composableBuilder(
     column: $table.isStreaming,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get reasoningText => $composableBuilder(
-    column: $table.reasoningText,
     builder: (column) => column,
   );
 
@@ -10994,13 +12520,11 @@ class $$MessageRowsTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> conversationId = const Value.absent(),
                 Value<String> role = const Value.absent(),
-                Value<String> content = const Value.absent(),
                 Value<DateTime> timestamp = const Value.absent(),
                 Value<String?> modelId = const Value.absent(),
                 Value<String?> providerId = const Value.absent(),
                 Value<int?> totalTokens = const Value.absent(),
                 Value<bool> isStreaming = const Value.absent(),
-                Value<String?> reasoningText = const Value.absent(),
                 Value<DateTime?> reasoningStartAt = const Value.absent(),
                 Value<DateTime?> reasoningFinishedAt = const Value.absent(),
                 Value<String?> translation = const Value.absent(),
@@ -11017,13 +12541,11 @@ class $$MessageRowsTableTableManager
                 id: id,
                 conversationId: conversationId,
                 role: role,
-                content: content,
                 timestamp: timestamp,
                 modelId: modelId,
                 providerId: providerId,
                 totalTokens: totalTokens,
                 isStreaming: isStreaming,
-                reasoningText: reasoningText,
                 reasoningStartAt: reasoningStartAt,
                 reasoningFinishedAt: reasoningFinishedAt,
                 translation: translation,
@@ -11042,13 +12564,11 @@ class $$MessageRowsTableTableManager
                 required String id,
                 required String conversationId,
                 required String role,
-                required String content,
                 required DateTime timestamp,
                 Value<String?> modelId = const Value.absent(),
                 Value<String?> providerId = const Value.absent(),
                 Value<int?> totalTokens = const Value.absent(),
                 Value<bool> isStreaming = const Value.absent(),
-                Value<String?> reasoningText = const Value.absent(),
                 Value<DateTime?> reasoningStartAt = const Value.absent(),
                 Value<DateTime?> reasoningFinishedAt = const Value.absent(),
                 Value<String?> translation = const Value.absent(),
@@ -11065,13 +12585,11 @@ class $$MessageRowsTableTableManager
                 id: id,
                 conversationId: conversationId,
                 role: role,
-                content: content,
                 timestamp: timestamp,
                 modelId: modelId,
                 providerId: providerId,
                 totalTokens: totalTokens,
                 isStreaming: isStreaming,
-                reasoningText: reasoningText,
                 reasoningStartAt: reasoningStartAt,
                 reasoningFinishedAt: reasoningFinishedAt,
                 translation: translation,
@@ -11676,6 +13194,7 @@ typedef $$ChatStorageMetaRowsTableProcessedTableManager =
     >;
 typedef $$MessagePartRowsTableCreateCompanionBuilder =
     MessagePartRowsCompanion Function({
+      Value<int> partId,
       required String conversationId,
       required String revisionId,
       required int ordinal,
@@ -11683,10 +13202,10 @@ typedef $$MessagePartRowsTableCreateCompanionBuilder =
       required String payload,
       required DateTime createdAt,
       required DateTime updatedAt,
-      Value<int> rowid,
     });
 typedef $$MessagePartRowsTableUpdateCompanionBuilder =
     MessagePartRowsCompanion Function({
+      Value<int> partId,
       Value<String> conversationId,
       Value<String> revisionId,
       Value<int> ordinal,
@@ -11694,7 +13213,6 @@ typedef $$MessagePartRowsTableUpdateCompanionBuilder =
       Value<String> payload,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
-      Value<int> rowid,
     });
 
 class $$MessagePartRowsTableFilterComposer
@@ -11706,6 +13224,11 @@ class $$MessagePartRowsTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnFilters<int> get partId => $composableBuilder(
+    column: $table.partId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get conversationId => $composableBuilder(
     column: $table.conversationId,
     builder: (column) => ColumnFilters(column),
@@ -11753,6 +13276,11 @@ class $$MessagePartRowsTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnOrderings<int> get partId => $composableBuilder(
+    column: $table.partId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get conversationId => $composableBuilder(
     column: $table.conversationId,
     builder: (column) => ColumnOrderings(column),
@@ -11798,6 +13326,9 @@ class $$MessagePartRowsTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  GeneratedColumn<int> get partId =>
+      $composableBuilder(column: $table.partId, builder: (column) => column);
+
   GeneratedColumn<String> get conversationId => $composableBuilder(
     column: $table.conversationId,
     builder: (column) => column,
@@ -11861,6 +13392,7 @@ class $$MessagePartRowsTableTableManager
               $$MessagePartRowsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
+                Value<int> partId = const Value.absent(),
                 Value<String> conversationId = const Value.absent(),
                 Value<String> revisionId = const Value.absent(),
                 Value<int> ordinal = const Value.absent(),
@@ -11868,8 +13400,8 @@ class $$MessagePartRowsTableTableManager
                 Value<String> payload = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
               }) => MessagePartRowsCompanion(
+                partId: partId,
                 conversationId: conversationId,
                 revisionId: revisionId,
                 ordinal: ordinal,
@@ -11877,10 +13409,10 @@ class $$MessagePartRowsTableTableManager
                 payload: payload,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
-                rowid: rowid,
               ),
           createCompanionCallback:
               ({
+                Value<int> partId = const Value.absent(),
                 required String conversationId,
                 required String revisionId,
                 required int ordinal,
@@ -11888,8 +13420,8 @@ class $$MessagePartRowsTableTableManager
                 required String payload,
                 required DateTime createdAt,
                 required DateTime updatedAt,
-                Value<int> rowid = const Value.absent(),
               }) => MessagePartRowsCompanion.insert(
+                partId: partId,
                 conversationId: conversationId,
                 revisionId: revisionId,
                 ordinal: ordinal,
@@ -11897,7 +13429,6 @@ class $$MessagePartRowsTableTableManager
                 payload: payload,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
-                rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -16498,6 +18029,776 @@ typedef $$PreferenceRowsTableProcessedTableManager =
       PreferenceRow,
       PrefetchHooks Function()
     >;
+typedef $$MemoryEntryRowsTableCreateCompanionBuilder =
+    MemoryEntryRowsCompanion Function({
+      required String id,
+      required int sortOrder,
+      required String scope,
+      Value<String?> assistantId,
+      required String type,
+      required String status,
+      required String content,
+      required String contentNormalized,
+      required DateTime entryCreatedAt,
+      required DateTime entryUpdatedAt,
+      required String payload,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$MemoryEntryRowsTableUpdateCompanionBuilder =
+    MemoryEntryRowsCompanion Function({
+      Value<String> id,
+      Value<int> sortOrder,
+      Value<String> scope,
+      Value<String?> assistantId,
+      Value<String> type,
+      Value<String> status,
+      Value<String> content,
+      Value<String> contentNormalized,
+      Value<DateTime> entryCreatedAt,
+      Value<DateTime> entryUpdatedAt,
+      Value<String> payload,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$MemoryEntryRowsTableFilterComposer
+    extends Composer<_$AppDatabase, $MemoryEntryRowsTable> {
+  $$MemoryEntryRowsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get scope => $composableBuilder(
+    column: $table.scope,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get assistantId => $composableBuilder(
+    column: $table.assistantId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentNormalized => $composableBuilder(
+    column: $table.contentNormalized,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DateTime, DateTime, int> get entryCreatedAt =>
+      $composableBuilder(
+        column: $table.entryCreatedAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnWithTypeConverterFilters<DateTime, DateTime, int> get entryUpdatedAt =>
+      $composableBuilder(
+        column: $table.entryUpdatedAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DateTime, DateTime, int> get updatedAt =>
+      $composableBuilder(
+        column: $table.updatedAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+}
+
+class $$MemoryEntryRowsTableOrderingComposer
+    extends Composer<_$AppDatabase, $MemoryEntryRowsTable> {
+  $$MemoryEntryRowsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get scope => $composableBuilder(
+    column: $table.scope,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get assistantId => $composableBuilder(
+    column: $table.assistantId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentNormalized => $composableBuilder(
+    column: $table.contentNormalized,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get entryCreatedAt => $composableBuilder(
+    column: $table.entryCreatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get entryUpdatedAt => $composableBuilder(
+    column: $table.entryUpdatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MemoryEntryRowsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MemoryEntryRowsTable> {
+  $$MemoryEntryRowsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<String> get scope =>
+      $composableBuilder(column: $table.scope, builder: (column) => column);
+
+  GeneratedColumn<String> get assistantId => $composableBuilder(
+    column: $table.assistantId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<String> get contentNormalized => $composableBuilder(
+    column: $table.contentNormalized,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<DateTime, int> get entryCreatedAt =>
+      $composableBuilder(
+        column: $table.entryCreatedAt,
+        builder: (column) => column,
+      );
+
+  GeneratedColumnWithTypeConverter<DateTime, int> get entryUpdatedAt =>
+      $composableBuilder(
+        column: $table.entryUpdatedAt,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateTime, int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$MemoryEntryRowsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MemoryEntryRowsTable,
+          MemoryEntryRow,
+          $$MemoryEntryRowsTableFilterComposer,
+          $$MemoryEntryRowsTableOrderingComposer,
+          $$MemoryEntryRowsTableAnnotationComposer,
+          $$MemoryEntryRowsTableCreateCompanionBuilder,
+          $$MemoryEntryRowsTableUpdateCompanionBuilder,
+          (
+            MemoryEntryRow,
+            BaseReferences<
+              _$AppDatabase,
+              $MemoryEntryRowsTable,
+              MemoryEntryRow
+            >,
+          ),
+          MemoryEntryRow,
+          PrefetchHooks Function()
+        > {
+  $$MemoryEntryRowsTableTableManager(
+    _$AppDatabase db,
+    $MemoryEntryRowsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MemoryEntryRowsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MemoryEntryRowsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MemoryEntryRowsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<String> scope = const Value.absent(),
+                Value<String?> assistantId = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<String> contentNormalized = const Value.absent(),
+                Value<DateTime> entryCreatedAt = const Value.absent(),
+                Value<DateTime> entryUpdatedAt = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MemoryEntryRowsCompanion(
+                id: id,
+                sortOrder: sortOrder,
+                scope: scope,
+                assistantId: assistantId,
+                type: type,
+                status: status,
+                content: content,
+                contentNormalized: contentNormalized,
+                entryCreatedAt: entryCreatedAt,
+                entryUpdatedAt: entryUpdatedAt,
+                payload: payload,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required int sortOrder,
+                required String scope,
+                Value<String?> assistantId = const Value.absent(),
+                required String type,
+                required String status,
+                required String content,
+                required String contentNormalized,
+                required DateTime entryCreatedAt,
+                required DateTime entryUpdatedAt,
+                required String payload,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => MemoryEntryRowsCompanion.insert(
+                id: id,
+                sortOrder: sortOrder,
+                scope: scope,
+                assistantId: assistantId,
+                type: type,
+                status: status,
+                content: content,
+                contentNormalized: contentNormalized,
+                entryCreatedAt: entryCreatedAt,
+                entryUpdatedAt: entryUpdatedAt,
+                payload: payload,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MemoryEntryRowsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MemoryEntryRowsTable,
+      MemoryEntryRow,
+      $$MemoryEntryRowsTableFilterComposer,
+      $$MemoryEntryRowsTableOrderingComposer,
+      $$MemoryEntryRowsTableAnnotationComposer,
+      $$MemoryEntryRowsTableCreateCompanionBuilder,
+      $$MemoryEntryRowsTableUpdateCompanionBuilder,
+      (
+        MemoryEntryRow,
+        BaseReferences<_$AppDatabase, $MemoryEntryRowsTable, MemoryEntryRow>,
+      ),
+      MemoryEntryRow,
+      PrefetchHooks Function()
+    >;
+typedef $$UserProfileFieldRowsTableCreateCompanionBuilder =
+    UserProfileFieldRowsCompanion Function({
+      required String id,
+      required int sortOrder,
+      required String payload,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$UserProfileFieldRowsTableUpdateCompanionBuilder =
+    UserProfileFieldRowsCompanion Function({
+      Value<String> id,
+      Value<int> sortOrder,
+      Value<String> payload,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$UserProfileFieldRowsTableFilterComposer
+    extends Composer<_$AppDatabase, $UserProfileFieldRowsTable> {
+  $$UserProfileFieldRowsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DateTime, DateTime, int> get updatedAt =>
+      $composableBuilder(
+        column: $table.updatedAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+}
+
+class $$UserProfileFieldRowsTableOrderingComposer
+    extends Composer<_$AppDatabase, $UserProfileFieldRowsTable> {
+  $$UserProfileFieldRowsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$UserProfileFieldRowsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $UserProfileFieldRowsTable> {
+  $$UserProfileFieldRowsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateTime, int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$UserProfileFieldRowsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $UserProfileFieldRowsTable,
+          UserProfileFieldRow,
+          $$UserProfileFieldRowsTableFilterComposer,
+          $$UserProfileFieldRowsTableOrderingComposer,
+          $$UserProfileFieldRowsTableAnnotationComposer,
+          $$UserProfileFieldRowsTableCreateCompanionBuilder,
+          $$UserProfileFieldRowsTableUpdateCompanionBuilder,
+          (
+            UserProfileFieldRow,
+            BaseReferences<
+              _$AppDatabase,
+              $UserProfileFieldRowsTable,
+              UserProfileFieldRow
+            >,
+          ),
+          UserProfileFieldRow,
+          PrefetchHooks Function()
+        > {
+  $$UserProfileFieldRowsTableTableManager(
+    _$AppDatabase db,
+    $UserProfileFieldRowsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$UserProfileFieldRowsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$UserProfileFieldRowsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$UserProfileFieldRowsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UserProfileFieldRowsCompanion(
+                id: id,
+                sortOrder: sortOrder,
+                payload: payload,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required int sortOrder,
+                required String payload,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => UserProfileFieldRowsCompanion.insert(
+                id: id,
+                sortOrder: sortOrder,
+                payload: payload,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$UserProfileFieldRowsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $UserProfileFieldRowsTable,
+      UserProfileFieldRow,
+      $$UserProfileFieldRowsTableFilterComposer,
+      $$UserProfileFieldRowsTableOrderingComposer,
+      $$UserProfileFieldRowsTableAnnotationComposer,
+      $$UserProfileFieldRowsTableCreateCompanionBuilder,
+      $$UserProfileFieldRowsTableUpdateCompanionBuilder,
+      (
+        UserProfileFieldRow,
+        BaseReferences<
+          _$AppDatabase,
+          $UserProfileFieldRowsTable,
+          UserProfileFieldRow
+        >,
+      ),
+      UserProfileFieldRow,
+      PrefetchHooks Function()
+    >;
+typedef $$MessagePromptRowsTableCreateCompanionBuilder =
+    MessagePromptRowsCompanion Function({
+      required String revisionId,
+      required String conversationId,
+      required String payload,
+      Value<bool> carriesMemorySnapshot,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$MessagePromptRowsTableUpdateCompanionBuilder =
+    MessagePromptRowsCompanion Function({
+      Value<String> revisionId,
+      Value<String> conversationId,
+      Value<String> payload,
+      Value<bool> carriesMemorySnapshot,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$MessagePromptRowsTableFilterComposer
+    extends Composer<_$AppDatabase, $MessagePromptRowsTable> {
+  $$MessagePromptRowsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get revisionId => $composableBuilder(
+    column: $table.revisionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get conversationId => $composableBuilder(
+    column: $table.conversationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get carriesMemorySnapshot => $composableBuilder(
+    column: $table.carriesMemorySnapshot,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DateTime, DateTime, int> get createdAt =>
+      $composableBuilder(
+        column: $table.createdAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+}
+
+class $$MessagePromptRowsTableOrderingComposer
+    extends Composer<_$AppDatabase, $MessagePromptRowsTable> {
+  $$MessagePromptRowsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get revisionId => $composableBuilder(
+    column: $table.revisionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get conversationId => $composableBuilder(
+    column: $table.conversationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get carriesMemorySnapshot => $composableBuilder(
+    column: $table.carriesMemorySnapshot,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MessagePromptRowsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MessagePromptRowsTable> {
+  $$MessagePromptRowsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get revisionId => $composableBuilder(
+    column: $table.revisionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get conversationId => $composableBuilder(
+    column: $table.conversationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<bool> get carriesMemorySnapshot => $composableBuilder(
+    column: $table.carriesMemorySnapshot,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<DateTime, int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$MessagePromptRowsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MessagePromptRowsTable,
+          MessagePromptRow,
+          $$MessagePromptRowsTableFilterComposer,
+          $$MessagePromptRowsTableOrderingComposer,
+          $$MessagePromptRowsTableAnnotationComposer,
+          $$MessagePromptRowsTableCreateCompanionBuilder,
+          $$MessagePromptRowsTableUpdateCompanionBuilder,
+          (
+            MessagePromptRow,
+            BaseReferences<
+              _$AppDatabase,
+              $MessagePromptRowsTable,
+              MessagePromptRow
+            >,
+          ),
+          MessagePromptRow,
+          PrefetchHooks Function()
+        > {
+  $$MessagePromptRowsTableTableManager(
+    _$AppDatabase db,
+    $MessagePromptRowsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MessagePromptRowsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MessagePromptRowsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MessagePromptRowsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> revisionId = const Value.absent(),
+                Value<String> conversationId = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<bool> carriesMemorySnapshot = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MessagePromptRowsCompanion(
+                revisionId: revisionId,
+                conversationId: conversationId,
+                payload: payload,
+                carriesMemorySnapshot: carriesMemorySnapshot,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String revisionId,
+                required String conversationId,
+                required String payload,
+                Value<bool> carriesMemorySnapshot = const Value.absent(),
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => MessagePromptRowsCompanion.insert(
+                revisionId: revisionId,
+                conversationId: conversationId,
+                payload: payload,
+                carriesMemorySnapshot: carriesMemorySnapshot,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MessagePromptRowsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MessagePromptRowsTable,
+      MessagePromptRow,
+      $$MessagePromptRowsTableFilterComposer,
+      $$MessagePromptRowsTableOrderingComposer,
+      $$MessagePromptRowsTableAnnotationComposer,
+      $$MessagePromptRowsTableCreateCompanionBuilder,
+      $$MessagePromptRowsTableUpdateCompanionBuilder,
+      (
+        MessagePromptRow,
+        BaseReferences<
+          _$AppDatabase,
+          $MessagePromptRowsTable,
+          MessagePromptRow
+        >,
+      ),
+      MessagePromptRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -16559,4 +18860,10 @@ class $AppDatabaseManager {
       $$AssistantTagRowsTableTableManager(_db, _db.assistantTagRows);
   $$PreferenceRowsTableTableManager get preferenceRows =>
       $$PreferenceRowsTableTableManager(_db, _db.preferenceRows);
+  $$MemoryEntryRowsTableTableManager get memoryEntryRows =>
+      $$MemoryEntryRowsTableTableManager(_db, _db.memoryEntryRows);
+  $$UserProfileFieldRowsTableTableManager get userProfileFieldRows =>
+      $$UserProfileFieldRowsTableTableManager(_db, _db.userProfileFieldRows);
+  $$MessagePromptRowsTableTableManager get messagePromptRows =>
+      $$MessagePromptRowsTableTableManager(_db, _db.messagePromptRows);
 }

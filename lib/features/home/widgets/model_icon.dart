@@ -36,10 +36,10 @@ class CurrentModelIcon extends StatelessWidget {
     Widget inner;
     if (asset != null) {
       if (asset.endsWith('.svg')) {
-        final isColorful = asset.contains('color');
         final ColorFilter? tint =
-            (Theme.of(context).brightness == Brightness.dark && !isColorful)
-            ? const ColorFilter.mode(Colors.white, BlendMode.srcIn)
+            (Theme.of(context).brightness == Brightness.dark &&
+                BrandAssets.assetNeedsDarkInvert(asset))
+            ? ColorFilter.mode(cs.onSurface, BlendMode.srcIn)
             : null;
         inner = SvgPicture.asset(
           asset,
@@ -72,7 +72,7 @@ class CurrentModelIcon extends StatelessWidget {
       decoration: BoxDecoration(
         color: withBackground
             ? (backgroundColor ??
-                  (isDark ? Colors.white10 : cs.primary.withValues(alpha: 0.1)))
+                  (cs.primary.withValues(alpha: isDark ? 0.18 : 0.1)))
             : Colors.transparent,
         shape: BoxShape.circle,
       ),

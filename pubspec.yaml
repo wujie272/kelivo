@@ -46,16 +46,17 @@ dependencies:
     sdk: flutter
   provider: ^6.0.5
   dynamic_color: ^1.8.1
+  material_color_utilities: ^0.13.0
   lucide_icons_flutter: ^3.1.13
   shared_preferences: ^2.2.3
   image_picker: 1.1.2
   image_cropper: ^12.2.1
   flutter_svg: ^2.2.1
   http: ^1.5.0
+  cupertino_http: ^3.0.2
   crypto: ^3.0.3
   ffi: ^2.2.0
-  dio: ^5.9.0
-  ddgs: ^0.3.2
+  dio: 5.9.2
   socks5_proxy: ^2.1.1
   jose: ^0.3.4
   reorderable_grid_view: ^2.2.8
@@ -86,6 +87,11 @@ dependencies:
   syncfusion_flutter_sliders: ^31.2.5
   syncfusion_flutter_pdf: ^31.2.5
   audioplayers: ^6.5.1
+  record: ^7.1.1
+  # 1.12.21+ ships macOS binaries with a higher deployment target. Keep the
+  # final macOS 11-compatible release until upstream restores compatibility.
+  sherpa_onnx: 1.12.20
+  speech_to_text: ^7.4.0
   html: ^0.15.6
   html2md: ^1.2.10
   http_parser: ^4.1.2
@@ -142,6 +148,13 @@ dependency_overrides:
   # Prevent the location from being accessed continuously on Windows
   permission_handler_windows:
     path: ./dependencies/flutter-permission-handler/permission_handler_windows
+  # Keep sherpa's federated native packages aligned with the Dart API. Their
+  # caret constraints otherwise resolve newer binaries (macOS 13.4/15.5).
+  sherpa_onnx_android: 1.12.20
+  sherpa_onnx_ios: 1.12.20
+  sherpa_onnx_linux: 1.12.20
+  sherpa_onnx_macos: 1.12.20
+  sherpa_onnx_windows: 1.12.20
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

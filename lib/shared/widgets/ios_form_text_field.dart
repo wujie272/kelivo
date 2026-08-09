@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:Kelivo/theme/app_font_weights.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 class IosFormTextField extends StatelessWidget {
   const IosFormTextField({
@@ -57,7 +58,7 @@ class IosFormTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fieldBg = isDark ? Colors.white12 : const Color(0xFFF2F3F5);
+    final fieldBg = context.appColors.surfaceFill;
     final labelColor = cs.onSurface.withValues(alpha: 0.85);
     final valueColor = cs.onSurface.withValues(alpha: enabled ? 0.92 : 0.55);
     final hintColor = cs.onSurface.withValues(alpha: isDark ? 0.42 : 0.46);
@@ -181,35 +182,37 @@ class IosFormTextField extends StatelessWidget {
       );
     }
 
+    final fieldBox = Container(
+      constraints: maxLines == 1 ? const BoxConstraints(minHeight: 40) : null,
+      alignment: maxLines == 1 ? Alignment.centerLeft : Alignment.topLeft,
+      decoration: BoxDecoration(
+        color: enabled ? fieldBg : fieldBg.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: maxLines > 1 ? 12 : 9,
+      ),
+      child: field,
+    );
+
     return Padding(
       padding: resolvedOuterPadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: AppFontWeights.semibold,
-              color: labelColor,
+          if (label.isNotEmpty) ...[
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: AppFontWeights.semibold,
+                color: labelColor,
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Container(
-            constraints: maxLines == 1
-                ? const BoxConstraints(minHeight: 40)
-                : null,
-            alignment: maxLines == 1 ? Alignment.centerLeft : Alignment.topLeft,
-            decoration: BoxDecoration(
-              color: enabled ? fieldBg : fieldBg.withValues(alpha: 0.55),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: maxLines > 1 ? 12 : 9,
-            ),
-            child: field,
-          ),
+            const SizedBox(height: 6),
+          ],
+          fieldBox,
         ],
       ),
     );

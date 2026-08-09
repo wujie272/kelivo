@@ -29,6 +29,7 @@ import '../../../utils/platform_utils.dart';
 import '../backup_restore_error_message.dart';
 import '../backup_restart_dialog.dart';
 import '../widgets/backup_reminder_helpers.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 // File size formatter (B, KB, MB, GB)
 String _fmtBytes(int bytes) {
@@ -148,8 +149,7 @@ class _BackupPageState extends State<BackupPage> {
 
   Future<RestoreMode?> _chooseImportModeDialog(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark ? Colors.white10 : const Color(0xFFF7F7F9);
+    final cardColor = context.appColors.surfaceFill;
 
     return showDialog<RestoreMode>(
       context: context,
@@ -1244,6 +1244,15 @@ class _BackupPageState extends State<BackupPage> {
                       ],
                     ),
                   );
+                } on CherryUnsupportedBackupVersionException catch (e) {
+                  if (!context.mounted) return;
+                  showAppSnackBar(
+                    context,
+                    message: l10n.backupPageCherryStudioUnsupportedBackupVersion(
+                      '${e.version}',
+                    ),
+                    type: NotificationType.error,
+                  );
                 } catch (e) {
                   if (!context.mounted) return;
                   showAppSnackBar(
@@ -1675,9 +1684,8 @@ class _InputRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
-    final fieldBg = isDark ? Colors.white12 : const Color(0xFFF2F3F5);
+    final fieldBg = context.appColors.surfaceFill;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1860,9 +1868,7 @@ Widget _iosSectionCard({required List<Widget> children}) {
       final theme = Theme.of(context);
       final cs = theme.colorScheme;
       final isDark = theme.brightness == Brightness.dark;
-      final Color bg = isDark
-          ? Colors.white10
-          : Colors.white.withValues(alpha: 0.96);
+      final Color bg = context.appColors.surfaceCard;
       return Container(
         decoration: BoxDecoration(
           color: bg,
@@ -1904,9 +1910,9 @@ class _AnimatedPressColor extends StatelessWidget {
   final Widget Function(Color color) builder;
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
     final target = pressed
-        ? (Color.lerp(base, isDark ? Colors.black : Colors.white, 0.55) ?? base)
+        ? (Color.lerp(base, cs.surface, 0.55) ?? base)
         : base;
     return TweenAnimationBuilder<Color?>(
       tween: ColorTween(end: target),
@@ -2192,10 +2198,7 @@ class _RemoteListSheet extends StatelessWidget {
                             child: Container(
                               decoration: BoxDecoration(
                                 color:
-                                    Theme.of(context).brightness ==
-                                        Brightness.dark
-                                    ? Colors.white10
-                                    : const Color(0xFFF7F7F9),
+                                    context.appColors.surfaceFill,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: cs.outlineVariant.withValues(
@@ -2283,9 +2286,7 @@ class _ActionCard extends StatelessWidget {
       builder: (pressed) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final overlay = pressed
-            ? (isDark
-                  ? Colors.black.withValues(alpha: 0.06)
-                  : Colors.white.withValues(alpha: 0.05))
+            ? cs.surface.withValues(alpha: isDark ? 0.06 : 0.05)
             : Colors.transparent;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 160),
@@ -2566,7 +2567,6 @@ class _S3SettingsPageState extends State<_S3SettingsPage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -2665,9 +2665,7 @@ class _S3SettingsPageState extends State<_S3SettingsPage> {
                             const SizedBox(height: 12),
                             Container(
                               decoration: BoxDecoration(
-                                color: isDark
-                                    ? Colors.white10
-                                    : const Color(0xFFF2F3F5),
+                                color: context.appColors.surfaceFill,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: cs.outlineVariant.withValues(

@@ -62,6 +62,7 @@ import '../controllers/home_view_model.dart';
 import '../controllers/scroll_controller.dart' as scroll_ctrl;
 import 'home_mobile_layout.dart';
 import 'home_desktop_layout.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -180,8 +181,7 @@ class _CompressContextOptionsDialogState
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final panelColor = isDark ? const Color(0xFF1C1C1E) : cs.surface;
+    final panelColor = cs.surfaceContainerHigh;
     final constrainedWidth = MediaQuery.of(
       context,
     ).size.width.clamp(0.0, 420.0).toDouble();
@@ -345,7 +345,7 @@ class _SegmentButton extends StatelessWidget {
     final selectedBg = isDark
         ? cs.primary.withValues(alpha: 0.22)
         : cs.primary.withValues(alpha: 0.12);
-    final baseBg = isDark ? Colors.white10 : const Color(0xFFF2F3F5);
+    final baseBg = context.appColors.surfaceFill;
 
     return IosCardPress(
       baseColor: selected ? selectedBg : baseBg,
@@ -384,10 +384,9 @@ class _DialogActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final base = primary
         ? cs.primary
-        : (isDark ? Colors.white10 : const Color(0xFFF2F3F5));
+        : (context.appColors.surfaceFill);
 
     return IosCardPress(
       baseColor: base,
@@ -1003,7 +1002,7 @@ class _HomePageState extends State<HomePage>
                     image: provider,
                     fit: BoxFit.cover,
                     colorFilter: ColorFilter.mode(
-                      Colors.black.withValues(alpha: 0.04),
+                      cs.shadow.withValues(alpha: 0.04),
                       BlendMode.srcATop,
                     ),
                   ),
@@ -1429,7 +1428,9 @@ class _HomePageState extends State<HomePage>
           if (_controller.isDragHovering)
             IgnorePointer(
               child: Container(
-                color: Colors.black.withValues(alpha: 0.12),
+                color: Theme.of(context).colorScheme.scrim.withValues(
+                  alpha: 0.12,
+                ),
                 child: Center(
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -1708,7 +1709,7 @@ class _HomePageState extends State<HomePage>
             onPressed: () => Navigator.of(ctx).pop(true),
             child: Text(
               l10n.homePageDelete,
-              style: TextStyle(color: Colors.red),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ),
         ],
@@ -1767,7 +1768,7 @@ class _HomePageState extends State<HomePage>
             onPressed: () => Navigator.of(ctx).pop(true),
             child: Text(
               l10n.homePageDelete,
-              style: TextStyle(color: Colors.red),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ),
         ],

@@ -39,7 +39,7 @@ void main() {
     expect(jsonDecode(merged.preferences['assistant_tag_map_v1']! as String), {
       'assistant-a': localTag.id,
     });
-    expect(merged.preferences['theme_mode_v1'], 'dark');
+    expect(merged.preferences['theme_mode_v1'], 'light');
   });
 
   test('snapshot merge preserves incoming id-less entity row identity', () {
@@ -182,7 +182,7 @@ void main() {
     },
   );
 
-  test('merges frozen special keys and overwrites ordinary keys', () {
+  test('merges frozen special keys and preserves ordinary local keys', () {
     final existing = <String, Object?>{
       'assistants_v1': jsonEncode([
         {
@@ -224,6 +224,7 @@ void main() {
       }),
       'theme_mode_v1': 'dark',
       'plugin_future_key_v1': 'new',
+      'new_preference_v1': 'added',
     };
 
     final merged = BusinessSettingsMerger.merge(existing, incoming);
@@ -252,8 +253,9 @@ void main() {
       'shared': 'local-group',
       'incoming': 'incoming-group',
     });
-    expect(merged['theme_mode_v1'], 'dark');
-    expect(merged['plugin_future_key_v1'], 'new');
+    expect(merged['theme_mode_v1'], 'light');
+    expect(merged['plugin_future_key_v1'], 'old');
+    expect(merged['new_preference_v1'], 'added');
   });
 
   test(
@@ -381,7 +383,37 @@ void main() {
     expect(jsonDecode(merged['search_services_v1']! as String), [
       {'id': 'search-a', 'type': 'bing_local'},
     ]);
-    expect(merged['theme_mode_v1'], 'dark');
+    expect(merged['theme_mode_v1'], 'light');
+  });
+
+  test('ASR merge adds cloud providers without changing device providers', () {
+    final merged = BusinessSettingsMerger.merge(
+      {
+        'asr_services_v1': jsonEncode([
+          {'id': 'system', 'kind': 'system'},
+          {'id': 'local', 'kind': 'sherpa_onnx'},
+          {'id': 'shared-cloud', 'kind': 'dashscope', 'name': 'Local name'},
+        ]),
+        'asr_selected_service_id_v1': 'local',
+      },
+      {
+        'asr_services_v1': jsonEncode([
+          {'id': 'shared-cloud', 'kind': 'dashscope', 'name': 'Backup name'},
+          {'id': 'incoming-cloud', 'kind': 'step'},
+        ]),
+        'asr_selected_service_id_v1': 'incoming-cloud',
+      },
+    );
+
+    final services = jsonDecode(merged['asr_services_v1']! as String) as List;
+    expect(services.map((entry) => (entry as Map)['id']), [
+      'system',
+      'local',
+      'shared-cloud',
+      'incoming-cloud',
+    ]);
+    expect((services[2] as Map)['name'], 'Local name');
+    expect(merged['asr_selected_service_id_v1'], 'local');
   });
 
   test('merges pinned models into an empty target snapshot', () {
@@ -392,24 +424,54 @@ void main() {
     expect(merged['pinned_models_v1'], <String>['provider/model']);
   });
 
-  test('merge preserves an explicitly empty instruction list', () {
-    final merged = BusinessSettingsMerger.merge(
-      {
-        'instruction_injections_active_ids_by_assistant_v1': jsonEncode({
-          '__global__': <String>['old-id'],
-        }),
-      },
-      {'instruction_injections_v1': jsonEncode(const <Object>[])},
-      preserveExplicitEmptyInstructionList: true,
-    );
+  test('merge keeps local list entities and adds imported rows', () {
+    final entityKeys = <String, String>{
+      'world_books_v1': 'world-book',
+      'quick_phrases_v1': 'quick-phrase',
+      'tts_services_v1': 'tts',
+      'instruction_injections_v1': 'injection',
+    };
+    Map<String, Object?> rowLists(String origin) => {
+      for (final entry in entityKeys.entries)
+        entry.key: jsonEncode([
+          {'id': '$origin-${entry.value}'},
+        ]),
+    };
+    final existing = <String, Object?>{
+      ...rowLists('local'),
+      'instruction_injections_active_ids_by_assistant_v1': jsonEncode({
+        '__global__': <String>['local-injection'],
+      }),
+    };
+    final emptyBackup = BusinessSettingsMerger.merge(existing, {
+      for (final key in entityKeys.keys) key: jsonEncode(const <Object>[]),
+    });
 
-    expect(jsonDecode(merged['instruction_injections_v1']! as String), isEmpty);
+    for (final entry in entityKeys.entries) {
+      final rows = jsonDecode(emptyBackup[entry.key]! as String) as List;
+      expect(rows.map((row) => row['id']), [
+        'local-${entry.value}',
+      ], reason: entry.key);
+    }
     expect(
       jsonDecode(
-        merged['instruction_injections_active_ids_by_assistant_v1']! as String,
+        emptyBackup['instruction_injections_active_ids_by_assistant_v1']!
+            as String,
       ),
-      {'__global__': <Object>[]},
+      {
+        '__global__': <String>['local-injection'],
+      },
     );
+
+    final merged = BusinessSettingsMerger.merge(existing, rowLists('imported'));
+
+    for (final entry in entityKeys.entries) {
+      final rows = jsonDecode(merged[entry.key]! as String) as List;
+      expect(rows.map((row) => row['id']), [
+        'local-${entry.value}',
+        'imported-${entry.value}',
+      ], reason: entry.key);
+    }
   });
 
   test('rejects present but invalid pinned model lists', () {

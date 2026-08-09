@@ -16,6 +16,7 @@ import '../../../utils/app_directories.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../logs/request_log_parser.dart';
 import '../../../theme/app_font_weights.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 /// Mobile log viewer - shows list of log files and allows viewing/exporting
 class LogViewerPage extends StatefulWidget {
@@ -281,9 +282,7 @@ class _LogFilesList extends StatelessWidget {
       );
     }
 
-    final Color tileBg = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : Colors.white;
+    final Color tileBg = context.appColors.surfaceCard;
     final Color border = cs.outlineVariant.withValues(
       alpha: isDark ? 0.26 : 0.38,
     );
@@ -378,9 +377,7 @@ class _FileIcon extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final Color bg = isCurrent
         ? cs.primary.withValues(alpha: isDark ? 0.22 : 0.14)
-        : (isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : const Color(0xFFF2F3F5));
+        : context.appColors.surfaceFill;
     final Color fg = isCurrent
         ? cs.primary
         : cs.onSurface.withValues(alpha: 0.72);
@@ -664,16 +661,14 @@ class _RequestLogSummaryBar extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context)!;
 
-    final Color bg = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : Colors.white;
+    final Color bg = context.appColors.surfaceCard;
     final Color border = cs.outlineVariant.withValues(
       alpha: isDark ? 0.26 : 0.38,
     );
 
     final Color errorPillBg = Color.alphaBlend(
       cs.error.withValues(alpha: isDark ? 0.18 : 0.12),
-      isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
+      context.appColors.surfaceCard,
     );
     final Color errorPillFg = cs.error.withValues(alpha: isDark ? 0.92 : 0.88);
 
@@ -770,9 +765,7 @@ class _RequestLogCard extends StatelessWidget {
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    final Color tileBg = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : Colors.white;
+    final Color tileBg = context.appColors.surfaceCard;
     final Color border = cs.outlineVariant.withValues(
       alpha: isDark ? 0.26 : 0.38,
     );
@@ -873,9 +866,7 @@ class _InlineErrorPreview extends StatelessWidget {
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    final Color base = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : const Color(0xFFF6F7F9);
+    final Color base = context.appColors.surfaceFill;
     final Color bg = Color.alphaBlend(
       cs.error.withValues(alpha: isDark ? 0.12 : 0.07),
       base,
@@ -918,15 +909,15 @@ class _MethodPill extends StatelessWidget {
   const _MethodPill({required this.method});
   final String method;
 
-  Color _bg(ColorScheme cs, bool isDark) {
+  Color _bg(ColorScheme cs, AppSemanticColors app, bool isDark) {
     switch (method) {
       case 'GET':
-        return const Color(0xFF10B981).withValues(alpha: isDark ? 0.22 : 0.16);
+        return app.success.withValues(alpha: isDark ? 0.22 : 0.16);
       case 'POST':
-        return const Color(0xFF3B82F6).withValues(alpha: isDark ? 0.22 : 0.16);
+        return cs.primary.withValues(alpha: isDark ? 0.22 : 0.16);
       case 'PUT':
       case 'PATCH':
-        return const Color(0xFFF59E0B).withValues(alpha: isDark ? 0.22 : 0.16);
+        return app.warning.withValues(alpha: isDark ? 0.22 : 0.16);
       case 'DELETE':
         return cs.error.withValues(alpha: isDark ? 0.22 : 0.14);
       default:
@@ -934,15 +925,15 @@ class _MethodPill extends StatelessWidget {
     }
   }
 
-  Color _fg(ColorScheme cs, bool isDark) {
+  Color _fg(ColorScheme cs, AppSemanticColors app, bool isDark) {
     switch (method) {
       case 'GET':
-        return const Color(0xFF10B981);
+        return app.success;
       case 'POST':
-        return const Color(0xFF3B82F6);
+        return cs.primary;
       case 'PUT':
       case 'PATCH':
-        return const Color(0xFFF59E0B);
+        return app.warning;
       case 'DELETE':
         return cs.error;
       default:
@@ -958,7 +949,7 @@ class _MethodPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: _bg(cs, isDark),
+        color: _bg(cs, context.appColors, isDark),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -967,7 +958,7 @@ class _MethodPill extends StatelessWidget {
           fontSize: 12,
           fontWeight: AppFontWeights.heavy,
           letterSpacing: 0.2,
-          color: _fg(cs, isDark),
+          color: _fg(cs, context.appColors, isDark),
         ),
       ),
     );
@@ -991,16 +982,16 @@ class _StatusPill extends StatelessWidget {
 
     final Color bg = () {
       if (isError || code >= 400) {
-        final Color base = isDark
-            ? Colors.white.withValues(alpha: 0.08)
-            : Colors.white;
+        final Color base = context.appColors.surfaceCard;
         return Color.alphaBlend(
           cs.error.withValues(alpha: isDark ? 0.18 : 0.12),
           base,
         );
       }
       if (ok) {
-        return const Color(0xFF10B981).withValues(alpha: isDark ? 0.26 : 0.18);
+        return context.appColors.success.withValues(
+          alpha: isDark ? 0.26 : 0.18,
+        );
       }
       if (warn) {
         return cs.tertiaryContainer.withValues(alpha: isDark ? 0.50 : 0.55);
@@ -1013,7 +1004,7 @@ class _StatusPill extends StatelessWidget {
         return cs.error.withValues(alpha: isDark ? 0.92 : 0.88);
       }
       if (ok) {
-        return const Color(0xFF10B981);
+        return context.appColors.success;
       }
       if (warn) {
         return cs.onTertiaryContainer.withValues(alpha: 0.92);
@@ -1330,9 +1321,7 @@ class _ErrorHeroCard extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context)!;
 
-    final Color base = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : Colors.white;
+    final Color base = context.appColors.surfaceCard;
     final Color bg = Color.alphaBlend(
       cs.error.withValues(alpha: isDark ? 0.14 : 0.08),
       base,
@@ -1414,9 +1403,7 @@ class _SectionCard extends StatelessWidget {
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    final Color bg = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : Colors.white;
+    final Color bg = context.appColors.surfaceCard;
     final Color border = cs.outlineVariant.withValues(
       alpha: isDark ? 0.26 : 0.38,
     );
@@ -1470,9 +1457,7 @@ class _CodeBlock extends StatelessWidget {
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    final Color neutralBg = isDark
-        ? Colors.black.withValues(alpha: 0.16)
-        : const Color(0xFFF6F7F9);
+    final Color neutralBg = context.appColors.surfaceFill;
     final Color bg = () {
       if (tone == _CodeTone.error) {
         return Color.alphaBlend(
@@ -1573,7 +1558,6 @@ class _SegTabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
 
     const double outerHeight = 44;
     const double innerPadding = 4;
@@ -1599,9 +1583,7 @@ class _SegTabBar extends StatelessWidget {
             final double rowWidth =
                 segWidth * tabs.length + gap * (tabs.length - 1);
 
-            final Color shellBg = isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.white;
+            final Color shellBg = context.appColors.surfaceCard;
 
             List<Widget> children = [];
             for (int index = 0; index < tabs.length; index++) {
@@ -1621,11 +1603,7 @@ class _SegTabBar extends StatelessWidget {
                           ? cs.primary
                           : cs.onSurface.withValues(alpha: 0.82);
                       final Color targetTextColor = pressed
-                          ? Color.lerp(
-                                  baseTextColor,
-                                  isDark ? Colors.white : Colors.black,
-                                  0.12,
-                                ) ??
+                          ? Color.lerp(baseTextColor, cs.onSurface, 0.12) ??
                                 baseTextColor
                           : baseTextColor;
 
@@ -1738,9 +1716,7 @@ class _LogSettingsSheet extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final settings = context.watch<SettingsProvider>();
 
-    final Color tileBg = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : Colors.white;
+    final Color tileBg = context.appColors.surfaceCard;
     final Color border = cs.outlineVariant.withValues(
       alpha: isDark ? 0.26 : 0.38,
     );

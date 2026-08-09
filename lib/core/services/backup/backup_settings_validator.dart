@@ -6,15 +6,30 @@ import '../../database/business_settings_router.dart';
 final class BackupSettingsValidator {
   BackupSettingsValidator._();
 
+  static const _asrServicesKey = 'asr_services_v1';
+  static const _asrSelectedServiceKey = 'asr_selected_service_id_v1';
+  static const _cloudAsrKinds = {
+    'openai_realtime',
+    'openAiRealtime',
+    'dashscope',
+    'dashScope',
+    'volcengine',
+    'mimo',
+    'step',
+  };
+
   static const _jsonListKeys = {
     'assistants_v1',
     'assistant_memories_v1',
+    'memory_entries_v1',
+    'user_profile_fields_v1',
     'mcp_servers_v1',
     'provider_groups_v1',
     'world_books_v1',
     'quick_phrases_v1',
     'search_services_v1',
     'tts_services_v1',
+    'asr_services_v1',
     'instruction_injections_v1',
     'assistant_tags_v1',
   };
@@ -50,6 +65,24 @@ final class BackupSettingsValidator {
   static void normalizeAndValidate(Map<String, dynamic> data) {
     normalizeLegacyStringLists(data);
     validate(data);
+  }
+
+  /// Removes device-bound recognizers from the portable backup payload.
+  static void retainCloudAsrForExport(Map<String, Object?> data) {
+    if (!data.containsKey(_asrServicesKey)) {
+      data.remove(_asrSelectedServiceKey);
+      return;
+    }
+    final cloudServices = _decodeAsrServices(data[_asrServicesKey])
+        .where((service) => _cloudAsrKinds.contains(service['kind']))
+        .toList(growable: false);
+    data[_asrServicesKey] = jsonEncode(cloudServices);
+
+    final selectedId = data[_asrSelectedServiceKey];
+    if (selectedId is! String ||
+        !cloudServices.any((service) => service['id'] == selectedId)) {
+      data.remove(_asrSelectedServiceKey);
+    }
   }
 
   static void normalizeLegacyStringLists(Map<String, dynamic> data) {
@@ -117,6 +150,25 @@ final class BackupSettingsValidator {
       }
     } on FormatException {
       throw FormatException(key);
+    }
+  }
+
+  static List<Map<String, Object?>> _decodeAsrServices(Object? raw) {
+    if (raw == null) return const <Map<String, Object?>>[];
+    if (raw is! String) throw const FormatException(_asrServicesKey);
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List || decoded.any((entry) => entry is! Map)) {
+        throw const FormatException(_asrServicesKey);
+      }
+      return [
+        for (final entry in decoded)
+          (entry as Map).map(
+            (key, value) => MapEntry(key.toString(), value as Object?),
+          ),
+      ];
+    } on FormatException {
+      throw const FormatException(_asrServicesKey);
     }
   }
 }

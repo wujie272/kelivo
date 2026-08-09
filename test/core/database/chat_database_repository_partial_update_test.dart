@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 import 'package:Kelivo/core/database/chat_database_repository.dart';
 import 'package:Kelivo/core/models/chat_message.dart';
@@ -101,6 +102,29 @@ void main() {
     expect(reloaded.reasoningText, 'original reasoning');
   });
 
+  test('conversation upsert preserves the database memory hash', () async {
+    final now = DateTime.utc(2026, 7, 12);
+    final stale = Conversation(
+      id: 'conversation-1',
+      title: 'Before',
+      createdAt: now,
+      updatedAt: now,
+    );
+    await repository.putConversation(stale);
+    await repository.setConversationInjectedMemoryHash(
+      stale.id,
+      'latest-memory-hash',
+    );
+
+    stale.title = 'After';
+    stale.updatedAt = now.add(const Duration(minutes: 1));
+    await repository.putConversation(stale);
+
+    final reloaded = await repository.getConversation(stale.id);
+    expect(reloaded!.title, 'After');
+    expect(reloaded.injectedMemoryHash, 'latest-memory-hash');
+  });
+
   test('content update rebuilds parts and preserves tool events', () async {
     final message = await seedMessage(
       toolEvents: const [
@@ -120,6 +144,45 @@ void main() {
     expect(await repository.getToolEvents(message.id), [
       {'id': 'tool-1', 'content': 'tool output'},
     ]);
+
+    final raw = sqlite.sqlite3.open('${root.path}/partial.sqlite');
+    try {
+      expect(
+        raw
+            .select(
+              "SELECT COUNT(*) AS c FROM message_part_rows "
+              "WHERE kind = 'tool_result';",
+            )
+            .single['c'],
+        0,
+      );
+      expect(
+        raw
+            .select(
+              "SELECT kind FROM message_part_rows "
+              "WHERE revision_id = '${message.id}' ORDER BY ordinal;",
+            )
+            .map((row) => row['kind']),
+        const ['reasoning', 'tool_call', 'text'],
+      );
+    } finally {
+      raw.close();
+    }
+  });
+
+  test('content-only update does not clear reasoning parts', () async {
+    final message = await seedMessage();
+
+    final updated = await repository.updateMessageFields(
+      message.id,
+      content: 'new body only',
+    );
+    expect(updated!.content, 'new body only');
+    expect(updated.reasoningText, 'original reasoning');
+
+    final reloaded = await repository.getMessage(message.id);
+    expect(reloaded!.content, 'new body only');
+    expect(reloaded.reasoningText, 'original reasoning');
   });
 
   test('returns null when the message does not exist', () async {

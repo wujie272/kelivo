@@ -163,6 +163,15 @@
       }
     }
   },
+  "storageSpaceSourceLabel": "Source",
+  "storageSpaceSourceAll": "All",
+  "storageSpaceSourceUserUpload": "User uploads",
+  "storageSpaceSourceAssistant": "Assistant",
+  "storageSpaceSortLabel": "Sort",
+  "storageSpaceSortNewest": "Newest",
+  "storageSpaceSortOldest": "Oldest",
+  "storageSpaceSortLargest": "Largest",
+  "storageSpaceSortSmallest": "Smallest",
   "settingsPageAboutSection": "About",
   "settingsPageAbout": "About",
   "settingsPageStatistics": "Statistics",
@@ -251,25 +260,10 @@
   "assistantProviderDefaultAssistantName": "Default Assistant",
   "assistantProviderSampleAssistantName": "Sample Assistant",
   "assistantProviderNewAssistantName": "New Assistant",
-  "assistantProviderSampleAssistantSystemPrompt": "You are {model_name}, an AI assistant who gladly provides accurate and helpful assistance. The current time is {cur_datetime}, the device language is {locale}, timezone is {timezone}, the user is using {device_info}, version {system_version}. If the user does not explicitly specify otherwise, please use the user's device language when replying.",
+  "assistantProviderSampleAssistantSystemPrompt": "You are {model_name}, a helpful AI assistant. Answer accurately and concisely; say when you are unsure. Prefer clear structure (short paragraphs or lists) when it helps. Reply in the user's language by default.",
   "@assistantProviderSampleAssistantSystemPrompt": {
     "placeholders": {
       "model_name": {
-        "type": "String"
-      },
-      "cur_datetime": {
-        "type": "String"
-      },
-      "locale": {
-        "type": "String"
-      },
-      "timezone": {
-        "type": "String"
-      },
-      "device_info": {
-        "type": "String"
-      },
-      "system_version": {
         "type": "String"
       }
     }
@@ -555,6 +549,30 @@
   "assistantEditVariableRole": "Role",
   "assistantEditVariableMessage": "Message",
   "assistantEditPreviewTitle": "Preview",
+  "assistantEditPromptTimeVarWarning": "Using time variables in the system prompt makes the beginning of every request different, so prompt caching cannot hit and both cost and time-to-first-token go up. If the model needs to know the current time, use the \"Append current time\" switch below.",
+  "assistantEditPromptAppendTimeTitle": "Append current time",
+  "assistantEditPromptAppendTimeSubtitle": "Append the send time to the end of each user message. Time stays at the end of the request, so prompt caching is unaffected.",
+  "assistantEditPromptAppendTimeInfoTitle": "Appended time format",
+  "assistantEditPromptAppendTimeInfoBody": "When enabled, a blank line and then the following tag are appended at the end of each user message:\n\n{example}\n\nThe timestamp is that message’s own send time, so it stays stable when you retry.",
+  "@assistantEditPromptAppendTimeInfoBody": {
+    "placeholders": {
+      "example": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantEditPromptAppendTimeInfoClose": "Got it",
+  "assistantEditPromptTimeVarDialogTitle": "System prompt contains time variables",
+  "assistantEditPromptTimeVarDialogBody": "Your system prompt uses {variables}. The system prompt is re-rendered on every request, so time variables make the beginning of every request different and prompt caching cannot hit. Consider removing these variables and using \"Append current time\" instead — it puts the time at the end of the request and does not affect the prefix.",
+  "@assistantEditPromptTimeVarDialogBody": {
+    "placeholders": {
+      "variables": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantEditPromptTimeVarDialogRemove": "Go remove",
+  "assistantEditPromptTimeVarDialogKeep": "Enable anyway",
   "codeBlockPreviewButton": "Preview",
   "codeBlockSaveAsButton": "Save as file",
   "codeBlockCollapseButton": "Collapse",
@@ -714,6 +732,14 @@
   "backupPageBackupNow": "Backup Now",
   "backupPageLocalBackup": "Local Backup",
   "backupPageImportFromCherryStudio": "Import from Cherry Studio",
+  "backupPageCherryStudioUnsupportedBackupVersion": "This backup uses Cherry Studio format version {version}, which Kelivo cannot import yet. Export from Cherry Studio v1 instead, or wait for a Kelivo update that supports Cherry Studio v2 backups.",
+  "@backupPageCherryStudioUnsupportedBackupVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
   "backupPageImportFromChatbox": "Import from Chatbox",
   "backupReminderSectionTitle": "Backup Reminder",
   "backupReminderEnableTitle": "Remind me to back up",
@@ -897,9 +923,6 @@
   "chatMessageWidgetTranslateTooltip": "Translate",
   "chatMessageWidgetBuiltinSearchHideNote": "Hide builtin search tool cards",
   "chatMessageWidgetDeepThinking": "Deep Thinking",
-  "chatMessageWidgetCreateMemory": "Create Memory",
-  "chatMessageWidgetEditMemory": "Edit Memory",
-  "chatMessageWidgetDeleteMemory": "Delete Memory",
   "chatMessageWidgetWebSearch": "Web Search: {query}",
   "@chatMessageWidgetWebSearch": {
     "placeholders": {
@@ -920,6 +943,14 @@
       }
     }
   },
+  "chatMessageWidgetMemoryRead": "Read Memory",
+  "chatMessageWidgetMemoryUpdate": "Update Memory",
+  "chatMessageWidgetMemorySearchProfile": "Search Memory",
+  "chatMessageWidgetMemoryEdit": "Edit Memory",
+  "chatMessageWidgetMemoryDelete": "Delete Memory",
+  "chatMessageWidgetUpdateUserProfile": "Update User Profile",
+  "chatMessageWidgetChatSearch": "Search Past Chats",
+  "chatMessageWidgetCreateMemory": "Create Memory",
   "chatMessageWidgetToolCall": "Tool Call: {name}",
   "@chatMessageWidgetToolCall": {
     "placeholders": {
@@ -1134,6 +1165,11 @@
   "chatInputBarReasoningStrengthTooltip": "Reasoning Strength",
   "chatInputBarMcpServersTooltip": "MCP Servers",
   "chatInputBarMoreTooltip": "Add",
+  "chatInputBarVoiceInputTooltip": "Voice input",
+  "chatInputBarVoiceCancelTooltip": "Discard recording",
+  "chatInputBarVoiceStopTooltip": "Stop and transcribe to input",
+  "chatInputBarVoiceSendTooltip": "Transcribe and send",
+  "chatInputBarVoiceTranscribing": "Recognizing…",
   "chatInputBarImageProcessing": "Processing image",
   "chatInputBarImageMode": "Image mode",
   "chatInputBarDisableImageModeTooltip": "Turn off image mode",
@@ -1152,7 +1188,11 @@
   "mcpPageStatusConnected": "Connected",
   "mcpPageStatusConnecting": "Connecting…",
   "mcpPageStatusDisconnected": "Disconnected",
+  "mcpPageStatusAuthorizationRequired": "Authorization required",
+  "mcpPageStatusAuthorizing": "Authorizing…",
   "mcpPageStatusDisabled": "Disabled",
+  "mcpPageOAuthRequired": "OAuth sign-in is required",
+  "mcpPageOAuthSignIn": "Sign in with OAuth",
   "mcpPageToolsCount": "Tools: {enabled}/{total}",
   "@mcpPageToolsCount": {
     "placeholders": {
@@ -1601,6 +1641,85 @@
   "searchServicesEditDialogUsernameOptional": "Username (optional)",
   "searchServicesEditDialogPasswordOptional": "Password (optional)",
   "searchServicesEditDialogRegionOptional": "Region (optional, default: us-en)",
+  "searchServiceEditorProviderTypeTitle": "Search provider",
+  "searchServiceEditorConfigurationTitle": "Configuration",
+  "searchServiceEditorNoConfiguration": "This provider does not require additional configuration.",
+  "searchServiceEditorMultiKeyTitle": "Multi-key rotation",
+  "searchServiceEditorMultiKeyNone": "Not configured",
+  "searchApiKeysPageDescription": "Keys rotate in the order listed; the first is the primary key. Usage is not queried to avoid provider rate limiting.",
+
+  "searchApiKeysPagePrimaryBadge": "Primary",
+  "searchApiKeysPageBatchHint": "Paste one or more keys — one per line or comma-separated",
+  "searchApiKeysPageBatchResult": "Added {added}, skipped {skipped} duplicate(s)",
+  "@searchApiKeysPageBatchResult": {
+    "placeholders": {
+      "added": { "type": "String" },
+      "skipped": { "type": "String" }
+    }
+  },
+  "searchApiKeysPageAdd": "Add",
+  "searchApiKeysPageEmpty": "No keys configured yet.",
+  "searchServiceEditorMultiKeyCount": "{count} keys",
+
+  "@searchServiceEditorMultiKeyCount": {
+    "placeholders": {
+      "count": { "type": "String" }
+    }
+  },
+  "searchServiceEditorUsageTitle": "Account usage",
+  "searchServiceEditorUsageNotQueried": "Usage has not been queried yet.",
+  "searchServiceEditorUsageQuery": "Check usage",
+  "searchServiceEditorUsageQuerying": "Checking…",
+  "searchServiceEditorUsageRemaining": "{remaining} credits remaining",
+  "@searchServiceEditorUsageRemaining": {
+    "placeholders": {
+      "remaining": { "type": "String" }
+    }
+  },
+  "searchServiceEditorUsageBalance": "Balance: {balance}",
+  "@searchServiceEditorUsageBalance": {
+    "placeholders": {
+      "balance": { "type": "String" }
+    }
+  },
+  "searchServiceEditorUsageUsed": "{used} of {limit} credits used",
+  "@searchServiceEditorUsageUsed": {
+    "placeholders": {
+      "used": { "type": "String" },
+      "limit": { "type": "String" }
+    }
+  },
+  "searchServiceEditorUsageFailed": "Could not query usage: {message}",
+  "@searchServiceEditorUsageFailed": {
+    "placeholders": {
+      "message": { "type": "String" }
+    }
+  },
+  "searchServiceEditorTestTitle": "Test search",
+  "searchServiceEditorTestQueryHint": "Enter a query",
+  "searchServiceEditorTestRun": "Run test search",
+  "searchServiceEditorTestRunning": "Searching…",
+  "searchServiceEditorTestNoResults": "The provider returned no results.",
+  "searchServiceEditorTestFailed": "Search failed: {message}",
+  "@searchServiceEditorTestFailed": {
+    "placeholders": {
+      "message": { "type": "String" }
+    }
+  },
+  "searchServiceEditorResultOpenTooltip": "Open result",
+  "searchServiceEditorDeleteTooltip": "Delete search service",
+  "searchServiceEditorDeleteTitle": "Delete search service?",
+  "searchServiceEditorDeleteMessage": "Delete {provider}? This cannot be undone.",
+  "@searchServiceEditorDeleteMessage": {
+    "placeholders": {
+      "provider": { "type": "String" }
+    }
+  },
+  "searchServiceEditorDeleteConfirm": "Delete",
+  "searchServiceEditorDiscardTitle": "Discard changes?",
+  "searchServiceEditorDiscardMessage": "Your unsaved search service settings will be lost.",
+  "searchServiceEditorKeepEditing": "Keep editing",
+  "searchServiceEditorDiscard": "Discard",
   "searchSettingsSheetTitle": "Search Settings",
   "searchSettingsSheetBuiltinSearchTitle": "Built-in Search",
   "searchSettingsSheetBuiltinSearchDescription": "Enable model's built-in search",
@@ -1757,10 +1876,85 @@
   "themeSettingsPageUsePureBackgroundTitle": "Pure Background",
   "themeSettingsPageUsePureBackgroundSubtitle": "Bubbles and accents follow theme.",
   "themeSettingsPageColorPalettesSection": "Color Palettes",
+  "themeSettingsPageCustomPaletteName": "Custom",
+  "themeSettingsPageCustomColorReset": "Reset",
+  "themeSettingsPageCustomThemesSection": "Custom Themes",
+  "customThemeNewTheme": "New Theme",
+  "customThemeEditTheme": "Edit Theme",
+  "customThemeImportTheme": "Import Theme",
+  "customThemeNameLabel": "Theme name",
+  "customThemePrimaryColor": "Primary",
+  "customThemeSecondaryColor": "Secondary",
+  "customThemeTertiaryColor": "Tertiary",
+  "customThemeColorAuto": "Auto",
+  "customThemeSave": "Save",
+  "customThemeCancel": "Cancel",
+  "customThemeDelete": "Delete",
+  "customThemeDeleteConfirm": "Delete this theme?",
+  "customThemeCopied": "Theme JSON copied to clipboard",
+  "customThemeCopyAction": "Copy",
+  "customThemeImportHint": "Paste the theme JSON here",
+  "customThemeImportInvalid": "Invalid theme JSON",
+  "customThemeHexLabel": "Hex",
   "ttsServicesPageBackButton": "Back",
-  "ttsServicesPageTitle": "Text-to-Speech",
+  "ttsServicesPageTitle": "Voice Services",
+  "ttsServicesSectionTitle": "Text-to-Speech",
   "ttsServicesPageSettingsTooltip": "TTS settings",
   "ttsServicesPageAddTooltip": "Add",
+  "asrServicesSectionTitle": "Speech Recognition",
+  "asrServicesSectionDescription": "Turn speech into text with an on-device, system, or cloud service.",
+  "asrServicesAddTooltip": "Add speech recognition service",
+  "asrServicesEmptyTitle": "No speech recognition service",
+  "asrServicesEmptySubtitle": "Add one to show the microphone in the chat input.",
+  "asrServicesOnDeviceGroup": "On-device",
+  "asrServicesCloudGroup": "Cloud",
+  "asrServicesSystemTitle": "System",
+  "asrServicesSystemSubtitle": "Uses the device's built-in recognizer",
+  "asrServicesLocalTitle": "Offline Model",
+  "asrServicesLocalSubtitle": "Runs offline on this device after download",
+  "asrServicesOpenAiTitle": "OpenAI Realtime",
+  "asrServicesOpenAiSubtitle": "Low-latency streaming transcription",
+  "asrServicesDashScopeTitle": "DashScope",
+  "asrServicesDashScopeSubtitle": "Qwen real-time transcription",
+  "asrServicesVolcengineTitle": "Volcengine",
+  "asrServicesVolcengineSubtitle": "Doubao streaming transcription",
+  "asrServicesMimoTitle": "MiMo",
+  "asrServicesMimoSubtitle": "Segmented cloud transcription",
+  "asrServicesStepTitle": "Step",
+  "asrServicesStepSubtitle": "Step Audio segmented transcription",
+  "asrServicesAddTitle": "Add Speech Recognition",
+  "asrServicesEditTitle": "Edit Speech Recognition",
+  "asrServicesSelectedLabel": "Selected",
+  "asrServicesUnavailableLabel": "Unavailable",
+  "asrServicesEditAction": "Edit",
+  "asrServicesDeleteAction": "Delete",
+  "asrServicesCancelAction": "Cancel",
+  "asrServicesAddAction": "Add",
+  "asrServicesSaveAction": "Save",
+  "asrServicesNameLabel": "Name",
+  "asrServicesApiKeyLabel": "API Key",
+  "asrServicesEndpointLabel": "Endpoint",
+  "asrServicesModelLabel": "Model",
+  "asrServicesResourceIdLabel": "Resource ID",
+  "asrServicesLanguageLabel": "Language",
+  "asrServicesAutomaticLabel": "Automatic",
+  "asrServicesApiKeyRequired": "Enter an API key to use this service.",
+  "asrServicesChooseModelTitle": "Model",
+  "asrServicesModelDownloadAction": "Download",
+  "asrServicesModelUseAction": "Use model",
+  "asrServicesModelDeleteAction": "Remove download",
+  "asrServicesModelDownloadedLabel": "Downloaded",
+  "asrServicesModelDownloadingLabel": "Downloading…",
+  "asrServicesModelNotDownloadedLabel": "Not downloaded",
+  "asrServicesDownloadFailed": "Model download failed: {error}",
+  "@asrServicesDownloadFailed": {"placeholders": {"error": {"type": "String"}}},
+  "asrServicesSystemChecking": "Checking…",
+  "asrServicesSystemAvailable": "Available",
+  "asrServicesSystemCheckFailed": "System speech recognition is unavailable on this device.",
+  "asrServicesMicrophonePermissionDenied": "Microphone permission was not granted.",
+  "asrServicesNoSpeechDetected": "No speech was detected.",
+  "asrServicesRecognitionFailed": "Speech recognition failed: {error}",
+  "@asrServicesRecognitionFailed": {"placeholders": {"error": {"type": "String"}}},
   "ttsServicesPageAddNotImplemented": "Add TTS service not implemented",
   "ttsServicesPageSystemTtsTitle": "System TTS",
   "ttsServicesPageSystemTtsAvailableSubtitle": "Use system built-in TTS",
@@ -1812,6 +2006,8 @@
   "ttsSettingsPlaybackSection": "Playback",
   "ttsSettingsAutoPlayTitle": "Auto-play Assistant Replies",
   "ttsSettingsAutoPlayDescription": "Start TTS automatically after an assistant reply finishes.",
+  "ttsSettingsCacheReplayTitle": "Reuse Audio for Replay",
+  "ttsSettingsCacheReplayDescription": "Replay generated network audio without requesting the TTS service again.",
   "ttsSettingsTextSelectionSection": "Text Selection",
   "ttsSettingsTextSelectionFallbackDescription": "If no matching text is found, the full reply is played.",
   "ttsSettingsTextSelectionFullTextTitle": "Full text",
@@ -1834,6 +2030,18 @@
   "ttsFloatingCloseTooltip": "Close player",
   "ttsFloatingExpandTooltip": "Expand playback controls",
   "ttsFloatingCollapseTooltip": "Collapse playback controls",
+  "ttsFloatingSaveTooltip": "Save audio",
+  "ttsSaveDialogTitle": "Save TTS audio",
+  "ttsSaveSuccess": "Audio saved successfully.",
+  "ttsSaveNothing": "No audio is available to save.",
+  "ttsSaveFailed": "Failed to save audio: {message}",
+  "@ttsSaveFailed": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
   "imageViewerPageShareFailedOpenFile": "Unable to share, tried to open file: {message}",
   "@imageViewerPageShareFailedOpenFile": {
     "placeholders": {
@@ -2005,11 +2213,9 @@
   "assistantEditLocalToolAskUserSubtitle": "Let the assistant ask short questions and continue after you answer.",
   "assistantEditLocalToolCalculateTitle": "Calculator",
   "assistantEditLocalToolCalculateSubtitle": "Evaluate mathematical expressions, supports + - * / power sqrt sin cos etc.",
-  "assistantEditMemorySwitchTitle": "Memory",
   "assistantEditMemorySwitchDescription": "Allow the assistant to create and use memories across chats.",
   "assistantEditRecentChatsSwitchTitle": "Recent Chats Reference",
   "assistantEditRecentChatsSwitchDescription": "Include recent conversation titles to help with context.",
-  "assistantEditManageMemoryTitle": "Manage Memories",
   "assistantEditAddMemoryButton": "Add Memory",
   "assistantEditMemoryEmpty": "No memories yet",
   "assistantEditMemoryDialogTitle": "Memory",
@@ -2208,6 +2414,237 @@
   "fileUploadDuplicateUseExisting": "Use existing",
   "fileUploadDuplicateUploadNew": "Upload new",
   "settingsPageWorldBook": "World Book",
+  "settingsPageMemory": "Memory",
+  "memorySettingsPageTitle": "Memory",
+  "memorySettingsModelSection": "Memory model",
+  "memorySettingsModelTitle": "Processing model",
+  "memorySettingsModelUnset": "Not selected",
+  "memorySettingsModelTip": "This model is called frequently in the background. Prefer a cheap, fast model.",
+  "memorySettingsAboutTitle": "About memory",
+  "memorySettingsAboutSubtitle": "How memory works and when it runs",
+  "memorySettingsAboutBody": "How memory works\nMemories are organized as Identity / Workflow / Voice / Instruction, with global or assistant scope. Relevant memories are injected into the model context; when there are many, a summary is shown first and the model can query for more.\n\nBackground processing and triggers\nThe processing model powers the background pipeline: decide whether to remember, extract candidates, dedupe/merge, and distill the user profile when needed. With Auto-organize on, it runs every N turns after chats; you can also run Organize manually on the assistant Memory tab. That is why this model is called often.\n\nKeep caching healthy\nKeep the injected memory prefix stable and avoid pointless bulk edits or reshuffles so prompt cache can hit more often, lowering cost and latency. Day-to-day single-entry edits usually have limited impact.",
+  "memorySettingsThinkingTitle": "Enable thinking",
+  "memorySettingsThinkingSubtitle": "Allow the memory model to use reasoning when supported",
+  "memorySettingsPromptLangSection": "Prompt language",
+  "memorySettingsPromptLangAuto": "Auto",
+  "memorySettingsPromptLangAutoSubtitle": "Follow the UI language (Chinese → zh, otherwise en)",
+  "memorySettingsPromptLangZh": "Chinese",
+  "memorySettingsPromptLangZhSubtitle": "Always use Chinese memory prompts and tool descriptions",
+  "memorySettingsPromptLangEn": "English",
+  "memorySettingsPromptLangEnSubtitle": "Always use English memory prompts and tool descriptions",
+  "memorySettingsPromptsSection": "Prompt templates",
+  "memoryPromptEditRulesTitle": "Memory rules",
+  "memoryPromptEditRulesSubtitle": "Injected into the main chat system prompt",
+  "memoryPromptEditGateTitle": "Gatekeeper",
+  "memoryPromptEditGateSubtitle": "Decides whether a turn is worth remembering",
+  "memoryPromptEditExtractTitle": "Extract",
+  "memoryPromptEditExtractSubtitle": "Extracts candidate memory items from a conversation",
+  "memoryPromptEditSmartAddTitle": "Smart Add",
+  "memoryPromptEditSmartAddSubtitle": "NEW / MERGE / CONFLICT / SKIP dedupe judge",
+  "memoryPromptEditDistillTitle": "Profile Distiller",
+  "memoryPromptEditDistillSubtitle": "Distills identity memories into profile fields",
+  "memoryPromptEditReset": "Reset to default",
+  "memoryPromptEditSave": "Save",
+  "memoryPromptEditSectionPerItem": "Per-item prompt",
+  "memoryPromptEditSectionBatch": "Batched prompt",
+  "memorySettingsEntriesSection": "All memories",
+  "memorySettingsEntriesTitle": "Memory list",
+  "memorySettingsEntriesSubtitle": "Browse, edit, archive, and delete memories",
+  "memorySettingsProfileTitle": "User profile",
+  "memorySettingsProfileSubtitle": "Structured identity fields for the model",
+  "memorySettingsLegacyTitle": "Legacy memories (read-only)",
+  "memorySettingsLegacySubtitle": "Old memories from previous versions",
+  "memoryEntryTypeIdentity": "Identity",
+  "memoryEntryTypeWorkflow": "Workflow",
+  "memoryEntryTypeVoice": "Voice",
+  "memoryEntryTypeInstruction": "Instruction",
+  "memoryEntryScopeGlobal": "Global",
+  "memoryEntryScopeAssistant": "This assistant",
+  "memoryEntryScopeAssistantNamed": "{name}",
+  "@memoryEntryScopeAssistantNamed": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "memoryEntrySourceManual": "Manual",
+  "memoryEntrySourceTool": "Tool",
+  "memoryEntrySourceExtracted": "Extracted",
+  "memoryEntrySourceDistilled": "Distilled",
+  "memoryEntryStatusActive": "Active",
+  "memoryEntryStatusArchived": "Archived",
+  "memoryEntryUpdatedAt": "Updated {date}",
+  "@memoryEntryUpdatedAt": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "memoryEntryActionEdit": "Edit",
+  "memoryEntryActionDelete": "Delete",
+  "memoryEntryActionArchive": "Archive",
+  "memoryEntryActionRestore": "Restore",
+  "memoryEntryActionSwitchScope": "Change scope",
+  "memoryEntryActionBatchDelete": "Delete selected",
+  "memoryEntryActionAdd": "Add memory",
+  "memoryEntryDeleteConfirmTitle": "Delete memory?",
+  "memoryEntryDeleteConfirmContent": "This permanently deletes the memory. This cannot be undone.",
+  "memoryEntryBatchDeleteConfirmTitle": "Delete {count} memories?",
+  "@memoryEntryBatchDeleteConfirmTitle": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "memoryEntryBatchDeleteConfirmContent": "Selected memories will be permanently deleted.",
+  "memoryEntrySwitchScopeConfirmTitle": "Change memory scope?",
+  "memoryEntrySwitchScopeToGlobal": "Make this memory global (shared across assistants)?",
+  "memoryEntrySwitchScopeToAssistant": "Limit this memory to the current assistant?",
+  "memoryEntryArchivedSection": "Archived",
+  "memoryEntryEmpty": "No memories yet",
+  "memoryEntryEmptyDisabled": "Long-term memory is off for this assistant",
+  "memoryEntryEditTitle": "Edit memory",
+  "memoryEntryCreateTitle": "New memory",
+  "memoryEntryContentHint": "Enter memory content",
+  "memoryEntryTypeLabel": "Type",
+  "memoryEntryScopeLabel": "Scope",
+  "memoryFilterScopeAll": "All scopes",
+  "memoryFilterScopeGlobal": "Global only",
+  "memoryFilterScopeAssistant": "Assistant",
+  "memoryFilterTypeAll": "All types",
+  "memoryFilterStatusAll": "All statuses",
+  "memoryFilterStatusActive": "Active",
+  "memoryFilterStatusArchived": "Archived",
+  "memorySearchHint": "Search memories",
+  "memorySearchEmpty": "No matching memories",
+  "memoryOrphanBanner": "{count} orphaned assistant memories (assistant deleted)",
+  "@memoryOrphanBanner": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "memoryOrphanCleanupButton": "Clean up",
+  "memoryOrphanConfirmTitle": "Clean up orphaned memories?",
+  "memoryOrphanConfirmContent": "Permanently delete {count} memories whose assistant no longer exists.",
+  "@memoryOrphanConfirmContent": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "memoryOrganizeButton": "Organize",
+  "memoryOrganizeNeedsConversation": "Open a chat with this assistant to organize memories",
+  "memoryOrganizeNeedsModel": "Select a memory model in Settings → Memory first",
+  "memoryOrganizeStatusNever": "Not organized yet",
+  "memoryOrganizeStatusLast": "Last organized: {when}",
+  "@memoryOrganizeStatusLast": {
+    "placeholders": {
+      "when": {"type": "String"}
+    }
+  },
+  "memoryOrganizeStatusExtracted": "extracted {count}",
+  "@memoryOrganizeStatusExtracted": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "memoryOrganizeStatusSkipped": "nothing to remember",
+  "memoryOrganizeStatusFailed": "Failed: {reason}",
+  "@memoryOrganizeStatusFailed": {
+    "placeholders": {
+      "reason": {"type": "String"}
+    }
+  },
+  "memoryOrganizeJustNow": "just now",
+  "memoryOrganizeMinutesAgo": "{n} min ago",
+  "@memoryOrganizeMinutesAgo": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "memoryOrganizeHoursAgo": "{n} h ago",
+  "@memoryOrganizeHoursAgo": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "memoryOrganizeDaysAgo": "{n} d ago",
+  "@memoryOrganizeDaysAgo": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "memoryModelMissingNotice": "Select a memory processing model in Settings → Memory first.",
+  "memoryModelMissingGoSelect": "Choose model",
+  "memoryEntriesPageTitle": "All memories",
+  "userProfilePageTitle": "User profile",
+  "userProfilePreferredName": "Preferred name",
+  "userProfilePreferredNameHint": "How the model should address you — unrelated to the sidebar display name",
+  "userProfileGender": "Gender",
+  "userProfilePronouns": "Pronouns",
+  "userProfilePreferredLanguage": "Preferred language",
+  "userProfileTimezone": "Timezone",
+  "userProfileOccupation": "Occupation",
+  "userProfileLocation": "Location",
+  "userProfileCustomSection": "Custom fields",
+  "userProfileAddCustom": "Add custom field",
+  "userProfileCustomKeyHint": "Key (custom.name)",
+  "userProfileCustomValueHint": "Value",
+  "userProfileInvalidKey": "Key must be custom. followed by 1–32 letters, digits, _ or -",
+  "userProfileClear": "Clear",
+  "userProfileSave": "Save",
+  "userProfileEmptyValue": "Not set",
+  "legacyMemoryPageTitle": "Legacy memories",
+  "legacyMemoryBanner": "These are memories from an older version. They are not used in chats. Migration will arrive in a later release.",
+  "legacyMemoryEmpty": "No legacy memories",
+  "legacyMemoryCopy": "Copy",
+  "legacyMemoryCopied": "Copied",
+  "legacyMemoryExport": "Export",
+  "legacyMemoryExportTitle": "Kelivo legacy memory export",
+  "legacyMemoryAssistantHeader": "Assistant: {name}",
+  "@legacyMemoryAssistantHeader": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "legacyMemorySearchHint": "Search legacy memories",
+  "memoryUiContentLabel": "Content",
+  "memoryUiValueLabel": "Value",
+  "memoryUiCustomKeyLabel": "Key",
+  "memoryUiStatusLabel": "Status",
+  "memoryUiAssistantLabel": "Assistant",
+  "memoryUiAssistantAll": "All assistants",
+  "memoryUiSearchClear": "Clear search",
+  "memoryUiAssistantLegacyTitle": "Legacy memories (read-only)",
+  "memoryUiAssistantLegacySubtitle": "Old memories of this assistant from previous versions",
+  "assistantEditMemorySwitchTitle": "Use long-term memory",
+  "assistantEditAutoOrganizeTitle": "Auto-organize memory",
+  "assistantEditAutoOrganizeSubtitle": "Run the memory pipeline after chats",
+  "assistantEditAllowPastRecallTitle": "Allow recalling past chats",
+  "assistantEditAllowPastRecallSubtitle": "Enable chat search across past conversations",
+  "assistantEditGenerateSummaryTitle": "Generate conversation summaries",
+  "assistantEditGenerateSummarySubtitle": "Summaries are only used by chat search",
+  "assistantEditManageMemoryTitle": "Memories visible to this assistant",
+  "assistantEditWriteScopeTitle": "Memory write scope",
+  "assistantEditWriteScopeSubtitle": "Where new memories are stored by default",
+  "assistantEditWriteScopeAlwaysGlobal": "Always global",
+  "assistantEditWriteScopeAlwaysAssistant": "Always this assistant",
+  "assistantEditWriteScopeToolDefaultGlobal": "Model chooses (default global)",
+  "assistantEditWriteScopeToolDefaultAssistant": "Model chooses (default assistant)",
+  "assistantEditDedupeModeTitle": "Dedupe mode",
+  "assistantEditDedupeModeSubtitle": "How candidates are judged against existing memories",
+  "assistantEditDedupeModeBatched": "Batched",
+  "assistantEditDedupeModePerItem": "Per item",
+  "assistantEditOrganizeFrequencyTitle": "Organize every N turns",
+  "assistantEditOrganizeFrequencySubtitle": "Run auto-organize after this many assistant replies",
+  "assistantEditOrganizeFrequencyOption": "Every {n}",
+  "@assistantEditOrganizeFrequencyOption": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "assistantEditOrganizeFrequencyCustomButton": "Custom",
+  "assistantEditOrganizeFrequencyCustomTitle": "Custom frequency",
+  "assistantEditOrganizeFrequencyCustomDescription": "Enter a number between 1 and 20.",
+  "assistantEditOrganizeFrequencyCustomLabel": "Turns",
+  "assistantEditOrganizeFrequencyCustomHint": "1–20",
+  "assistantEditOrganizeFrequencyCustomInvalid": "Enter a number between 1 and 20",
   "worldBookTitle": "World Book",
   "worldBookAdd": "Add World Book",
   "worldBookEmptyMessage": "No world books yet",
@@ -2499,5 +2936,111 @@
   "imageSettingsPageCustomQualityTitle": "Compression Quality",
   "imageSettingsPageCompressTransparentTitle": "Compress Transparent & Animated Images",
   "imageSettingsPageCompressTransparentSubtitle": "When enabled, transparent PNG, GIF, and similar formats are compressed; transparent areas become white and animations keep only the first frame.",
-  "imageSettingsPageFooter": "Compression happens when images are added. Previously saved or sent images are not affected. Compressed images are sent as JPEG files."
+  "imageSettingsPageFooter": "Compression happens when images are added. Previously saved or sent images are not affected. Compressed images are sent as JPEG files.",
+  "memoryTraceSettingsTitle": "Pipeline Traces",
+  "memoryTraceSettingsSubtitle": "Inspect every background memory run step by step",
+  "memoryTracePageTitle": "Memory Pipeline Traces",
+  "memoryTraceRecordingSection": "Recording",
+  "memoryTraceToggleTitle": "Record pipeline traces",
+  "memoryTraceToggleSubtitle": "Keeps prompts, responses and changes of recent background runs in memory only",
+  "memoryTraceRunsSection": "Recent runs",
+  "memoryTraceEmptyTitle": "No traces yet",
+  "memoryTraceEmptySubtitle": "Traces appear here after the background memory pipeline runs.",
+  "memoryTraceDisabledTitle": "Recording is off",
+  "memoryTraceDisabledSubtitle": "Turn recording on to capture the next background memory run.",
+  "memoryTraceClearAction": "Clear",
+  "memoryTraceClearSheetTitle": "Clear traces",
+  "memoryTraceClearSheetMessage": "This removes every recorded trace. Traces are never written to disk, so nothing else is affected.",
+  "memoryTraceClearConfirm": "Clear traces",
+  "memoryTraceCancel": "Cancel",
+  "memoryTraceClearedToast": "Traces cleared",
+  "memoryTraceCopyAction": "Copy",
+  "memoryTraceCopiedToast": "Copied to clipboard",
+  "memoryTraceTriggerAuto": "Auto",
+  "memoryTraceTriggerManual": "Manual",
+  "memoryTraceTriggerTool": "Tool call",
+  "memoryTraceTriggerSummary": "Summary",
+  "memoryTraceScopeAssistant": "Assistant",
+  "memoryTraceScopeGlobal": "Global",
+  "memoryTraceStepGatekeeper": "Gatekeeper",
+  "memoryTraceStepExtract": "Extract",
+  "memoryTraceStepSmartAdd": "Smart Add",
+  "memoryTraceStepDistiller": "Profile Distiller",
+  "memoryTraceStepSummary": "Conversation Summary",
+  "memoryTraceStepChatSearch": "Past Conversation Recall",
+  "memoryTraceStepTool": "Memory Tool",
+  "memoryTraceStatusSuccess": "Success",
+  "memoryTraceStatusFailed": "Failed",
+  "memoryTraceStatusSkipped": "Skipped",
+  "memoryTraceStatusRunning": "Running",
+  "memoryTraceOutcomeAdvanced": "Watermark advanced",
+  "memoryTraceOutcomeHeld": "Watermark held",
+  "memoryTraceOutcomeForced": "Forced advance",
+  "memoryTraceDetailTitle": "Trace detail",
+  "memoryTraceSectionOverview": "Overview",
+  "memoryTraceSectionPrompt": "Prompt",
+  "memoryTraceSectionResponse": "Raw response",
+  "memoryTraceSectionParsed": "Parsed result",
+  "memoryTraceSectionMutations": "Changes applied",
+  "memoryTraceFieldTime": "Started",
+  "memoryTraceFieldDuration": "Duration",
+  "memoryTraceFieldTrigger": "Trigger",
+  "memoryTraceFieldScope": "Scope",
+  "memoryTraceFieldConversation": "Chat",
+  "memoryTraceFieldAssistant": "Assistant",
+  "memoryTraceFieldWindow": "Window",
+  "memoryTraceFieldWatermark": "Watermark",
+  "memoryTraceFieldOutcome": "Outcome",
+  "memoryTraceFieldError": "Error",
+  "memoryTraceMutationCreated": "Created",
+  "memoryTraceMutationMerged": "Merged",
+  "memoryTraceMutationEdited": "Edited",
+  "memoryTraceMutationArchived": "Archived",
+  "memoryTraceMutationLinked": "Linked",
+  "memoryTraceMutationProfileWritten": "Profile field written",
+  "memoryTraceMutationProfileCleared": "Profile field cleared",
+  "memoryTraceMutationSummary": "Chat summary written",
+  "memoryTraceBefore": "Before",
+  "memoryTraceAfter": "After",
+  "memoryTraceEmptyValue": "(empty)",
+  "memoryTraceStepsCount": "{count} steps",
+  "@memoryTraceStepsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memoryTraceMutationsCount": "{count} changes",
+  "@memoryTraceMutationsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memoryTraceRepeatCount": "repeated {count}×",
+  "@memoryTraceRepeatCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memoryTraceWindowValue": "{size} messages · #{start}–#{end}",
+  "@memoryTraceWindowValue": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      },
+      "start": {
+        "type": "int"
+      },
+      "end": {
+        "type": "int"
+      }
+    }
+  },
+  "memoryTraceShowMore": "Show full text",
+  "memoryTraceShowLess": "Collapse"
 }

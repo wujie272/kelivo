@@ -168,6 +168,9 @@ class HomePageController extends ChangeNotifier {
     _warmupSerial++;
   }
 
+  @visibleForTesting
+  HomeViewModel get debugViewModel => _viewModel;
+
   // ============================================================================
   // State Fields
   // ============================================================================
@@ -263,8 +266,7 @@ class HomePageController extends ChangeNotifier {
   Conversation? get currentConversation => _chatController.currentConversation;
   List<ChatMessage> get messages => _chatController.messages;
   Map<String, int> get versionSelections => _chatController.versionSelections;
-  Set<String> get loadingConversationIds =>
-      _chatController.loadingConversationIds;
+  Set<String> get loadingConversationIds => _viewModel.loadingConversationIds;
   Map<String, StreamSubscription<dynamic>> get conversationStreams =>
       _chatController.conversationStreams;
 
@@ -297,11 +299,8 @@ class HomePageController extends ChangeNotifier {
 
   bool get isDesktopPlatform => PlatformUtils.isDesktopTarget;
 
-  bool get isCurrentConversationLoading {
-    final cid = currentConversation?.id;
-    if (cid == null) return false;
-    return loadingConversationIds.contains(cid);
-  }
+  bool get isCurrentConversationLoading =>
+      _viewModel.isCurrentConversationLoading;
 
   QueuedChatInput? get currentQueuedInput => _viewModel.currentQueuedInput;
 
@@ -743,7 +742,7 @@ class HomePageController extends ChangeNotifier {
     for (final id in conversationIds) {
       if (serial != _warmupSerial || !_context.mounted) return;
       // A streaming conversation owns the single connection queue.
-      if (loadingConversationIds.contains(id)) continue;
+      if (_chatController.loadingConversationIds.contains(id)) continue;
       try {
         await _chatService.loadTimelinePage(
           id,
@@ -895,7 +894,11 @@ class HomePageController extends ChangeNotifier {
     ToolUIPart part,
     AskUserResult result,
   ) async {
-    if (currentConversation == null) return;
+    final conversation = currentConversation;
+    if (conversation == null ||
+        _viewModel.isConversationSendInFlight(conversation.id)) {
+      return;
+    }
 
     final content = result.toJsonString();
     await _chatService.upsertToolEvent(
@@ -1783,6 +1786,12 @@ class HomePageController extends ChangeNotifier {
 
   Future<void> setSelectedVersion(String groupId, int version) async {
     await _chatController.setSelectedVersion(groupId, version);
+    for (final message in _chatController.collapsedMessages) {
+      if ((message.groupId ?? message.id) == groupId) {
+        _restoreAssistantMessageUiState(message);
+        break;
+      }
+    }
     notifyListeners();
   }
 
@@ -2272,12 +2281,7 @@ class HomePageController extends ChangeNotifier {
     for (int i = 0; i < messages.length; i++) {
       final m = messages[i];
       if (m.role == 'assistant') {
-        _streamController.restoreMessageUiState(
-          m,
-          getToolEventsFromDb: (id) => _chatService.getToolEvents(id),
-          getGeminiThoughtSigFromDb: (id) =>
-              _chatService.getGeminiThoughtSignature(id),
-        );
+        _restoreAssistantMessageUiState(m);
 
         final cleanedContent = _streamController.captureGeminiThoughtSignature(
           m.content,
@@ -2302,6 +2306,15 @@ class HomePageController extends ChangeNotifier {
         _translations[m.id] = td;
       }
     }
+  }
+
+  void _restoreAssistantMessageUiState(ChatMessage message) {
+    _streamController.restoreMessageUiState(
+      message,
+      getToolEventsFromDb: (id) => _chatService.getToolEvents(id),
+      getGeminiThoughtSigFromDb: (id) =>
+          _chatService.getGeminiThoughtSignature(id),
+    );
   }
 
   void _scheduleInlineImageSanitize(

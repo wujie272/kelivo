@@ -4,6 +4,7 @@ import '../../../core/providers/tag_provider.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../theme/app_font_weights.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 Future<void> showAssistantTagsManagerDialog(
   BuildContext context, {
@@ -14,7 +15,7 @@ Future<void> showAssistantTagsManagerDialog(
     context: context,
     barrierDismissible: true,
     barrierLabel: 'tags-manager',
-    barrierColor: Colors.black.withValues(alpha: 0.15),
+    barrierColor: cs.scrim.withValues(alpha: 0.15),
     pageBuilder: (ctx, _, __) {
       // Use a full-screen tap area to allow closing by tapping outside the dialog.
       return GestureDetector(
@@ -38,7 +39,7 @@ Future<void> showAssistantTagsManagerDialog(
                       borderRadius: BorderRadius.circular(14),
                       side: BorderSide(
                         color: Theme.of(ctx).brightness == Brightness.dark
-                            ? Colors.white.withValues(alpha: 0.08)
+                            ? cs.onSurface.withValues(alpha: 0.08)
                             : cs.outlineVariant.withValues(alpha: 0.2),
                       ),
                     ),
@@ -277,9 +278,7 @@ class _SmallIconBtnState extends State<_SmallIconBtn> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = _hover
-        ? (isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.05))
+        ? (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05))
         : Colors.transparent;
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
@@ -323,9 +322,7 @@ class _TagCardState extends State<_TagCard> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final baseBg = isDark
-        ? Colors.white10
-        : Colors.white.withValues(alpha: 0.96);
+    final baseBg = context.appColors.surfaceCard;
     final borderColor = _hover
         ? cs.primary.withValues(alpha: isDark ? 0.35 : 0.45)
         : cs.outlineVariant.withValues(alpha: isDark ? 0.12 : 0.08);

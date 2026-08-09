@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/services/haptics.dart';
 import 'package:Kelivo/theme/app_font_weights.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 class IosTileButton extends StatefulWidget {
   const IosTileButton({
@@ -43,10 +44,8 @@ class _IosTileButtonState extends State<IosTileButton> {
     // Use a light primary-tinted background when tinted; otherwise the neutral grey tile
     final Color baseBg = tinted
         ? (isDark ? tint.withValues(alpha: 0.20) : tint.withValues(alpha: 0.12))
-        : (isDark ? Colors.white10 : const Color(0xFFF2F3F5));
-    final overlay = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : Colors.black.withValues(alpha: 0.05);
+        : (context.appColors.surfaceFill);
+    final overlay = cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05);
     final pressedBg = Color.alphaBlend(overlay, baseBg);
     // Use primary (or provided foreground) for text/icon when tinted; otherwise neutral onSurface
     final Color defaultFg =

@@ -435,14 +435,13 @@ class _LanguageDropdownState extends State<_LanguageDropdown> {
 
     _entry = OverlayEntry(
       builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         final usePure = Provider.of<SettingsProvider>(
           ctx,
           listen: false,
         ).usePureBackground;
         final bgColor = usePure
-            ? (isDark ? Colors.black : Colors.white)
-            : (isDark ? const Color(0xFF1C1C1E) : Colors.white);
+            ? Theme.of(ctx).colorScheme.surface
+            : (Theme.of(context).colorScheme.surfaceContainerHigh);
 
         return Stack(
           children: [
@@ -480,7 +479,6 @@ class _LanguageDropdownState extends State<_LanguageDropdown> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final baseBorder = cs.outlineVariant.withValues(alpha: 0.18);
     final hoverBorder = cs.primary; // hover/focus border
@@ -504,7 +502,7 @@ class _LanguageDropdownState extends State<_LanguageDropdown> {
             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
             constraints: const BoxConstraints(minWidth: 150, minHeight: 40),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF141414) : Colors.white,
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: borderColor, width: 1),
               boxShadow: _open
@@ -664,7 +662,7 @@ class _LangDropdownOverlayState extends State<_LangDropdownOverlay>
               border: Border.all(color: borderColor, width: 0.5),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.32 : 0.08),
+                  color: cs.shadow.withValues(alpha: isDark ? 0.32 : 0.08),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
@@ -732,9 +730,7 @@ class _LangOptionTileState extends State<_LangOptionTile> {
     final bg = widget.selected
         ? cs.primary.withValues(alpha: 0.12)
         : (_hover
-              ? (isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : Colors.black.withValues(alpha: 0.04))
+              ? (cs.onSurface.withValues(alpha: isDark ? 0.08 : 0.04))
               : Colors.transparent);
 
     return MouseRegion(
@@ -843,9 +839,8 @@ class _TranslateButtonState extends State<_TranslateButton> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
-    final fg = isDark ? Colors.black : Colors.white;
+    final fg = cs.onPrimary;
     final base = cs.primary;
     final bg = _hover ? base.withValues(alpha: 0.92) : base;
 
@@ -931,9 +926,7 @@ class _ModelPickerButton extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = enabled
-        ? (isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.05))
+        ? (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05))
         : Colors.transparent;
     return MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
@@ -951,7 +944,15 @@ class _ModelPickerButton extends StatelessWidget {
               if (asset != null)
                 () {
                   if (asset!.toLowerCase().endsWith('.svg')) {
-                    return SvgPicture.asset(asset!, width: 18, height: 18);
+                    return SvgPicture.asset(
+                      asset!,
+                      width: 18,
+                      height: 18,
+                      colorFilter:
+                          isDark && BrandAssets.assetNeedsDarkInvert(asset!)
+                          ? ColorFilter.mode(cs.onSurface, BlendMode.srcIn)
+                          : null,
+                    );
                   }
                   return Image.asset(asset!, width: 18, height: 18);
                 }()
@@ -1001,9 +1002,7 @@ class _PaneActionButtonState extends State<_PaneActionButton> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = _hover
-        ? (isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : Colors.black.withValues(alpha: 0.06))
+        ? (cs.onSurface.withValues(alpha: isDark ? 0.08 : 0.06))
         : Colors.transparent;
     final fg = cs.onSurface.withValues(alpha: 0.9);
     return MouseRegion(

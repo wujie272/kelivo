@@ -14,11 +14,13 @@ class FetchedConversationWindow {
     required this.conversation,
     required this.page,
     required this.versionSelections,
+    required this.needsVisibleGroupPreloadRetry,
   });
 
   final Conversation conversation;
   final LoadedTimelinePage? page;
   final Map<String, int> versionSelections;
+  final bool needsVisibleGroupPreloadRetry;
 }
 
 /// Controller for managing conversation state in the home page.
@@ -142,9 +144,9 @@ class ChatController extends ChangeNotifier {
     _totalMessageCount = 0;
     _versionSelections = <String, int>{};
     if (conversation != null) {
+      _loadVersionSelections();
       await _loadInitialMessageWindow(conversation.id);
       if (_currentConversation?.id != conversation.id) return;
-      _loadVersionSelections();
     }
     notifyListeners();
   }
@@ -165,25 +167,60 @@ class ChatController extends ChangeNotifier {
     } catch (_) {
       versionSelections = <String, int>{};
     }
+    final groupIds = <String>{
+      for (final slot in page?.slots ?? const <LoadedTimelineSlot>[])
+        if (slot.message.version > 0 ||
+            versionSelections.containsKey(
+              slot.message.groupId ?? slot.message.id,
+            ))
+          slot.message.groupId ?? slot.message.id,
+    };
+    var needsVisibleGroupPreloadRetry = false;
+    if (groupIds.isNotEmpty) {
+      try {
+        await Future.wait([
+          _chatService.loadMessagesForGroups(conversation.id, groupIds),
+          _chatService.loadFirstMessageIndicesForGroups(
+            conversation.id,
+            groupIds,
+          ),
+        ]);
+      } catch (_) {
+        needsVisibleGroupPreloadRetry = true;
+      }
+    }
     return FetchedConversationWindow(
       conversation: conversation,
       page: page,
       versionSelections: versionSelections,
+      needsVisibleGroupPreloadRetry: needsVisibleGroupPreloadRetry,
     );
   }
 
   /// Commit phase of a conversation switch: installs a window previously
   /// fetched by [fetchConversationWindow]. Supersedes any in-flight window
   /// load, so its late page and loading-flag clear both lose.
-  void commitConversationWindow(FetchedConversationWindow fetched) {
+  void commitConversationWindow(
+    FetchedConversationWindow fetched, {
+    VoidCallback? onDeferredGroupDataLoaded,
+  }) {
     _windowLoadSerial++;
     _isLoadingWindow = false;
     _currentConversation = fetched.conversation;
     _replaceWindow(fetched.page);
     _versionSelections = fetched.versionSelections;
     notifyListeners();
-    // Cache warm-up only; failures lose nothing user-visible.
-    unawaited(_preloadVisibleGroupData().catchError((Object _) {}));
+    if (fetched.needsVisibleGroupPreloadRetry) {
+      unawaited(
+        _preloadVisibleGroupData()
+            .then((_) {
+              if (_currentConversation?.id != fetched.conversation.id) return;
+              notifyListeners();
+              onDeferredGroupDataLoaded?.call();
+            })
+            .catchError((Object _) {}),
+      );
+    }
     _scheduleIdleCacheBackfill(fetched.conversation.id);
   }
 
@@ -840,12 +877,12 @@ class ChatController extends ChangeNotifier {
   // Version Selection
   // ============================================================================
 
-  /// Get the selected version index for a message group.
+  /// Get the selected real version number for a message group.
   int getSelectedVersion(String groupId) {
     return _versionSelections[groupId] ?? -1;
   }
 
-  /// Set the selected version for a message group.
+  /// Set the selected real version number for a message group.
   Future<void> setSelectedVersion(String groupId, int version) async {
     _versionSelections[groupId] = version;
     if (_currentConversation != null) {
@@ -1015,9 +1052,13 @@ class ChatController extends ChangeNotifier {
       return _messagesWithVisibleGroupsCache = _messages;
     }
 
-    final visibleIds = {for (final message in _messages) message.id};
+    final windowMessagesById = {
+      for (final message in _messages) message.id: message,
+    };
+    final visibleIds = windowMessagesById.keys;
     final byGroup = <String, List<ChatMessage>>{};
-    for (final message in visibleVersions) {
+    for (final cachedMessage in visibleVersions) {
+      final message = windowMessagesById[cachedMessage.id] ?? cachedMessage;
       final groupId = message.groupId ?? message.id;
       byGroup.putIfAbsent(groupId, () => <ChatMessage>[]).add(message);
     }

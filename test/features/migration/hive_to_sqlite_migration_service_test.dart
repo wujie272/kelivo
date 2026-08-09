@@ -8,11 +8,13 @@ import 'package:hive/hive.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:Kelivo/core/database/chat_database_repository.dart';
 import 'package:Kelivo/core/models/chat_message.dart';
 import 'package:Kelivo/core/models/conversation.dart';
 import 'package:Kelivo/core/services/chat/chat_service.dart';
 import 'package:Kelivo/core/services/hive_migration_marker.dart';
 import 'package:Kelivo/features/migration/hive_to_sqlite_migration_service.dart';
+import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 class _FakePathProviderPlatform extends PathProviderPlatform {
   _FakePathProviderPlatform(this.path);
@@ -272,7 +274,296 @@ void main() {
       chatService.getGeminiThoughtSignature(assistantMessage.id),
       'gemini-signature',
     );
+    await chatService.close();
+
+    final repo = ChatDatabaseRepository.open(
+      file: File('${tempDir.path}/kelivo.db'),
+    );
+    addTearDown(repo.close);
+    expect(await repo.getTextPartCount(), 2);
+    expect(await repo.getToolCallPartCount(), 1);
+    expect(await repo.getTotalMessageCount(), 2);
+    final digest = await repo.getTextPartContentDigest();
+    expect(digest, isNotEmpty);
+    expect(digest.length, 64);
+    final raw = sqlite.sqlite3.open(
+      '${tempDir.path}/kelivo.db',
+      mode: sqlite.OpenMode.readOnly,
+    );
+    addTearDown(raw.close);
+    expect(
+      raw.select(
+        "SELECT COUNT(*) AS c FROM message_part_rows WHERE kind = 'tool_result';",
+      ).single['c'],
+      0,
+    );
   });
+
+  test(
+    'validation fails when a text part payload is corrupted before validate',
+    () async {
+      await _seedHiveChat(
+        tempDir: tempDir,
+        conversationId: 'conversation-digest',
+        messageId: 'message-digest',
+        content: 'digest source',
+      );
+      final backupRoot = Directory('${tempDir.path}/backup-target')
+        ..createSync();
+      final decision = await HiveToSqliteMigrationService.check();
+      final service = HiveToSqliteMigrationService(decision);
+      addTearDown(service.dispose);
+      final backupFile = await service.backupTo(backupRoot);
+      service.debugBeforeValidateForTest = (repo) async {
+        await repo.corruptTextPartPayloadForTest(
+          'message-digest',
+          'tampered-payload',
+        );
+      };
+
+      await expectLater(
+        service.migrate(backupPath: backupFile.path),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('text content digest'),
+          ),
+        ),
+      );
+
+      expect(backupFile.existsSync(), isTrue);
+      expect(
+        HiveMigrationMarker.isMigrationComplete(
+          File('${tempDir.path}/kelivo.db'),
+        ),
+        isFalse,
+      );
+      expect(
+        (await HiveToSqliteMigrationService.check()).needsMigration,
+        isTrue,
+      );
+      expect(File('${tempDir.path}/messages.hive').existsSync(), isTrue);
+    },
+  );
+
+  test(
+    'validation fails when a text part is missing before validate',
+    () async {
+      await _seedHiveChat(
+        tempDir: tempDir,
+        conversationId: 'conversation-missing-text',
+        messageId: 'message-missing-text',
+        content: 'needs a text part',
+      );
+      final backupRoot = Directory('${tempDir.path}/backup-target')
+        ..createSync();
+      final decision = await HiveToSqliteMigrationService.check();
+      final service = HiveToSqliteMigrationService(decision);
+      addTearDown(service.dispose);
+      final backupFile = await service.backupTo(backupRoot);
+      service.debugBeforeValidateForTest = (repo) async {
+        await repo.deleteTextPartsForTest('message-missing-text');
+      };
+
+      await expectLater(
+        service.migrate(backupPath: backupFile.path),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('text part count'),
+          ),
+        ),
+      );
+
+      expect(backupFile.existsSync(), isTrue);
+      expect(
+        HiveMigrationMarker.isMigrationComplete(
+          File('${tempDir.path}/kelivo.db'),
+        ),
+        isFalse,
+      );
+      expect(File('${tempDir.path}/kelivo.db.migrating').existsSync(), isFalse);
+      expect(File('${tempDir.path}/conversations.hive').existsSync(), isTrue);
+    },
+  );
+
+  test(
+    'migrates tool events as tool_call parts and never writes tool_result',
+    () async {
+      final conversation = Conversation(
+        id: 'conversation-tools',
+        title: 'Tools',
+        createdAt: DateTime(2024, 5, 1),
+        updatedAt: DateTime(2024, 5, 2),
+      );
+      final assistantMessage = ChatMessage(
+        id: 'message-tools',
+        role: 'assistant',
+        content: 'used a tool',
+        conversationId: conversation.id,
+        timestamp: DateTime(2024, 5, 1, 10),
+      );
+      conversation.messageIds.add(assistantMessage.id);
+
+      _registerHiveAdapters();
+      Hive.init(tempDir.path);
+      final conversations = await Hive.openBox<Conversation>('conversations');
+      final messages = await Hive.openBox<ChatMessage>('messages');
+      final toolEvents = await Hive.openBox<dynamic>('tool_events_v1');
+      await conversations.put(conversation.id, conversation);
+      await messages.put(assistantMessage.id, assistantMessage);
+      await toolEvents.put(assistantMessage.id, [
+        {
+          'id': 'tool-a',
+          'name': 'search',
+          'arguments': {'query': 'a'},
+          'content': 'a-result',
+        },
+        {
+          'id': 'tool-b',
+          'name': 'lookup',
+          'arguments': {'id': 'b'},
+          'content': 'b-result',
+        },
+      ]);
+      await conversations.close();
+      await messages.close();
+      await toolEvents.close();
+      await Hive.close();
+
+      final service = HiveToSqliteMigrationService(
+        await HiveToSqliteMigrationService.check(),
+      );
+      addTearDown(service.dispose);
+      await service.migrate();
+
+      final repo = ChatDatabaseRepository.open(
+        file: File('${tempDir.path}/kelivo.db'),
+      );
+      addTearDown(repo.close);
+      expect(await repo.getTotalMessageCount(), 1);
+      expect(await repo.getTextPartCount(), 1);
+      expect(await repo.getToolCallPartCount(), 2);
+
+      await repo.close();
+      final raw = sqlite.sqlite3.open(
+        '${tempDir.path}/kelivo.db',
+        mode: sqlite.OpenMode.readOnly,
+      );
+      addTearDown(raw.close);
+      final kinds = {
+        for (final row in raw.select(
+          'SELECT kind, COUNT(*) AS c FROM message_part_rows GROUP BY kind;',
+        ))
+          row['kind'] as String: row['c'] as int,
+      };
+      expect(kinds, {'text': 1, 'tool_call': 2});
+      expect(kinds.containsKey('tool_result'), isFalse);
+      expect(
+        raw.select(
+          "SELECT COUNT(*) AS c FROM message_part_rows WHERE kind = 'tool_result';",
+        ).single['c'],
+        0,
+      );
+    },
+  );
+
+  test(
+    'digest isolate infrastructure failure falls back without failing migration',
+    () async {
+      await _seedHiveChat(
+        tempDir: tempDir,
+        conversationId: 'conversation-digest-fallback',
+        messageId: 'message-digest-fallback',
+        content: 'fallback still validates',
+      );
+      final decision = await HiveToSqliteMigrationService.check();
+      final service = HiveToSqliteMigrationService(decision);
+      addTearDown(service.dispose);
+      service.debugBeforeValidateForTest = (repo) async {
+        // Force the worker-isolate path to throw before spawn; validation must
+        // continue via the Drift in-process digest and complete the migration.
+        repo.debugForceTextPartDigestIsolateFailureForTest = true;
+      };
+
+      await service.migrate();
+
+      expect(
+        HiveMigrationMarker.isMigrationComplete(
+          File('${tempDir.path}/kelivo.db'),
+        ),
+        isTrue,
+      );
+      expect(
+        (await HiveToSqliteMigrationService.check()).needsMigration,
+        isFalse,
+      );
+      final repo = ChatDatabaseRepository.open(
+        file: File('${tempDir.path}/kelivo.db'),
+      );
+      addTearDown(repo.close);
+      expect(await repo.getTextPartCount(), 1);
+      expect(await repo.getTotalMessageCount(), 1);
+    },
+  );
+
+  test(
+    'validation failure keeps hive backup and leaves migration incomplete',
+    () async {
+      await _seedHiveChat(
+        tempDir: tempDir,
+        conversationId: 'conversation-rollback',
+        messageId: 'message-rollback',
+        content: 'rollback me',
+      );
+      final backupRoot = Directory('${tempDir.path}/backup-target')
+        ..createSync();
+      final decision = await HiveToSqliteMigrationService.check();
+      final service = HiveToSqliteMigrationService(decision);
+      addTearDown(service.dispose);
+      final backupFile = await service.backupTo(backupRoot);
+      expect(backupFile.existsSync(), isTrue);
+      service.debugBeforeValidateForTest = (repo) async {
+        await repo.deleteTextPartsForTest('message-rollback');
+      };
+
+      await expectLater(
+        service.migrate(backupPath: backupFile.path),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(backupFile.existsSync(), isTrue);
+      expect(
+        HiveMigrationMarker.isMigrationComplete(
+          File('${tempDir.path}/kelivo.db'),
+        ),
+        isFalse,
+      );
+      expect(
+        (await HiveToSqliteMigrationService.check()).needsMigration,
+        isTrue,
+      );
+      expect(File('${tempDir.path}/conversations.hive').existsSync(), isTrue);
+      expect(File('${tempDir.path}/messages.hive').existsSync(), isTrue);
+      expect(File('${tempDir.path}/kelivo.db').existsSync(), isFalse);
+      expect(File('${tempDir.path}/kelivo.db.migrating').existsSync(), isFalse);
+
+      // Retry succeeds once the injected corruption hook is cleared.
+      final retry = HiveToSqliteMigrationService(
+        await HiveToSqliteMigrationService.check(),
+      );
+      addTearDown(retry.dispose);
+      await retry.migrate(backupPath: backupFile.path);
+      expect(
+        HiveMigrationMarker.isMigrationComplete(
+          File('${tempDir.path}/kelivo.db'),
+        ),
+        isTrue,
+      );
+    },
+  );
 
   for (final legacyActivation in <String, Object>{
     'instruction_injections_active_id_v1': 'learning-mode',
@@ -324,7 +615,7 @@ void main() {
       updatedAt: baseTime.add(const Duration(hours: 1)),
       assistantId: 'assistant-many',
       mcpServerIds: ['filesystem', 'search'],
-      truncateIndex: 12,
+      truncateIndex: messageCount,
       versionSelections: {'group-12': 1},
       summary: 'large summary',
       lastSummarizedMessageCount: 64,
@@ -340,8 +631,8 @@ void main() {
           timestamp: baseTime.add(Duration(minutes: i)),
           modelId: i.isOdd ? 'model-$i' : null,
           providerId: i.isOdd ? 'provider' : null,
-          groupId: 'group-$i',
-          version: i % 3,
+          groupId: i == 110 ? 'group-12' : 'group-$i',
+          version: i == 110 ? 2 : i % 3,
           promptTokens: i,
           completionTokens: i + 1,
         ),
@@ -398,8 +689,8 @@ void main() {
     final migratedConversation = chatService.getConversation(conversation.id);
     expect(migratedConversation, isNotNull);
     expect(migratedConversation!.mcpServerIds, ['filesystem', 'search']);
-    expect(migratedConversation.truncateIndex, 12);
-    expect(migratedConversation.versionSelections, {'group-12': 1});
+    expect(migratedConversation.truncateIndex, messageCount - 1);
+    expect(migratedConversation.versionSelections, {'group-12': 2});
     expect(migratedConversation.summary, 'large summary');
     expect(migratedConversation.lastSummarizedMessageCount, 64);
     expect(migratedConversation.chatSuggestions, ['next']);
@@ -415,8 +706,16 @@ void main() {
     final timeline = await chatService.loadActiveTimelineMessages(
       conversation.id,
     );
-    expect(timeline, hasLength(messageCount));
-    expect(chatService.getContextStartIndex(conversation.id), 12);
+    expect(timeline, hasLength(messageCount - 1));
+    expect(chatService.getContextStartIndex(conversation.id), messageCount - 1);
+    expect(
+      await chatService.loadSelectedContextMessages(
+        conversation.id,
+        truncateIndex: migratedConversation.truncateIndex,
+        limit: messageCount,
+      ),
+      isEmpty,
+    );
     expect(
       chatService.getToolEvents('message-129').single['name'],
       'batch-check',
@@ -427,14 +726,14 @@ void main() {
     );
   });
 
-  test('repairs duplicate (groupId, version) pairs including empty-string '
-      'groupIds instead of failing validation', () async {
+  test('repairs duplicate versions and preserves selection identity', () async {
     final baseTime = DateTime(2024, 3, 1, 9);
     final conversation = Conversation(
       id: 'conversation-dup-versions',
       title: 'Duplicate Versions Source',
       createdAt: baseTime,
       updatedAt: baseTime.add(const Duration(hours: 1)),
+      versionSelections: {'dup-group': 1},
     );
     final messages = [
       ChatMessage(
@@ -520,6 +819,16 @@ void main() {
       migrated.where((m) => m.groupId == '').map((m) => m.version).toSet(),
       {0, 1},
     );
+    expect(chatService.getConversation(conversation.id)?.versionSelections, {
+      'dup-group': 1,
+    });
+    final timeline = await chatService.loadActiveTimelineMessages(
+      conversation.id,
+    );
+    expect(
+      timeline.singleWhere((message) => message.groupId == 'dup-group').id,
+      'dup-b',
+    );
   });
 
   test(
@@ -578,6 +887,278 @@ void main() {
       await service.dispose();
     },
   );
+
+  test(
+    'attempt counter persists across process kill and unlocks skip at 2',
+    () async {
+      _registerHiveAdapters();
+      Hive.init(tempDir.path);
+      final conversations = await Hive.openBox<Conversation>('conversations');
+      await conversations.close();
+      await Hive.close();
+      // A directory at the live path makes publish fail after the attempt is
+      // recorded, simulating a hard failure without needing a real OOM.
+      await Directory('${tempDir.path}/kelivo.db').create();
+
+      final decision = HiveToSqliteMigrationDecision(
+        needsMigration: true,
+        appDataDir: tempDir,
+        sqliteFile: File('${tempDir.path}/kelivo.db'),
+        hiveFiles: [File('${tempDir.path}/conversations.hive')],
+      );
+
+      final first = HiveToSqliteMigrationService(decision);
+      addTearDown(first.dispose);
+      expect(first.canOfferSkip, isFalse);
+      await expectLater(first.migrate(), throwsA(anything));
+      expect(first.attemptCount, 1);
+      expect(first.canOfferSkip, isFalse);
+      expect(first.lastAttemptStage, isNotNull);
+
+      // Fresh service instance ≈ process relaunch against the same app data dir.
+      final second = HiveToSqliteMigrationService(decision);
+      addTearDown(second.dispose);
+      expect(await second.loadAttemptState(), 1);
+      expect(second.canOfferSkip, isFalse);
+      await expectLater(second.migrate(), throwsA(anything));
+      expect(second.attemptCount, 2);
+      expect(second.canOfferSkip, isTrue);
+
+      final relaunched = HiveToSqliteMigrationService(decision);
+      addTearDown(relaunched.dispose);
+      expect(await relaunched.loadAttemptState(), 2);
+      expect(relaunched.canOfferSkip, isTrue);
+      expect(relaunched.lastAttemptStage, isNotNull);
+    },
+  );
+
+  test('attempt counter clears after successful migration', () async {
+    final conversation = Conversation(
+      id: 'conversation-clear-attempts',
+      title: 'Clear Attempts',
+      createdAt: DateTime(2024, 4, 1),
+      updatedAt: DateTime(2024, 4, 2),
+    );
+    final message = ChatMessage(
+      id: 'message-clear',
+      role: 'user',
+      content: 'hello',
+      conversationId: conversation.id,
+      timestamp: DateTime(2024, 4, 1, 10),
+    );
+    conversation.messageIds.add(message.id);
+
+    _registerHiveAdapters();
+    Hive.init(tempDir.path);
+    final conversations = await Hive.openBox<Conversation>('conversations');
+    final messages = await Hive.openBox<ChatMessage>('messages');
+    await conversations.put(conversation.id, conversation);
+    await messages.put(message.id, message);
+    await conversations.close();
+    await messages.close();
+    await Hive.close();
+
+    final decision = await HiveToSqliteMigrationService.check();
+    final priming = HiveToSqliteMigrationService(
+      HiveToSqliteMigrationDecision(
+        needsMigration: true,
+        appDataDir: tempDir,
+        sqliteFile: File('${tempDir.path}/kelivo.db'),
+        hiveFiles: decision.hiveFiles,
+      ),
+    );
+    addTearDown(priming.dispose);
+    await Directory('${tempDir.path}/kelivo.db').create();
+    await expectLater(priming.migrate(), throwsA(anything));
+    expect(priming.attemptCount, 1);
+    await Directory('${tempDir.path}/kelivo.db').delete(recursive: true);
+
+    final service = HiveToSqliteMigrationService(
+      await HiveToSqliteMigrationService.check(),
+    );
+    addTearDown(service.dispose);
+    expect(await service.loadAttemptState(), 1);
+    await service.migrate();
+    expect(service.attemptCount, 0);
+    expect(service.canOfferSkip, isFalse);
+
+    final relaunched = HiveToSqliteMigrationService(
+      await HiveToSqliteMigrationService.check(),
+    );
+    addTearDown(relaunched.dispose);
+    expect(await relaunched.loadAttemptState(), 0);
+    expect(
+      File(
+        '${tempDir.path}/hive_to_sqlite_migration_attempt_v1.json',
+      ).existsSync(),
+      isFalse,
+    );
+  });
+
+  test('attempt counter clears when migration is skipped', () async {
+    final hiveFile = File('${tempDir.path}/conversations.hive')
+      ..writeAsBytesSync([1, 2, 3]);
+    final decision = HiveToSqliteMigrationDecision(
+      needsMigration: true,
+      appDataDir: tempDir,
+      sqliteFile: File('${tempDir.path}/kelivo.db'),
+      hiveFiles: [hiveFile],
+    );
+    final stateFile = File(
+      '${tempDir.path}/hive_to_sqlite_migration_attempt_v1.json',
+    );
+    await stateFile.writeAsString(
+      '{"attempts":2,"stage":"migrating/messages"}',
+    );
+
+    final service = HiveToSqliteMigrationService(decision);
+    addTearDown(service.dispose);
+    expect(await service.loadAttemptState(), 2);
+    expect(service.canOfferSkip, isTrue);
+
+    await service.skipMigrationAndStartFresh();
+    expect(service.attemptCount, 0);
+    expect(service.canOfferSkip, isFalse);
+    expect(stateFile.existsSync(), isFalse);
+    expect(File('${hiveFile.path}.retired').existsSync(), isTrue);
+  });
+
+  test('replaceSqlite publishes the migrated database on the happy path', () async {
+    final live = File('${tempDir.path}/kelivo.db')
+      ..writeAsStringSync('old-placeholder');
+    final temp = File('${tempDir.path}/kelivo.db.migrating')
+      ..writeAsStringSync('migrated-contents');
+    final service = HiveToSqliteMigrationService(
+      HiveToSqliteMigrationDecision(
+        needsMigration: true,
+        appDataDir: tempDir,
+        sqliteFile: live,
+        hiveFiles: const <File>[],
+      ),
+    );
+    addTearDown(service.dispose);
+
+    await service.replaceSqliteForTest(temp, live);
+
+    expect(await live.readAsString(), 'migrated-contents');
+    expect(temp.existsSync(), isFalse);
+    expect(File('${live.path}.previous').existsSync(), isFalse);
+  });
+
+  test('replaceSqlite fails loudly when a temp -wal sidecar exists', () async {
+    final live = File('${tempDir.path}/kelivo.db')
+      ..writeAsStringSync('old-placeholder');
+    final temp = File('${tempDir.path}/kelivo.db.migrating')
+      ..writeAsStringSync('migrated-contents');
+    File('${temp.path}-wal').writeAsStringSync('stray-wal');
+    final service = HiveToSqliteMigrationService(
+      HiveToSqliteMigrationDecision(
+        needsMigration: true,
+        appDataDir: tempDir,
+        sqliteFile: live,
+        hiveFiles: const <File>[],
+      ),
+    );
+    addTearDown(service.dispose);
+
+    await expectLater(
+      service.replaceSqliteForTest(temp, live),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          'database_sidecar:-wal',
+        ),
+      ),
+    );
+    expect(await live.readAsString(), 'old-placeholder');
+    expect(await temp.readAsString(), 'migrated-contents');
+  });
+
+  test(
+    'replaceSqlite ignores a stray -wal next to the live placeholder',
+    () async {
+      final live = File('${tempDir.path}/kelivo.db')
+        ..writeAsStringSync('old-placeholder');
+      final liveWal = File('${live.path}-wal')
+        ..writeAsStringSync('stale-placeholder-wal');
+      final temp = File('${tempDir.path}/kelivo.db.migrating')
+        ..writeAsStringSync('migrated-contents');
+      final service = HiveToSqliteMigrationService(
+        HiveToSqliteMigrationDecision(
+          needsMigration: true,
+          appDataDir: tempDir,
+          sqliteFile: live,
+          hiveFiles: const <File>[],
+        ),
+      );
+      addTearDown(service.dispose);
+
+      await service.replaceSqliteForTest(temp, live);
+
+      expect(await live.readAsString(), 'migrated-contents');
+      expect(temp.existsSync(), isFalse);
+      expect(liveWal.existsSync(), isFalse);
+      expect(File('${live.path}.previous').existsSync(), isFalse);
+      expect(File('${live.path}.previous-wal').existsSync(), isFalse);
+    },
+  );
+
+  test(
+    'replaceSqlite recovers after rename-aside before move-in',
+    () async {
+      final live = File('${tempDir.path}/kelivo.db');
+      final temp = File('${tempDir.path}/kelivo.db.migrating')
+        ..writeAsStringSync('migrated-contents');
+      final aside = File('${live.path}.previous')
+        ..writeAsStringSync('old-placeholder');
+      // Simulate kill after rename-aside: live gone, aside + temp remain.
+      expect(live.existsSync(), isFalse);
+
+      final service = HiveToSqliteMigrationService(
+        HiveToSqliteMigrationDecision(
+          needsMigration: true,
+          appDataDir: tempDir,
+          sqliteFile: live,
+          hiveFiles: const <File>[],
+        ),
+      );
+      addTearDown(service.dispose);
+
+      await service.replaceSqliteForTest(temp, live);
+
+      expect(await live.readAsString(), 'migrated-contents');
+      expect(temp.existsSync(), isFalse);
+      expect(aside.existsSync(), isFalse);
+    },
+  );
+
+  test(
+    'replaceSqlite recovers after move-in before retiring the old file',
+    () async {
+      final live = File('${tempDir.path}/kelivo.db')
+        ..writeAsStringSync('migrated-contents');
+      final aside = File('${live.path}.previous')
+        ..writeAsStringSync('old-placeholder');
+      final temp = File('${tempDir.path}/kelivo.db.migrating');
+      expect(temp.existsSync(), isFalse);
+
+      final service = HiveToSqliteMigrationService(
+        HiveToSqliteMigrationDecision(
+          needsMigration: true,
+          appDataDir: tempDir,
+          sqliteFile: live,
+          hiveFiles: const <File>[],
+        ),
+      );
+      addTearDown(service.dispose);
+
+      await service.replaceSqliteForTest(temp, live);
+
+      expect(await live.readAsString(), 'migrated-contents');
+      expect(aside.existsSync(), isFalse);
+    },
+  );
 }
 
 void _registerHiveAdapters() {
@@ -587,4 +1168,36 @@ void _registerHiveAdapters() {
   if (!Hive.isAdapterRegistered(1)) {
     Hive.registerAdapter(ConversationAdapter());
   }
+}
+
+Future<void> _seedHiveChat({
+  required Directory tempDir,
+  required String conversationId,
+  required String messageId,
+  required String content,
+}) async {
+  final conversation = Conversation(
+    id: conversationId,
+    title: 'Seed $conversationId',
+    createdAt: DateTime(2024, 6, 1),
+    updatedAt: DateTime(2024, 6, 2),
+  );
+  final message = ChatMessage(
+    id: messageId,
+    role: 'user',
+    content: content,
+    conversationId: conversationId,
+    timestamp: DateTime(2024, 6, 1, 10),
+  );
+  conversation.messageIds.add(message.id);
+
+  _registerHiveAdapters();
+  Hive.init(tempDir.path);
+  final conversations = await Hive.openBox<Conversation>('conversations');
+  final messages = await Hive.openBox<ChatMessage>('messages');
+  await conversations.put(conversation.id, conversation);
+  await messages.put(message.id, message);
+  await conversations.close();
+  await messages.close();
+  await Hive.close();
 }

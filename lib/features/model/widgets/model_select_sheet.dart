@@ -21,6 +21,7 @@ import '../../provider/widgets/provider_avatar.dart';
 import '../../provider/widgets/provider_balance_badge.dart';
 import '../../../core/services/model_override_resolver.dart';
 import '../../../theme/app_font_weights.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 class ModelSelection {
   final String providerKey;
@@ -845,12 +846,7 @@ class _ModelSelectSheetState extends State<_ModelSelectSheet> {
                             _lastQuery = q;
                           },
                           // Ensure high-contrast input text in both themes
-                          style: TextStyle(
-                            color:
-                                Theme.of(context).brightness == Brightness.dark
-                                ? Colors.white
-                                : Colors.black87,
-                          ),
+                          style: TextStyle(color: cs.onSurface),
                           cursorColor: cs.primary,
                           decoration: InputDecoration(
                             hintText: l10n.modelSelectSheetSearchHint,
@@ -898,10 +894,7 @@ class _ModelSelectSheetState extends State<_ModelSelectSheet> {
                               vertical: 12,
                             ),
                             filled: true,
-                            fillColor:
-                                Theme.of(context).brightness == Brightness.dark
-                                ? Colors.white.withValues(alpha: 0.10)
-                                : Colors.white.withValues(alpha: 0.64),
+                            fillColor: context.appColors.surfaceFill,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide(
@@ -1485,9 +1478,7 @@ class _ProviderChipState extends State<_ProviderChip> {
               ? cs.primary.withValues(alpha: 0.08)
               : cs.primary.withValues(alpha: 0.05))
         : cs.surface;
-    final Color overlay = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : Colors.black.withValues(alpha: 0.05);
+    final Color overlay = cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05);
     final Color bg = _pressed ? Color.alphaBlend(overlay, baseBg) : baseBg;
     // Slightly stronger border when selected; keep label color unchanged for subtlety
     final Color borderColor =
@@ -1600,10 +1591,10 @@ class _BrandAvatar extends StatelessWidget {
     Widget inner;
     if (asset != null) {
       if (asset.endsWith('.svg')) {
-        final isColorful = asset.contains('color');
         final dark = Theme.of(context).brightness == Brightness.dark;
-        final ColorFilter? tint = (dark && !isColorful)
-            ? const ColorFilter.mode(Colors.white, BlendMode.srcIn)
+        final ColorFilter? tint =
+            (dark && BrandAssets.assetNeedsDarkInvert(asset))
+            ? ColorFilter.mode(cs.onSurface, BlendMode.srcIn)
             : null;
         inner = SvgPicture.asset(
           asset,
@@ -1633,7 +1624,7 @@ class _BrandAvatar extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: isDark ? Colors.white10 : cs.primary.withValues(alpha: 0.1),
+        color: cs.primary.withValues(alpha: isDark ? 0.18 : 0.1),
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
@@ -1654,7 +1645,7 @@ Future<ModelSelection?> _showDesktopModelSelector(
     context: context,
     barrierDismissible: true,
     barrierLabel: 'model-select-desktop',
-    barrierColor: Colors.black.withValues(alpha: 0.25),
+    barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.25),
     pageBuilder: (ctx, _, __) => _DesktopModelSelectDialogBody(
       limitProviderKey: limitProviderKey,
       initialProviderKey: initialProviderKey,
@@ -1951,7 +1942,7 @@ class _DesktopModelSelectDialogBodyState
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
               color: isDark
-                  ? Colors.white.withValues(alpha: 0.08)
+                  ? cs.onSurface.withValues(alpha: 0.08)
                   : cs.outlineVariant.withValues(alpha: 0.25),
               width: 1,
             ),
@@ -1978,9 +1969,7 @@ class _DesktopModelSelectDialogBodyState
                               hintText: l10n.modelSelectSheetSearchHint,
                               isDense: true,
                               filled: true,
-                              fillColor: isDark
-                                  ? Colors.white10
-                                  : const Color(0xFFF2F3F5),
+                              fillColor: context.appColors.surfaceFill,
                               prefixIcon: Icon(
                                 Lucide.Search,
                                 size: 16,

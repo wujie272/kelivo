@@ -164,7 +164,7 @@ class MessageGenerationService {
     await messageBuilderService.injectMemoryAndRecentChats(
       apiMessages,
       assistant,
-      currentConversationId: currentConversation?.id,
+      settings: settings,
     );
 
     final hasBuiltInSearch = messageBuilderService.hasBuiltInSearch(
@@ -198,7 +198,13 @@ class MessageGenerationService {
     messageBuilderService.applyContextLimit(apiMessages, assistant);
 
     final lastUserImagePaths = await messageBuilderService
-        .processUserMessagesForApi(apiMessages, settings, assistant);
+        .processUserMessagesForApi(
+          apiMessages,
+          settings,
+          assistant,
+          conversation: currentConversation,
+          sourceMessages: messages,
+        );
 
     onFileProcessingFinished?.call();
 
@@ -206,12 +212,16 @@ class MessageGenerationService {
     messageBuilderService.stripInternalRevisionIds(apiMessages);
 
     // Prepare tools
+    final mcpRouteSnapshot = generationController.captureMcpToolRoutes(
+      assistant,
+    );
     final toolDefs = generationController.buildToolDefinitions(
       settings,
       assistant,
       providerKey,
       modelId,
       hasBuiltInSearch,
+      mcpRouteSnapshot: mcpRouteSnapshot,
     );
     final onToolCall = toolDefs.isNotEmpty
         ? generationController.buildToolCallHandler(
@@ -220,6 +230,7 @@ class MessageGenerationService {
             approvalService: approvalService,
             askUserService: askUserService,
             conversationId: currentConversation?.id,
+            mcpRouteSnapshot: mcpRouteSnapshot,
           )
         : null;
 
@@ -316,6 +327,32 @@ class MessageGenerationService {
       providerId: providerKey,
       groupId: groupId,
       version: version,
+      truncateFuture: truncateFuture,
+    );
+    return (assistantMessage: result.assistantMessage, runId: result.run.id);
+  }
+
+  Future<({ChatMessage assistantMessage, String? runId})>
+  beginAssistantGeneration({
+    required String conversationId,
+    required String modelId,
+    required String providerKey,
+    required String anchorGroupId,
+    required bool truncateFuture,
+  }) async {
+    if (chatService.isTemporaryConversation(conversationId)) {
+      final assistantMessage = await createAssistantPlaceholder(
+        conversationId: conversationId,
+        modelId: modelId,
+        providerKey: providerKey,
+      );
+      return (assistantMessage: assistantMessage, runId: null);
+    }
+    final result = await chatService.beginAssistantGeneration(
+      conversationId: conversationId,
+      modelId: modelId,
+      providerId: providerKey,
+      anchorGroupId: anchorGroupId,
       truncateFuture: truncateFuture,
     );
     return (assistantMessage: result.assistantMessage, runId: result.run.id);

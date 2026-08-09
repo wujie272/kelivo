@@ -61,6 +61,9 @@ final class BusinessKeyRegistry {
     'tts_pitch_v1',
     'tts_engine_v1',
     'tts_language_v1',
+    'tts_cache_network_audio_for_replay_v1',
+    'asr_services_v1',
+    'asr_selected_service_id_v1',
     'webdav_config_v1',
     's3_config_v1',
     'backup_reminder_enabled_v1',
@@ -133,6 +136,22 @@ final class BusinessKeyRegistry {
     'mobile_assistant_edit_tab_order_v1',
     'mobile_assistant_edit_tab_hidden_v1',
     'mobile_assistant_detail_outline_enabled_v1',
+    'memory_model_v1',
+    'memory_model_thinking_enabled_v1',
+    'memory_prompt_lang_v1',
+    'memory_trace_enabled_v1',
+    'memory_rules_prompt_zh_v1',
+    'memory_rules_prompt_en_v1',
+    'memory_gate_prompt_zh_v1',
+    'memory_gate_prompt_en_v1',
+    'memory_extract_prompt_zh_v1',
+    'memory_extract_prompt_en_v1',
+    'memory_smart_add_prompt_zh_v1',
+    'memory_smart_add_prompt_en_v1',
+    'memory_smart_add_batch_prompt_zh_v1',
+    'memory_smart_add_batch_prompt_en_v1',
+    'memory_profile_distill_prompt_zh_v1',
+    'memory_profile_distill_prompt_en_v1',
   };
 
   static BusinessKeyDisposition classify(String key) {
@@ -448,6 +467,8 @@ final class BusinessSettingsRouter {
             'systemPrompt',
             'messageTemplate',
             'background',
+            'memorySmartAddMode',
+            'memoryWriteScope',
           },
           booleans: const {
             'useAssistantAvatar',
@@ -456,7 +477,12 @@ final class BusinessSettingsRouter {
             'streamOutput',
             'searchEnabled',
             'enableMemory',
+            // Read as a fallback for allowPastConversationRecall in old backups.
             'enableRecentChatsReference',
+            'autoOrganizeMemory',
+            'allowPastConversationRecall',
+            'generateConversationSummary',
+            'appendCurrentTimeToUserMessage',
           },
           numbers: const {
             'temperature',
@@ -465,6 +491,7 @@ final class BusinessSettingsRouter {
             'thinkingBudget',
             'maxTokens',
             'recentChatsSummaryMessageCount',
+            'memoryOrganizeEveryNTurns',
           },
           lists: const {
             'customHeaders',
@@ -523,6 +550,7 @@ final class BusinessSettingsRouter {
           payload,
           strings: const {'id', 'name', 'transport'},
           booleans: const {'enabled'},
+          maps: const {'oauth', 'oauthClient'},
           objectLists: const {'tools'},
         );
         _validateMcpChildren(kind, payload);
@@ -579,8 +607,80 @@ final class BusinessSettingsRouter {
         return;
       case BusinessEntityKind.assistantTag:
         return;
+      case BusinessEntityKind.memoryEntry:
+        _validateKnownFields(
+          kind,
+          payload,
+          requiredStrings: const {'id', 'scope', 'type', 'content'},
+          strings: const {'status', 'source', 'assistantId'},
+          numbers: const {'createdAt', 'updatedAt'},
+          stringLists: const {'relatedIds'},
+        );
+        final scope = payload['scope'] as String;
+        if (scope != 'global' && scope != 'assistant') {
+          throw FormatException(kind.sourceKey);
+        }
+        final type = payload['type'] as String;
+        if (type != 'identity' &&
+            type != 'workflow' &&
+            type != 'voice' &&
+            type != 'instruction') {
+          throw FormatException(kind.sourceKey);
+        }
+        final status = payload['status'];
+        if (status != null && status != 'active' && status != 'archived') {
+          throw FormatException(kind.sourceKey);
+        }
+        final source = payload['source'];
+        if (source != null &&
+            source != 'manual' &&
+            source != 'tool' &&
+            source != 'extracted' &&
+            source != 'distilled') {
+          throw FormatException(kind.sourceKey);
+        }
+        final assistantId = payload['assistantId'];
+        if (scope == 'global') {
+          if (assistantId != null) {
+            throw FormatException(kind.sourceKey);
+          }
+        } else if (assistantId is! String || assistantId.trim().isEmpty) {
+          throw FormatException(kind.sourceKey);
+        }
+        if (payload['createdAt'] is! num || payload['updatedAt'] is! num) {
+          throw FormatException(kind.sourceKey);
+        }
+        final content = payload['content'] as String;
+        if (content.trim().isEmpty) {
+          throw FormatException(kind.sourceKey);
+        }
+        return;
+      case BusinessEntityKind.userProfileField:
+        _validateKnownFields(
+          kind,
+          payload,
+          requiredStrings: const {'id', 'value'},
+          numbers: const {'updatedAt'},
+        );
+        final id = payload['id'] as String;
+        if (!_userProfileFieldIdPattern.hasMatch(id)) {
+          throw FormatException(kind.sourceKey);
+        }
+        final value = payload['value'] as String;
+        if (value.trim().isEmpty) {
+          throw FormatException(kind.sourceKey);
+        }
+        if (payload['updatedAt'] is! num) {
+          throw FormatException(kind.sourceKey);
+        }
+        return;
     }
   }
+
+  static final _userProfileFieldIdPattern = RegExp(
+    r'^(preferred_name|gender|pronouns|preferred_language|timezone|'
+    r'occupation|location|custom\.[A-Za-z0-9_\-]{1,32})$',
+  );
 
   static void _validateKnownFields(
     BusinessEntityKind kind,
@@ -723,6 +823,44 @@ final class BusinessSettingsRouter {
         );
       }
     }
+    final oauth = payload['oauth'];
+    if (oauth is Map) {
+      _validateKnownFields(
+        kind,
+        oauth.map((key, value) => MapEntry(key.toString(), value)),
+        strings: const {
+          'clientId',
+          'clientSecret',
+          'authorizationServer',
+          'authorizationEndpoint',
+          'tokenEndpoint',
+          'registrationEndpoint',
+          'serverUrl',
+          'resource',
+          'scope',
+          'tokenEndpointAuthMethod',
+          'registrationSource',
+          'accessToken',
+          'tokenType',
+          'refreshToken',
+        },
+        integers: const {'expiresAt'},
+      );
+    }
+    final oauthClient = payload['oauthClient'];
+    if (oauthClient is Map) {
+      _validateKnownFields(
+        kind,
+        oauthClient.map((key, value) => MapEntry(key.toString(), value)),
+        strings: const {
+          'clientId',
+          'clientSecret',
+          'tokenEndpointAuthMethod',
+          'authorizationServer',
+          'registrationSource',
+        },
+      );
+    }
   }
 
   static void _validateWorldBookChildren(
@@ -766,6 +904,7 @@ final class BusinessSettingsRouter {
           payload,
           requiredStrings: const {'apiKey'},
           strings: const {'url'},
+          stringLists: const {'apiKeys'},
         );
       case 'zhipu':
       case 'linkup':
@@ -773,7 +912,12 @@ final class BusinessSettingsRouter {
       case 'metaso':
       case 'ollama':
       case 'jina':
-        _validateKnownFields(kind, payload, requiredStrings: const {'apiKey'});
+        _validateKnownFields(
+          kind,
+          payload,
+          requiredStrings: const {'apiKey'},
+          stringLists: const {'apiKeys'},
+        );
       case 'searxng':
         _validateKnownFields(
           kind,
@@ -791,6 +935,7 @@ final class BusinessSettingsRouter {
           strings: const {'country'},
           integers: const {'maxTokensPerPage'},
           lists: const {'searchDomainFilter'},
+          stringLists: const {'apiKeys'},
         );
       case 'bocha':
         _validateKnownFields(
@@ -799,6 +944,7 @@ final class BusinessSettingsRouter {
           requiredStrings: const {'apiKey'},
           strings: const {'freshness', 'include', 'exclude'},
           booleans: const {'summary'},
+          stringLists: const {'apiKeys'},
         );
       case 'serper':
         _validateKnownFields(
@@ -807,12 +953,14 @@ final class BusinessSettingsRouter {
           requiredStrings: const {'apiKey'},
           strings: const {'gl', 'hl', 'tbs'},
           integers: const {'page'},
+          stringLists: const {'apiKeys'},
         );
       case 'grok':
         _validateKnownFields(
           kind,
           payload,
           strings: const {'apiKey', 'model', 'customUrl', 'systemPrompt'},
+          stringLists: const {'apiKeys'},
         );
       case 'querit':
         _validateKnownFields(
@@ -826,6 +974,7 @@ final class BusinessSettingsRouter {
             'countries',
             'languages',
           },
+          stringLists: const {'apiKeys'},
         );
     }
   }

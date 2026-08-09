@@ -69,7 +69,7 @@ Future<void> showDesktopContextMenuAt(
     context: context,
     barrierLabel: 'context-menu',
     barrierDismissible: true,
-    barrierColor: Colors.black.withValues(alpha: 0.06),
+    barrierColor: cs.scrim.withValues(alpha: 0.06),
     pageBuilder: (ctx, _, __) {
       return Material(
         type: MaterialType.transparency,
@@ -91,7 +91,7 @@ Future<void> showDesktopContextMenuAt(
                           borderRadius: BorderRadius.circular(16),
                           side: BorderSide(
                             color: isDark
-                                ? Colors.white.withValues(alpha: 0.08)
+                                ? cs.onSurface.withValues(alpha: 0.08)
                                 : cs.outlineVariant.withValues(alpha: 0.2),
                             width: 1,
                           ),
@@ -103,11 +103,7 @@ Future<void> showDesktopContextMenuAt(
                           filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              color: isDark
-                                  ? const Color(
-                                      0xFF1C1C1E,
-                                    ).withValues(alpha: 0.66)
-                                  : Colors.white.withValues(alpha: 0.66),
+                              color: cs.surface.withValues(alpha: 0.66),
                             ),
                             child: ConstrainedBox(
                               constraints: BoxConstraints(
@@ -259,14 +255,12 @@ class _GlassMenuItemState extends State<_GlassMenuItem> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fg = widget.danger ? Colors.red.shade600 : cs.onSurface;
+    final fg = widget.danger ? Theme.of(context).colorScheme.error : cs.onSurface;
     final ic = widget.danger
-        ? Colors.red.shade600
+        ? Theme.of(context).colorScheme.error
         : cs.onSurface.withValues(alpha: 0.9);
     final bg = _hover
-        ? (isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : Colors.black.withValues(alpha: 0.05))
+        ? (cs.onSurface.withValues(alpha: isDark ? 0.08 : 0.05))
         : Colors.transparent;
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),

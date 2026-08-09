@@ -129,7 +129,7 @@ class ProviderAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-          color: isDark ? Colors.white24 : Colors.black12,
+          color: cs.onSurface.withValues(alpha: isDark ? 0.24 : 0.12),
           width: 0.5,
         ),
       ),
@@ -168,16 +168,14 @@ class ProviderAvatar extends StatelessWidget {
     }
     final mono = isDark && BrandAssets.assetNeedsDarkInvert(asset);
     return CircleAvatar(
-      backgroundColor: isDark
-          ? Colors.white10
-          : cs.primary.withValues(alpha: 0.1),
+      backgroundColor: cs.primary.withValues(alpha: isDark ? 0.18 : 0.1),
       child: asset.endsWith('.svg')
           ? SvgPicture.asset(
               asset,
               width: size * 0.7,
               height: size * 0.7,
               colorFilter: mono
-                  ? const ColorFilter.mode(Colors.white, BlendMode.srcIn)
+                  ? ColorFilter.mode(cs.onSurface, BlendMode.srcIn)
                   : null,
             )
           : Image.asset(
@@ -185,7 +183,7 @@ class ProviderAvatar extends StatelessWidget {
               width: size * 0.7,
               height: size * 0.7,
               fit: BoxFit.contain,
-              color: mono ? Colors.white : null,
+              color: mono ? cs.onSurface : null,
               colorBlendMode: mono ? BlendMode.srcIn : null,
             ),
     );
@@ -224,7 +222,7 @@ class ProviderAvatar extends StatelessWidget {
   ) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? Colors.white10 : cs.primary.withValues(alpha: 0.1);
+    final bg = cs.primary.withValues(alpha: isDark ? 0.18 : 0.1);
     // 缓存命中时同步渲染，避免每次 rebuild 都经历 FutureBuilder 的 loading 态。
     final cached = _peekLobehubPath(iconName);
     if (cached != null) {
@@ -269,16 +267,14 @@ class ProviderAvatar extends StatelessWidget {
     final isSvg = asset.endsWith('.svg');
     final needsMono = isDark && BrandAssets.assetNeedsDarkInvert(asset);
     return CircleAvatar(
-      backgroundColor: isDark
-          ? Colors.white10
-          : cs.primary.withValues(alpha: 0.1),
+      backgroundColor: cs.primary.withValues(alpha: isDark ? 0.18 : 0.1),
       child: isSvg
           ? SvgPicture.asset(
               asset,
               width: size * 0.7,
               height: size * 0.7,
               colorFilter: needsMono
-                  ? const ColorFilter.mode(Colors.white, BlendMode.srcIn)
+                  ? ColorFilter.mode(cs.onSurface, BlendMode.srcIn)
                   : null,
             )
           : Image.asset(
@@ -286,7 +282,7 @@ class ProviderAvatar extends StatelessWidget {
               width: size * 0.7,
               height: size * 0.7,
               fit: BoxFit.contain,
-              color: needsMono ? Colors.white : null,
+              color: needsMono ? cs.onSurface : null,
               colorBlendMode: needsMono ? BlendMode.srcIn : null,
             ),
     );

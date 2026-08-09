@@ -165,7 +165,7 @@ class _PromptTabState extends State<_PromptTab> {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'system-prompt-editor',
-      barrierColor: Colors.black.withValues(alpha: 0.12),
+      barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.12),
       pageBuilder: (ctx, _, __) {
         return _SystemPromptDesktopDialog(initial: initial);
       },
@@ -238,12 +238,83 @@ try {
     }
   }
 
+  Future<void> _onAppendCurrentTimeChanged(Assistant a, bool enabled) async {
+    if (enabled) {
+      final hits = MemoryPrompts.detectTimeVariablesInSystemPrompt(
+        _sysCtrl.text,
+      );
+      if (hits.isNotEmpty) {
+        final keep = await _showTimeVarEnableDialog(context, hits);
+        if (!mounted) return;
+        if (keep != true) {
+          if (keep == false) {
+            Future.microtask(() => _sysFocus.requestFocus());
+          }
+          return;
+        }
+      }
+    }
+    await context.read<AssistantProvider>().updateAssistant(
+      a.copyWith(appendCurrentTimeToUserMessage: enabled),
+    );
+  }
+
+  Future<bool?> _showTimeVarEnableDialog(
+    BuildContext context,
+    List<String> hits,
+  ) {
+    final l10n = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+    final variables = hits.join(', ');
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.assistantEditPromptTimeVarDialogTitle),
+        content: Text(l10n.assistantEditPromptTimeVarDialogBody(variables)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.assistantEditPromptTimeVarDialogRemove),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              l10n.assistantEditPromptTimeVarDialogKeep,
+              style: TextStyle(color: cs.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showAppendCurrentTimeInfoDialog(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    const example = '<current_time>Mon 26-08-08 14:30:05</current_time>';
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.assistantEditPromptAppendTimeInfoTitle),
+        content: Text(l10n.assistantEditPromptAppendTimeInfoBody(example)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l10n.assistantEditPromptAppendTimeInfoClose),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final ap = context.watch<AssistantProvider>();
     final a = ap.getById(widget.assistantId)!;
+    final timeVarsInPrompt = MemoryPrompts.detectTimeVariablesInSystemPrompt(
+      _sysCtrl.text,
+    );
 
     // Sample preview for message template
     final now = DateTime.now();
@@ -264,10 +335,9 @@ try {
     }
 
     // System Prompt Card (no border, iOS style)
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final sysCard = Container(
       decoration: BoxDecoration(
-        color: isDark ? Colors.white10 : Colors.white.withValues(alpha: 0.96),
+        color: context.appColors.surfaceCard,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Padding(
@@ -317,9 +387,12 @@ try {
             TextField(
               controller: _sysCtrl,
               focusNode: _sysFocus,
-              onChanged: (v) => context
-                  .read<AssistantProvider>()
-                  .updateAssistant(a.copyWith(systemPrompt: v)),
+              onChanged: (v) {
+                setState(() {});
+                context.read<AssistantProvider>().updateAssistant(
+                  a.copyWith(systemPrompt: v),
+                );
+              },
               // minLines: 1,
               maxLines: 8,
               keyboardType: TextInputType.multiline,
@@ -369,8 +442,15 @@ try {
                 (l10n.assistantEditVariableNickname, '{nickname}'),
                 (l10n.assistantEditVariableAssistantName, '{assistant_name}'),
               ],
+              cacheWarningVars: const {
+                '{cur_date}',
+                '{cur_time}',
+                '{cur_datetime}',
+              },
+              cacheWarningTooltip: l10n.assistantEditPromptTimeVarWarning,
               onTapVar: (v) {
                 _insertAtCursor(_sysCtrl, v);
+                setState(() {});
                 context.read<AssistantProvider>().updateAssistant(
                   a.copyWith(systemPrompt: _sysCtrl.text),
                 );
@@ -378,15 +458,63 @@ try {
                 Future.microtask(() => _sysFocus.requestFocus());
               },
             ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: timeVarsInPrompt.isEmpty
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Material(
+                        color: cs.errorContainer.withValues(alpha: 0.30),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Lucide.TriangleAlert,
+                                size: 18,
+                                color: cs.error,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  l10n.assistantEditPromptTimeVarWarning,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    height: 1.35,
+                                    color: cs.onSurface.withValues(alpha: 0.8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
           ],
         ),
       ),
     );
 
+    final appendTimeCard = _iosSectionCard(
+      children: [
+        _AppendCurrentTimeRow(
+          value: a.appendCurrentTimeToUserMessage,
+          onChanged: (enabled) => _onAppendCurrentTimeChanged(a, enabled),
+          onInfoTap: () => _showAppendCurrentTimeInfoDialog(context),
+        ),
+      ],
+    );
+
     // Template Card with preview (no border, iOS style)
     final tmplCard = Container(
       decoration: BoxDecoration(
-        color: isDark ? Colors.white10 : Colors.white.withValues(alpha: 0.96),
+        color: context.appColors.surfaceCard,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Padding(
@@ -505,7 +633,6 @@ try {
     // Preset conversation card
     Widget presetCard() {
       final a = ap.getById(widget.assistantId)!;
-      final isDark = Theme.of(context).brightness == Brightness.dark;
       final items = a.presetMessages;
       final isDesktop =
           Theme.of(context).platform == TargetPlatform.macOS ||
@@ -613,9 +740,7 @@ try {
         );
       }
 
-      final baseBg = isDark
-          ? Colors.white10
-          : Colors.white.withValues(alpha: 0.96);
+      final baseBg = context.appColors.surfaceCard;
 
       return Container(
         decoration: BoxDecoration(
@@ -822,10 +947,103 @@ try {
       children: [
         sysCard,
         const SizedBox(height: 12),
+        appendTimeCard,
+        const SizedBox(height: 12),
         tmplCard,
         const SizedBox(height: 12),
         presetCard(),
       ],
+    );
+  }
+}
+
+class _AppendCurrentTimeRow extends StatelessWidget {
+  const _AppendCurrentTimeRow({
+    required this.value,
+    required this.onChanged,
+    required this.onInfoTap,
+  });
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final VoidCallback onInfoTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: _TactileRow(
+              onTap: () => onChanged(!value),
+              builder: (pressed) {
+                final baseColor = cs.onSurface.withValues(alpha: 0.9);
+                return _AnimatedPressColor(
+                  pressed: pressed,
+                  base: baseColor,
+                  builder: (color) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 36,
+                          child: Icon(
+                            Lucide.clock,
+                            size: 20,
+                            color: value ? cs.primary : color,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.assistantEditPromptAppendTimeTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: color,
+                                  fontWeight: AppFontWeights.semibold,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                l10n.assistantEditPromptAppendTimeSubtitle,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  height: 1.25,
+                                  color: cs.onSurface.withValues(alpha: 0.62),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          IosIconButton(
+            icon: Lucide.BadgeInfo,
+            size: 16,
+            padding: const EdgeInsets.all(6),
+            minSize: 32,
+            color: cs.onSurface.withValues(alpha: 0.55),
+            semanticLabel: l10n.assistantEditPromptAppendTimeInfoTitle,
+            onTap: onInfoTap,
+          ),
+          const SizedBox(width: 4),
+          IosSwitch(value: value, onChanged: onChanged),
+        ],
+      ),
     );
   }
 }
@@ -851,9 +1069,7 @@ class _PresetMessageCardState extends State<_PresetMessageCard> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final baseBg = isDark
-        ? Colors.white10
-        : Colors.white.withValues(alpha: 0.96);
+    final baseBg = context.appColors.surfaceCard;
     final borderColor = _hover
         ? cs.primary.withValues(alpha: isDark ? 0.35 : 0.45)
         : cs.outlineVariant.withValues(alpha: isDark ? 0.12 : 0.08);
@@ -978,9 +1194,9 @@ class _HoverTextButtonState extends State<_HoverTextButton> {
         ? const EdgeInsets.symmetric(horizontal: 10, vertical: 8)
         : const EdgeInsets.symmetric(horizontal: 12, vertical: 10);
     final Color bg = (_hover || _press)
-        ? (isDark
-              ? Colors.white.withValues(alpha: _press ? 0.12 : 0.08)
-              : Colors.black.withValues(alpha: _press ? 0.08 : 0.06))
+        ? cs.onSurface.withValues(
+            alpha: isDark ? (_press ? 0.12 : 0.08) : (_press ? 0.08 : 0.06),
+          )
         : Colors.transparent;
 
     return MouseRegion(
@@ -1039,7 +1255,6 @@ class _SystemPromptMobileSheetState extends State<_SystemPromptMobileSheet> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final bottom = MediaQuery.of(context).viewInsets.bottom;
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.96,
@@ -1071,7 +1286,7 @@ class _SystemPromptMobileSheetState extends State<_SystemPromptMobileSheet> {
             Expanded(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.white10 : const Color(0xFFF7F7F9),
+                  color: context.appColors.surfaceFill,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: cs.outlineVariant.withValues(alpha: 0.2),
@@ -1183,9 +1398,7 @@ class _SystemPromptDesktopDialogState
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white10
-                              : const Color(0xFFF7F7F9),
+                          color: context.appColors.surfaceFill,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: cs.outlineVariant.withValues(alpha: 0.2),
@@ -1453,9 +1666,7 @@ Future<void> _showEditPresetDialog(
                       ? l10n.assistantEditPresetInputHintAssistant
                       : l10n.assistantEditPresetInputHintUser,
                   filled: true,
-                  fillColor: Theme.of(ctx).brightness == Brightness.dark
-                      ? Colors.white10
-                      : const Color(0xFFF7F7F9),
+                  fillColor: ctx.appColors.surfaceFill,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide(
@@ -1506,9 +1717,16 @@ Future<void> _showEditPresetDialog(
 }
 
 class _VarExplainList extends StatelessWidget {
-  const _VarExplainList({required this.items, required this.onTapVar});
+  const _VarExplainList({
+    required this.items,
+    required this.onTapVar,
+    this.cacheWarningVars = const <String>{},
+    this.cacheWarningTooltip,
+  });
   final List<(String, String)> items; // (label, var)
   final ValueChanged<String> onTapVar;
+  final Set<String> cacheWarningVars;
+  final String? cacheWarningTooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -1540,6 +1758,13 @@ class _VarExplainList extends StatelessWidget {
                   ),
                 ),
               ),
+              if (cacheWarningVars.contains(it.$2)) ...[
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: cacheWarningTooltip ?? '',
+                  child: Icon(Lucide.TriangleAlert, size: 14, color: cs.error),
+                ),
+              ],
             ],
           ),
       ],

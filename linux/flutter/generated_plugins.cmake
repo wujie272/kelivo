@@ -10,6 +10,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   file_selector_linux
   hotkey_manager_linux
   irondash_engine_context
+  record_linux
   restart_app
   screen_retriever_linux
   super_native_extensions
@@ -20,6 +21,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
   jni
+  sherpa_onnx_linux
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)

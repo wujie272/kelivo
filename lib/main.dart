@@ -16,12 +16,14 @@ import 'desktop/desktop_tray_controller.dart';
 // Theme is now managed in SettingsProvider
 import 'theme/theme_factory.dart';
 import 'theme/palettes.dart';
+import 'theme/custom_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'core/providers/user_provider.dart';
 import 'core/providers/settings_provider.dart';
 import 'core/providers/mcp_provider.dart';
 import 'core/providers/tts_provider.dart';
+import 'core/providers/asr_provider.dart';
 import 'core/providers/assistant_provider.dart';
 import 'core/providers/tag_provider.dart';
 import 'core/providers/update_provider.dart';
@@ -31,7 +33,10 @@ import 'core/providers/instruction_injection_group_provider.dart';
 import 'core/providers/world_book_provider.dart';
 import 'core/providers/memory_provider.dart';
 import 'core/providers/skill_provider.dart';
+import 'core/providers/memory_provider_v2.dart';
 import 'core/providers/backup_provider.dart';
+import 'core/services/memory/memory_pipeline.dart';
+import 'core/services/memory/memory_repository.dart';
 import 'core/providers/s3_backup_provider.dart';
 import 'core/providers/backup_reminder_provider.dart';
 import 'core/providers/hotkey_provider.dart';
@@ -69,6 +74,7 @@ import 'dart:io'
         stderr; // kept for global override usage inside provider
 import 'core/services/android_background.dart';
 import 'core/services/notification_service.dart';
+import 'features/home/controllers/chat_actions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final RouteObserver<ModalRoute<dynamic>> routeObserver =
@@ -452,6 +458,7 @@ void _installExitFlush(BusinessPreferences businessPreferences) {
       defaultTargetPlatform == TargetPlatform.linux;
   if (!isDesktop || _exitFlushListener != null) return;
   AppExitFlush.register(businessPreferences.flushPendingWrites);
+  AppExitFlush.register(ChatActions.flushActiveGenerationProgress);
   _exitFlushListener = AppLifecycleListener(
     onExitRequested: () async {
       try {
@@ -559,6 +566,10 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => TtsProvider(preferences: businessPreferences),
         ),
+        ChangeNotifierProvider(
+          create: (ctx) =>
+              AsrProvider(settingsProvider: ctx.read<SettingsProvider>()),
+        ),
         ChangeNotifierProvider(create: (_) => UpdateProvider()),
         ChangeNotifierProvider(
           create: (_) => QuickPhraseProvider(preferences: businessPreferences),
@@ -577,6 +588,25 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(
           create: (_) => MemoryProvider(preferences: businessPreferences),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => MemoryProviderV2(
+            repository: MemoryRepository(businessPreferences),
+            chatRepository: databaseLease.chatRepository,
+          ),
+        ),
+        Provider<MemoryPipelineService>(
+          create: (ctx) {
+            final memoryV2 = ctx.read<MemoryProviderV2>();
+            return MemoryPipelineService(
+              chatService: ctx.read<ChatService>(),
+              repository: memoryV2.repository,
+              chatRepository: memoryV2.chatRepository,
+              settings: () => ctx.read<SettingsProvider>(),
+              assistants: () => ctx.read<AssistantProvider>(),
+              memoryV2: () => ctx.read<MemoryProviderV2>(),
+            );
+          },
         ),
         ChangeNotifierProvider(
           create: (_) =>
@@ -724,7 +754,12 @@ class MyApp extends StatelessWidget {
               });
 
               final useDyn = isAndroid && settings.useDynamicColor;
-              final palette = ThemePalettes.byId(settings.themePaletteId);
+              final custom = settings.selectedCustomTheme;
+              final palette =
+                  settings.themePaletteId == ThemePalettes.customPaletteId &&
+                      custom != null
+                  ? buildCustomThemePalette(custom)
+                  : ThemePalettes.byId(settings.themePaletteId);
 
               final light = buildLightThemeForScheme(
                 palette.light,
@@ -800,6 +835,7 @@ class MyApp extends StatelessWidget {
               return MaterialApp(
                 debugShowCheckedModeBanner: false,
                 title: 'Kelivo',
+                navigatorKey: rootNavigatorKey,
                 // App UI language; null = follow system (respects iOS per-app language)
                 locale: settings.appLocaleForMaterialApp,
                 supportedLocales: AppLocalizations.supportedLocales,

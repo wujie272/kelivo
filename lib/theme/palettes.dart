@@ -642,6 +642,10 @@ class ThemePalettes {
     docTheme,
   ];
 
+  /// Id of the user-customized palette (built at runtime from the selected
+  /// [CustomTheme] — see theme/custom_theme.dart — not part of [all]).
+  static const String customPaletteId = 'custom';
+
   static ThemePalette byId(String id) {
     return all.firstWhere((p) => p.id == id, orElse: () => defaultPalette);
   }

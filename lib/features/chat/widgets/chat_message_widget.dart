@@ -34,6 +34,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/model_provider.dart';
 import '../../../core/models/assistant_regex.dart';
+import '../../../shared/widgets/custom_bottom_sheet.dart';
 import '../../../shared/widgets/ios_checkbox.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import '../../../desktop/desktop_context_menu.dart';
@@ -43,11 +44,11 @@ import '../../home/services/ask_user_interaction_service.dart';
 import '../../home/services/local_tools_service.dart';
 import '../../home/services/tool_approval_service.dart';
 import '../utils/thinking_tag_parser.dart';
-import 'bounded_large_text_view.dart';
 import 'citation_sources_sheet.dart';
 import 'chat_suggestion_bubbles.dart';
 import 'token_display_widget.dart';
 import '../../../theme/app_font_weights.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 final RegExp _urlSchemeRe = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*:');
 
@@ -100,12 +101,19 @@ IconData _toolIconFor(String name, [Map<String, dynamic> args = const {}]) {
   final localIcon = _localToolIconFor(name, args);
   if (localIcon != null) return localIcon;
   switch (name) {
+    case 'memory_read':
+    case 'memory_update':
+    case 'memory_search_profile':
+    case 'memory_edit':
+    case 'update_user_profile':
     case 'create_memory':
-      return Lucide.bookHeart;
     case 'edit_memory':
       return Lucide.bookHeart;
+    case 'memory_delete':
     case 'delete_memory':
       return Lucide.bookDashed;
+    case 'chat_search':
+      return Lucide.Search;
     case 'search_web':
       return Lucide.Earth;
     case 'builtin_search':
@@ -245,12 +253,24 @@ String _toolTitleFor(
   final localToolTitle = _localToolTitleFor(l10n, name, args);
   if (localToolTitle != null) return localToolTitle;
   switch (name) {
+    case 'memory_read':
+      return l10n.chatMessageWidgetMemoryRead;
+    case 'memory_update':
+      return l10n.chatMessageWidgetMemoryUpdate;
+    case 'memory_search_profile':
+      return l10n.chatMessageWidgetMemorySearchProfile;
+    case 'memory_edit':
+    case 'edit_memory':
+      return l10n.chatMessageWidgetMemoryEdit;
+    case 'memory_delete':
+    case 'delete_memory':
+      return l10n.chatMessageWidgetMemoryDelete;
+    case 'update_user_profile':
+      return l10n.chatMessageWidgetUpdateUserProfile;
+    case 'chat_search':
+      return l10n.chatMessageWidgetChatSearch;
     case 'create_memory':
       return l10n.chatMessageWidgetCreateMemory;
-    case 'edit_memory':
-      return l10n.chatMessageWidgetEditMemory;
-    case 'delete_memory':
-      return l10n.chatMessageWidgetDeleteMemory;
     case 'search_web':
       final q = (args['query'] ?? '').toString();
       return l10n.chatMessageWidgetWebSearch(q);
@@ -336,332 +356,115 @@ void _showToolFullImage(BuildContext context, String path) {
 }
 
 void _showToolDetail(BuildContext context, ToolUIPart part) {
-  final cs = Theme.of(context).colorScheme;
   final l10n = AppLocalizations.of(context)!;
   final argsPretty = const JsonEncoder.withIndent('  ').convert(part.arguments);
   final (cleanText, images) = _parseMcpImagePaths(part.content);
   final resultText = cleanText.isNotEmpty
       ? _prettyToolJson(cleanText)
       : l10n.chatMessageWidgetNoResultYet;
+  final title = _toolTitleFor(
+    context,
+    part.toolName,
+    part.arguments,
+    isResult: !part.loading,
+  );
 
-  final bool isDesktop =
-      defaultTargetPlatform == TargetPlatform.macOS ||
-      defaultTargetPlatform == TargetPlatform.windows ||
-      defaultTargetPlatform == TargetPlatform.linux;
-
-  if (isDesktop) {
-    showDialog<void>(
+  unawaited(
+    showCustomBottomSheet<void>(
       context: context,
-      barrierDismissible: true,
-      builder: (ctx) {
-        return Dialog(
-          elevation: 12,
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 24,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              minWidth: 360,
-              maxWidth: 560,
-              maxHeight: 560,
+      title: title,
+      closeSemanticLabel: l10n.mcpPageClose,
+      builder: (sheetContext, scrollController) {
+        final theme = Theme.of(sheetContext);
+        final cs = theme.colorScheme;
+        return ListView(
+          controller: scrollController,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            Text(
+              l10n.chatMessageWidgetArguments,
+              style: TextStyle(
+                fontSize: 12,
+                color: cs.onSurface.withValues(alpha: 0.6),
+              ),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Material(
-                color: cs.surface,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _toolIconFor(part.toolName, part.arguments),
-                            size: 18,
-                            color: cs.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _toolTitleFor(
-                                context,
-                                part.toolName,
-                                part.arguments,
-                                isResult: !part.loading,
-                              ),
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: AppFontWeights.emphasis,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Tooltip(
-                            message: l10n.mcpPageClose,
-                            child: IconButton(
-                              icon: Icon(
-                                Lucide.X,
-                                size: 18,
-                                color: cs.onSurface.withValues(alpha: 0.75),
-                              ),
-                              onPressed: () => Navigator.of(ctx).maybePop(),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                l10n.chatMessageWidgetArguments,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: cs.onSurface.withValues(alpha: 0.6),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color:
-                                      Theme.of(context).brightness ==
-                                          Brightness.dark
-                                      ? Colors.white10
-                                      : const Color(0xFFF7F7F9),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: cs.outlineVariant.withValues(
-                                      alpha: 0.2,
-                                    ),
-                                  ),
-                                ),
-                                child: BoundedLargeTextView(
-                                  argsPretty,
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                l10n.chatMessageWidgetResult,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: cs.onSurface.withValues(alpha: 0.6),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color:
-                                      Theme.of(context).brightness ==
-                                          Brightness.dark
-                                      ? Colors.white10
-                                      : const Color(0xFFF7F7F9),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: cs.outlineVariant.withValues(
-                                      alpha: 0.2,
-                                    ),
-                                  ),
-                                ),
-                                child: BoundedLargeTextView(
-                                  resultText,
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                              ),
-                              if (images.isNotEmpty) ...[
-                                const SizedBox(height: 12),
-                                Text(
-                                  l10n.chatMessageWidgetImages,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: cs.onSurface.withValues(alpha: 0.6),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: images.map((path) {
-                                    return GestureDetector(
-                                      onTap: () =>
-                                          _showToolFullImage(context, path),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: _buildToolImageFromPath(
-                                          context,
-                                          path,
-                                          height: 280,
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+            const SizedBox(height: 6),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: sheetContext.appColors.surfaceFill,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: 0.2),
                 ),
               ),
-            ),
-          ),
-        );
-      },
-    );
-    return;
-  }
-
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: cs.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (ctx) {
-      final bottomInset = MediaQuery.viewInsetsOf(ctx).bottom;
-      return SafeArea(
-        child: FractionallySizedBox(
-          heightFactor: 0.6,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 20),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        _toolIconFor(part.toolName, part.arguments),
-                        size: 18,
-                        color: cs.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _toolTitleFor(
-                            context,
-                            part.toolName,
-                            part.arguments,
-                            isResult: !part.loading,
-                          ),
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: AppFontWeights.emphasis,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    l10n.chatMessageWidgetArguments,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: cs.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white10
-                          : const Color(0xFFF7F7F9),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: cs.outlineVariant.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: BoundedLargeTextView(
-                      argsPretty,
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    l10n.chatMessageWidgetResult,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: cs.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white10
-                          : const Color(0xFFF7F7F9),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: cs.outlineVariant.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: BoundedLargeTextView(
-                      resultText,
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ),
-                  if (images.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      l10n.chatMessageWidgetImages,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: cs.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    SizedBox(
-                      height: 220,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: images.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (ctx, i) {
-                          final path = images[i];
-                          return GestureDetector(
-                            onTap: () => _showToolFullImage(context, path),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: _buildToolImageFromPath(
-                                context,
-                                path,
-                                height: 220,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ],
+              child: SelectableText(
+                argsPretty,
+                style: const TextStyle(fontSize: 12),
               ),
             ),
-          ),
-        ),
-      );
-    },
+            const SizedBox(height: 12),
+            Text(
+              l10n.chatMessageWidgetResult,
+              style: TextStyle(
+                fontSize: 12,
+                color: cs.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: sheetContext.appColors.surfaceFill,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: 0.2),
+                ),
+              ),
+              child: SelectableText(
+                resultText,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+            if (images.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                l10n.chatMessageWidgetImages,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: cs.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 220,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: images.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final path = images[index];
+                    return GestureDetector(
+                      onTap: () => _showToolFullImage(sheetContext, path),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: _buildToolImageFromPath(
+                          sheetContext,
+                          path,
+                          height: 220,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    ),
   );
 }
 
@@ -685,7 +488,7 @@ class ChatMessageWidget extends StatefulWidget {
   final VoidCallback? onEdit; // user: edit
   final VoidCallback? onDelete; // user: delete
   // Optional version switcher (branch) UI controls
-  final int? versionIndex; // zero-based
+  final int? versionIndex; // zero-based display ordinal, not a version number
   final int? versionCount;
   final VoidCallback? onPrevVersion;
   final VoidCallback? onNextVersion;
@@ -942,7 +745,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     }
     if (_visualRegexMemo.length >= 8) _visualRegexMemo.clear();
     return _visualRegexMemo.putIfAbsent(
-      '${scope.index} $input',
+      '${scope.index}\u0000$input',
       () => applyAssistantRegexes(
         input,
         assistant: assistant,
@@ -1142,7 +945,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'context-menu',
-      barrierColor: Colors.black.withValues(alpha: 0.08),
+      barrierColor: cs.scrim.withValues(alpha: 0.08),
       pageBuilder: (ctx, _, __) {
         return Stack(
           children: [
@@ -1159,7 +962,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
                       borderRadius: BorderRadius.circular(16),
                       side: BorderSide(
                         color: isDark
-                            ? Colors.white.withValues(alpha: 0.08)
+                            ? cs.onSurface.withValues(alpha: 0.08)
                             : cs.outlineVariant.withValues(alpha: 0.2),
                         width: 1,
                       ),
@@ -1171,9 +974,9 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
                       filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF1C1C1E).withValues(alpha: 0.66)
-                              : Colors.white.withValues(alpha: 0.66),
+                          color: cs.surfaceContainerHigh.withValues(
+                            alpha: 0.66,
+                          ),
                         ),
                         child: Material(
                           color: Colors.transparent,
@@ -1738,9 +1541,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
                   errorBuilder: (_, __, ___) => Container(
                     width: 112,
                     height: 112,
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : Colors.black.withValues(alpha: 0.06),
+                    color: cs.onSurface.withValues(alpha: isDark ? 0.08 : 0.06),
                     child: Icon(
                       Icons.broken_image,
                       color: cs.onSurface.withValues(alpha: 0.45),
@@ -1759,7 +1560,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
         parsed.docs.map((d) {
           return IosCardPress(
             baseColor: isDark
-                ? Colors.white.withValues(alpha: 0.08)
+                ? cs.onSurface.withValues(alpha: 0.08)
                 : cs.surface.withValues(alpha: 0.92),
             pressedScale: 0.99,
             borderRadius: BorderRadius.circular(10),
@@ -3021,7 +2822,6 @@ Widget _buildSharedChatSurface(
 }) {
   final theme = Theme.of(context);
   final cs = theme.colorScheme;
-  final isDark = theme.brightness == Brightness.dark;
   final style = context.watch<SettingsProvider>().chatMessageBackgroundStyle;
   final paddedChild = Padding(padding: padding, child: child);
 
@@ -3033,9 +2833,7 @@ Widget _buildSharedChatSurface(
           filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF1C1C1E).withValues(alpha: 0.66)
-                  : Colors.white.withValues(alpha: 0.66),
+              color: cs.surfaceContainerHigh.withValues(alpha: 0.66),
               borderRadius: borderRadius,
               border: Border.all(
                 color: cs.outlineVariant.withValues(alpha: 0.14),
@@ -3049,7 +2847,7 @@ Widget _buildSharedChatSurface(
     case ChatMessageBackgroundStyle.solid:
       return DecoratedBox(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
           borderRadius: borderRadius,
           border: Border.all(
             color: cs.outlineVariant.withValues(alpha: 0.16),
@@ -3139,9 +2937,9 @@ class _MenuItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final fg = danger ? Colors.red.shade600 : cs.onSurface;
+    final fg = danger ? Theme.of(context).colorScheme.error : cs.onSurface;
     final ic = danger
-        ? Colors.red.shade600
+        ? Theme.of(context).colorScheme.error
         : cs.onSurface.withValues(alpha: 0.9);
     // iOS-style press effect: no ripple. Use transparent base and a subtle
     // pressed blend inside the blurred/glass menu container.
@@ -3916,10 +3714,18 @@ class _ChainOfThoughtReasoningStepState
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: const [
-                      Color(0x00FFFFFF),
-                      Color(0xFFFFFFFF),
-                      Color(0xFFFFFFFF),
-                      Color(0x00FFFFFF),
+                      Color(
+                        0x00FFFFFF,
+                      ), // color-gate: ignore (dstIn alpha mask)
+                      Color(
+                        0xFFFFFFFF,
+                      ), // color-gate: ignore (dstIn alpha mask)
+                      Color(
+                        0xFFFFFFFF,
+                      ), // color-gate: ignore (dstIn alpha mask)
+                      Color(
+                        0x00FFFFFF,
+                      ), // color-gate: ignore (dstIn alpha mask)
                     ],
                     stops: [0.0, sTop, sBot, 1.0],
                   ).createShader(rect);
@@ -4566,349 +4372,8 @@ class _ToolCallItemState extends State<_ToolCallItem> {
     );
   }
 
-  /// Try to pretty-format a string as indented JSON.
-  /// Returns the original string if it is not valid JSON.
-  static String _prettyJson(String raw) {
-    try {
-      final obj = jsonDecode(raw);
-      return const JsonEncoder.withIndent('  ').convert(obj);
-    } catch (_) {
-      return raw;
-    }
-  }
-
   void _showDetail(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final l10n = AppLocalizations.of(context)!;
-    final argsPretty = const JsonEncoder.withIndent(
-      '  ',
-    ).convert(widget.part.arguments);
-    final (cleanText, images) = _parseMcpImagePaths(widget.part.content);
-    final resultText = cleanText.isNotEmpty
-        ? _prettyJson(cleanText)
-        : l10n.chatMessageWidgetNoResultYet;
-
-    final bool isDesktop =
-        defaultTargetPlatform == TargetPlatform.macOS ||
-        defaultTargetPlatform == TargetPlatform.windows ||
-        defaultTargetPlatform == TargetPlatform.linux;
-
-    if (isDesktop) {
-      showDialog<void>(
-        context: context,
-        barrierDismissible: true,
-        builder: (ctx) {
-          return Dialog(
-            elevation: 12,
-            insetPadding: const EdgeInsets.symmetric(
-              horizontal: 24,
-              vertical: 24,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                minWidth: 360,
-                maxWidth: 560,
-                maxHeight: 560,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Material(
-                  color: cs.surface,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Header
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-                        child: Row(
-                          children: [
-                            Icon(
-                              _iconFor(
-                                widget.part.toolName,
-                                widget.part.arguments,
-                              ),
-                              size: 18,
-                              color: cs.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _titleFor(
-                                  context,
-                                  widget.part.toolName,
-                                  widget.part.arguments,
-                                  isResult: !widget.part.loading,
-                                ),
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: AppFontWeights.emphasis,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            Tooltip(
-                              message: l10n.mcpPageClose,
-                              child: IconButton(
-                                icon: Icon(
-                                  Lucide.X,
-                                  size: 18,
-                                  color: cs.onSurface.withValues(alpha: 0.75),
-                                ),
-                                onPressed: () => Navigator.of(ctx).maybePop(),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      // Body
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                          child: SingleChildScrollView(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  l10n.chatMessageWidgetArguments,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: cs.onSurface.withValues(alpha: 0.6),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        Theme.of(context).brightness ==
-                                            Brightness.dark
-                                        ? Colors.white10
-                                        : const Color(0xFFF7F7F9),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: cs.outlineVariant.withValues(
-                                        alpha: 0.2,
-                                      ),
-                                    ),
-                                  ),
-                                  child: BoundedLargeTextView(
-                                    argsPretty,
-                                    style: TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  l10n.chatMessageWidgetResult,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: cs.onSurface.withValues(alpha: 0.6),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        Theme.of(context).brightness ==
-                                            Brightness.dark
-                                        ? Colors.white10
-                                        : const Color(0xFFF7F7F9),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: cs.outlineVariant.withValues(
-                                        alpha: 0.2,
-                                      ),
-                                    ),
-                                  ),
-                                  child: BoundedLargeTextView(
-                                    resultText,
-                                    style: TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                // Show images if available
-                                if (images.isNotEmpty) ...[
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    l10n.chatMessageWidgetImages,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: cs.onSurface.withValues(
-                                        alpha: 0.6,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: images.map((path) {
-                                      return GestureDetector(
-                                        onTap: () =>
-                                            _showFullImage(context, path),
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          child: _buildImageFromPath(
-                                            path,
-                                            height: 280,
-                                          ),
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      );
-      return;
-    }
-
-    // Mobile: bottom sheet remains
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: cs.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        final bottomInset = MediaQuery.viewInsetsOf(ctx).bottom;
-        return SafeArea(
-          child: FractionallySizedBox(
-            heightFactor: 0.6,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 20),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          _iconFor(widget.part.toolName, widget.part.arguments),
-                          size: 18,
-                          color: cs.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _titleFor(
-                              context,
-                              widget.part.toolName,
-                              widget.part.arguments,
-                              isResult: !widget.part.loading,
-                            ),
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: AppFontWeights.emphasis,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      l10n.chatMessageWidgetArguments,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: cs.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white10
-                            : const Color(0xFFF7F7F9),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: cs.outlineVariant.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      child: BoundedLargeTextView(
-                        argsPretty,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      l10n.chatMessageWidgetResult,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: cs.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white10
-                            : const Color(0xFFF7F7F9),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: cs.outlineVariant.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      child: BoundedLargeTextView(
-                        resultText,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                    // Show images if available
-                    if (images.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        l10n.chatMessageWidgetImages,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: cs.onSurface.withValues(alpha: 0.6),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: images.map((path) {
-                          return GestureDetector(
-                            onTap: () => _showFullImage(context, path),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: _buildImageFromPath(path, height: 240),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
+    _showToolDetail(context, widget.part);
   }
 
   /// Show full-size image using ImageViewerPage for save/share/copy support.
@@ -5768,9 +5233,7 @@ class _SourcesSummaryCard extends StatelessWidget {
     return IosCardPress(
       borderRadius: BorderRadius.circular(20),
       border: Border.all(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.16)
-            : Colors.black.withValues(alpha: 0.10),
+        color: cs.onSurface.withValues(alpha: isDark ? 0.16 : 0.10),
         width: 0.8,
       ),
       baseColor: Colors.transparent,
@@ -5865,9 +5328,7 @@ class _SourceFavicon extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final borderColor = isDark
-        ? Colors.white.withValues(alpha: 0.14)
-        : Colors.black.withValues(alpha: 0.06);
+    final borderColor = cs.onSurface.withValues(alpha: isDark ? 0.14 : 0.06);
 
     return Container(
       width: _SourceFaviconStack._iconSize,
@@ -6122,10 +5583,18 @@ class _ReasoningSectionState extends State<_ReasoningSection>
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: const [
-                        Color(0x00FFFFFF),
-                        Color(0xFFFFFFFF),
-                        Color(0xFFFFFFFF),
-                        Color(0x00FFFFFF),
+                        Color(
+                          0x00FFFFFF,
+                        ), // color-gate: ignore (dstIn alpha mask)
+                        Color(
+                          0xFFFFFFFF,
+                        ), // color-gate: ignore (dstIn alpha mask)
+                        Color(
+                          0xFFFFFFFF,
+                        ), // color-gate: ignore (dstIn alpha mask)
+                        Color(
+                          0x00FFFFFF,
+                        ), // color-gate: ignore (dstIn alpha mask)
                       ],
                       stops: [0.0, sTop, sBot, 1.0],
                     ).createShader(rect);
@@ -6236,9 +5705,15 @@ class _ShimmerState extends State<_Shimmer> with TickerProviderStateMixin {
             );
             return LinearGradient(
               colors: [
-                Colors.white.withValues(alpha: 0.0),
-                Colors.white.withValues(alpha: 0.35),
-                Colors.white.withValues(alpha: 0.0),
+                Colors.white.withValues(
+                  alpha: 0.0,
+                ), // color-gate: ignore (shimmer effect)
+                Colors.white.withValues(
+                  alpha: 0.35,
+                ), // color-gate: ignore (shimmer effect)
+                Colors.white.withValues(
+                  alpha: 0.0,
+                ), // color-gate: ignore (shimmer effect)
               ],
               stops: const [0.0, 0.5, 1.0],
               begin: Alignment.centerLeft,

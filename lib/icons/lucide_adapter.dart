@@ -17,6 +17,7 @@ class Lucide {
   static const IconData Earth = lucide.LucideIcons.earth;
   static const IconData Plus = lucide.LucideIcons.plus;
   static const IconData X = lucide.LucideIcons.x;
+  static const IconData Mic = lucide.LucideIcons.mic;
   static const IconData ArrowUp = lucide.LucideIcons.arrowUp;
   static const IconData ArrowLeft = lucide.LucideIcons.arrowLeft;
   static const IconData ArrowRight = lucide.LucideIcons.arrowRight;
@@ -30,6 +31,9 @@ class Lucide {
   static const IconData History = lucide.LucideIcons.history;
   static const IconData Settings = lucide.LucideIcons.settings;
   static const IconData Search = lucide.LucideIcons.search;
+  static const IconData SearchX = lucide.LucideIcons.searchX;
+  static const IconData Play = lucide.LucideIcons.play;
+  static const IconData ExternalLink = lucide.LucideIcons.externalLink;
   static const IconData Edit = lucide.LucideIcons.pencil;
   static const IconData Pin = lucide.LucideIcons.pin;
   static const IconData PinOff = lucide.LucideIcons.pinOff;

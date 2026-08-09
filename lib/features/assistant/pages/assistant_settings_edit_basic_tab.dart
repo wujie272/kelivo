@@ -136,9 +136,7 @@ class _BasicSettingsTabState extends State<_BasicSettingsTab> {
         // Identity card (avatar + name) - iOS style
         Container(
           decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white10
-                : Colors.white.withValues(alpha: 0.96),
+            color: context.appColors.surfaceCard,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: cs.outlineVariant.withValues(alpha: isDark ? 0.08 : 0.06),
@@ -279,9 +277,7 @@ class _BasicSettingsTabState extends State<_BasicSettingsTab> {
         // Chat model card (moved down, styled like DefaultModelPage)
         Container(
           decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white10
-                : Colors.white.withValues(alpha: 0.96),
+            color: context.appColors.surfaceCard,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: cs.outlineVariant.withValues(alpha: isDark ? 0.08 : 0.06),
@@ -353,12 +349,8 @@ class _BasicSettingsTabState extends State<_BasicSettingsTab> {
                   },
                   pressedScale: 0.98,
                   builder: (pressed) {
-                    final bg = isDark
-                        ? Colors.white10
-                        : const Color(0xFFF2F3F5);
-                    final overlay = isDark
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : Colors.black.withValues(alpha: 0.05);
+                    final bg = context.appColors.surfaceFill;
+                    final overlay = cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05);
                     final pressedBg = Color.alphaBlend(overlay, bg);
                     final l10n = AppLocalizations.of(context)!;
                     final settings = context.read<SettingsProvider>();
@@ -419,9 +411,7 @@ class _BasicSettingsTabState extends State<_BasicSettingsTab> {
         // Chat background (separate iOS card)
         Container(
           decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white10
-                : Colors.white.withValues(alpha: 0.96),
+            color: context.appColors.surfaceCard,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: cs.outlineVariant.withValues(alpha: isDark ? 0.08 : 0.06),
@@ -463,12 +453,8 @@ class _BasicSettingsTabState extends State<_BasicSettingsTab> {
                     onTap: () => _pickBackground(context, a),
                     pressedScale: 0.98,
                     builder: (pressed) {
-                      final bg = isDark
-                          ? Colors.white10
-                          : const Color(0xFFF2F3F5);
-                      final overlay = isDark
-                          ? Colors.white.withValues(alpha: 0.06)
-                          : Colors.black.withValues(alpha: 0.05);
+                      final bg = context.appColors.surfaceFill;
+                      final overlay = cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05);
                       final pressedBg = Color.alphaBlend(overlay, bg);
                       final iconColor = cs.onSurface.withValues(alpha: 0.75);
                       final textColor = cs.onSurface.withValues(alpha: 0.9);
@@ -694,7 +680,7 @@ class _BasicSettingsTabState extends State<_BasicSettingsTab> {
                         .watch<AssistantProvider>()
                         .getById(widget.assistantId)
                         ?.temperature ??
-                    0.6;
+                    Assistant.defaultTemperature;
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -730,7 +716,9 @@ class _BasicSettingsTabState extends State<_BasicSettingsTab> {
                             final navigator = Navigator.of(ctx);
                             if (v) {
                               await assistantProvider.updateAssistant(
-                                a.copyWith(temperature: 0.6),
+                                a.copyWith(
+                                  temperature: Assistant.defaultTemperature,
+                                ),
                               );
                             } else {
                               await assistantProvider.updateAssistant(
@@ -1130,9 +1118,7 @@ class _BasicSettingsTabState extends State<_BasicSettingsTab> {
                   decoration: InputDecoration(
                     hintText: l10n.assistantEditMaxTokensHint,
                     filled: true,
-                    fillColor: Theme.of(ctx).brightness == Brightness.dark
-                        ? Colors.white10
-                        : const Color(0xFFF2F3F5),
+                    fillColor: ctx.appColors.surfaceFill,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
@@ -1385,7 +1371,7 @@ class _SliderTileNew extends StatelessWidget {
                               ? []
                               : [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.08),
+                                    color: cs.shadow.withValues(alpha: 0.08),
                                     blurRadius: 8,
                                     offset: const Offset(0, 2),
                                   ),
@@ -1455,7 +1441,7 @@ class _ValuePill extends StatelessWidget {
           : HitTestBehavior.deferToChild,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: isDark ? Colors.white10 : cs.primary.withValues(alpha: 0.10),
+          color: cs.primary.withValues(alpha: isDark ? 0.18 : 0.10),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: cs.primary.withValues(alpha: isDark ? 0.28 : 0.22),
@@ -1656,9 +1642,7 @@ extension _AssistantAvatarActions on _BasicSettingsTabState {
                       decoration: InputDecoration(
                         hintText: l10n.assistantEditEmojiDialogHint,
                         filled: true,
-                        fillColor: Theme.of(ctx).brightness == Brightness.dark
-                            ? Colors.white10
-                            : const Color(0xFFF2F3F5),
+                        fillColor: ctx.appColors.surfaceFill,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(color: Colors.transparent),
@@ -1767,9 +1751,7 @@ extension _AssistantAvatarActions on _BasicSettingsTabState {
                 decoration: InputDecoration(
                   hintText: l10n.assistantEditImageUrlDialogHint,
                   filled: true,
-                  fillColor: Theme.of(ctx).brightness == Brightness.dark
-                      ? Colors.white10
-                      : const Color(0xFFF2F3F5),
+                  fillColor: ctx.appColors.surfaceFill,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: Colors.transparent),
@@ -1891,9 +1873,7 @@ extension _AssistantAvatarActions on _BasicSettingsTabState {
                 decoration: InputDecoration(
                   hintText: l10n.assistantEditQQAvatarDialogHint,
                   filled: true,
-                  fillColor: Theme.of(ctx).brightness == Brightness.dark
-                      ? Colors.white10
-                      : const Color(0xFFF2F3F5),
+                  fillColor: ctx.appColors.surfaceFill,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: Colors.transparent),

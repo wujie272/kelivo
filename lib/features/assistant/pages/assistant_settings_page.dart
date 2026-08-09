@@ -15,6 +15,7 @@ import '../../../core/services/haptics.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../theme/app_font_weights.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 class AssistantSettingsPage extends StatelessWidget {
   const AssistantSettingsPage({super.key});
@@ -119,9 +120,7 @@ class _AssistantCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final baseBg = isDark
-        ? Colors.white10
-        : Colors.white.withValues(alpha: 0.96);
+    final baseBg = context.appColors.surfaceCard;
     final content = _TactileCard(
       onTap: () {
         Navigator.of(context).push(
@@ -392,9 +391,7 @@ class _TactileCardState extends State<_TactileCard> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final overlay = _pressed
-        ? (isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.04))
+        ? (Theme.of(context).colorScheme.onSurface.withValues(alpha: isDark ? 0.06 : 0.04))
         : Colors.transparent;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -436,7 +433,6 @@ Future<String?> _showAddAssistantSheet(BuildContext context) async {
     ),
     builder: (ctx) {
       final cs = Theme.of(ctx).colorScheme;
-      final isDark = Theme.of(ctx).brightness == Brightness.dark;
       final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
       return SafeArea(
         top: false,
@@ -478,7 +474,7 @@ Future<String?> _showAddAssistantSheet(BuildContext context) async {
                 decoration: InputDecoration(
                   hintText: l10n.assistantSettingsAddSheetHint,
                   filled: true,
-                  fillColor: isDark ? Colors.white10 : const Color(0xFFF2F3F5),
+                  fillColor: context.appColors.surfaceFill,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(

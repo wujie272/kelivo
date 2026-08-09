@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'business_data.dart';
+import 'business_repository.dart';
 import 'business_settings_router.dart';
 
 final class BusinessSettingsMerger {
@@ -8,6 +10,7 @@ final class BusinessSettingsMerger {
 
   static const _activeIdsByAssistantKey =
       'instruction_injections_active_ids_by_assistant_v1';
+  static const _asrServicesKey = 'asr_services_v1';
   static const _providerOrderKey = 'providers_order_v1';
   static const _pinnedModelsKey = 'pinned_models_v1';
   static const _relationshipMapKeys = <String>{
@@ -82,7 +85,15 @@ final class BusinessSettingsMerger {
           localRows,
           importedRows,
         ),
-        _ => _reorderRows(importedRows),
+        BusinessEntityKind.memoryEntry => _mergeMemoryEntries(
+          localRows,
+          importedRows,
+        ),
+        BusinessEntityKind.userProfileField => _mergeProfileFields(
+          localRows,
+          importedRows,
+        ),
+        _ => _mergeEntityRowsById(localRows, importedRows),
       };
     }
     if (effectiveIncomingKeys.contains(_providerOrderKey) &&
@@ -118,13 +129,19 @@ final class BusinessSettingsMerger {
           imported,
           key,
         );
+      } else if (key == _asrServicesKey) {
+        preferences[key] = _mergeJsonObjectListsByIdPreferExisting(
+          preferences[key] as String?,
+          imported as String,
+          key,
+        );
       } else if (_relationshipMapKeys.contains(key)) {
         preferences[key] = _mergeJsonMapsPreferExisting(
           preferences[key] as String?,
           imported as String,
         );
       } else {
-        preferences[key] = imported;
+        preferences.putIfAbsent(key, () => imported);
       }
     }
 
@@ -242,10 +259,6 @@ final class BusinessSettingsMerger {
     return _assignSortOrders(merged);
   }
 
-  static List<BusinessEntityValue> _reorderRows(
-    List<BusinessEntityValue> rows,
-  ) => _assignSortOrders(_orderedRows(rows));
-
   static List<BusinessEntityValue> _orderedRows(
     List<BusinessEntityValue> rows,
   ) => List<BusinessEntityValue>.of(rows)
@@ -272,6 +285,37 @@ final class BusinessSettingsMerger {
         : _jsonMap(existingRaw, 'relationship_map');
     final incoming = _jsonMap(incomingRaw, 'relationship_map');
     return jsonEncode(<String, dynamic>{...incoming, ...existing});
+  }
+
+  static String _mergeJsonObjectListsByIdPreferExisting(
+    String? existingRaw,
+    String incomingRaw,
+    String key,
+  ) {
+    List<Map<String, dynamic>> decode(String raw) {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List || decoded.any((entry) => entry is! Map)) {
+        throw FormatException(key);
+      }
+      return [
+        for (final entry in decoded) Map<String, dynamic>.from(entry as Map),
+      ];
+    }
+
+    final existing = existingRaw == null || existingRaw.isEmpty
+        ? <Map<String, dynamic>>[]
+        : decode(existingRaw);
+    final incoming = decode(incomingRaw);
+    final seenIds = <String>{
+      for (final service in existing)
+        if (service['id'] case final String id) id,
+    };
+    return jsonEncode([
+      ...existing,
+      for (final service in incoming)
+        if (service['id'] is! String || seenIds.add(service['id'] as String))
+          service,
+    ]);
   }
 
   static List<BusinessEntityValue> _mergeAssistantMemories(
@@ -320,6 +364,119 @@ final class BusinessSettingsMerger {
     final content = (memory['content'] ?? '').toString().trim();
     if (assistantId.isEmpty || content.isEmpty) return null;
     return '$assistantId\n$content';
+  }
+
+  static List<BusinessEntityValue> _mergeMemoryEntries(
+    List<BusinessEntityValue> existing,
+    List<BusinessEntityValue> incoming,
+  ) {
+    final out = <BusinessEntityValue>[];
+    final seenKeys = <String>{};
+    final seenIds = <String>{};
+    final idRemap = <String, String>{};
+
+    for (final row in _orderedRows(existing)) {
+      final item = _jsonMap(row.payload, 'memory_entries_v1');
+      final key = _memoryEntryDedupeKey(item);
+      if (key != null) seenKeys.add(key);
+      seenIds.add(row.id);
+      out.add(row);
+    }
+    final localCount = out.length;
+
+    for (final row in _orderedRows(incoming)) {
+      final item = _jsonMap(row.payload, 'memory_entries_v1');
+      final key = _memoryEntryDedupeKey(item);
+      if (key != null && seenKeys.contains(key)) continue;
+
+      var selected = row;
+      var id = row.id;
+      if (seenIds.contains(id)) {
+        final newId = _newMemoryEntryId(seenIds);
+        idRemap[id] = newId;
+        item['id'] = newId;
+        id = newId;
+        selected = row.copyWith(id: newId, payload: jsonEncode(item));
+      }
+
+      out.add(selected);
+      if (key != null) seenKeys.add(key);
+      seenIds.add(id);
+    }
+
+    // Rewrite relatedIds that pointed at remapped incoming ids. Only touch
+    // rows that came from the incoming side so local payloads stay identical.
+    if (idRemap.isNotEmpty) {
+      for (var index = localCount; index < out.length; index++) {
+        final row = out[index];
+        final item = _jsonMap(row.payload, 'memory_entries_v1');
+        final related = item['relatedIds'];
+        if (related is! List) continue;
+        final rewritten = <String>[
+          for (final entry in related)
+            if (entry is String) idRemap[entry] ?? entry,
+        ];
+        if (!_sameStringList(related, rewritten)) {
+          item['relatedIds'] = rewritten;
+          out[index] = row.copyWith(payload: jsonEncode(item));
+        }
+      }
+    }
+
+    // Drop dangling relatedIds that point at ids absent from the merge result.
+    final knownIds = <String>{for (final row in out) row.id};
+    for (var index = 0; index < out.length; index++) {
+      final row = out[index];
+      final item = _jsonMap(row.payload, 'memory_entries_v1');
+      final related = item['relatedIds'];
+      if (related is! List) continue;
+      final filtered = <String>[
+        for (final entry in related)
+          if (entry is String && knownIds.contains(entry)) entry,
+      ];
+      if (_sameStringList(related, filtered)) continue;
+      item['relatedIds'] = filtered;
+      out[index] = row.copyWith(payload: jsonEncode(item));
+    }
+
+    return _assignSortOrders(out);
+  }
+
+  static bool _sameStringList(List<dynamic> left, List<String> right) {
+    if (left.length != right.length) return false;
+    for (var i = 0; i < right.length; i++) {
+      if (left[i] != right[i]) return false;
+    }
+    return true;
+  }
+
+  static List<BusinessEntityValue> _mergeProfileFields(
+    List<BusinessEntityValue> existing,
+    List<BusinessEntityValue> incoming,
+  ) {
+    // Local field wins by id (field key); incoming only fills gaps.
+    return _mergeEntityRowsById(existing, incoming);
+  }
+
+  static String? _memoryEntryDedupeKey(Map<String, dynamic> item) {
+    final scope = (item['scope'] ?? '').toString();
+    final type = (item['type'] ?? '').toString();
+    final content = item['content'];
+    if (scope.isEmpty || type.isEmpty || content is! String) return null;
+    final assistantId = (item['assistantId'] ?? '').toString();
+    return '$scope\u0000$assistantId\u0000$type\u0000'
+        '${BusinessRepository.normalizeMemoryContent(content)}';
+  }
+
+  static String _newMemoryEntryId(Set<String> seenIds) {
+    const alphabet =
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final random = Random.secure();
+    while (true) {
+      final id =
+          'mem_${List.generate(8, (_) => alphabet[random.nextInt(alphabet.length)]).join()}';
+      if (seenIds.add(id)) return id;
+    }
   }
 
   static Map<String, dynamic> _jsonMap(String raw, String key) {

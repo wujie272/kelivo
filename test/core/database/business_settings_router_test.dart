@@ -32,6 +32,10 @@ void main() {
           BusinessKeyDisposition.preference,
         );
         expect(
+          BusinessKeyRegistry.classify('asr_services_v1'),
+          BusinessKeyDisposition.preference,
+        );
+        expect(
           BusinessKeyRegistry.classify('providers_order_v1'),
           BusinessKeyDisposition.providerOrder,
         );
@@ -634,6 +638,23 @@ void main() {
         ]),
         'assistant_tags_v1': jsonEncode([
           {'id': 'tag-1', 'name': 'Work'},
+        ]),
+        'memory_entries_v1': jsonEncode([
+          {
+            'id': 'mem_a1b2c3d4',
+            'scope': 'global',
+            'type': 'identity',
+            'content': 'User likes Flutter.',
+            'createdAt': 1786012880106000,
+            'updatedAt': 1786012880106000,
+          },
+        ]),
+        'user_profile_fields_v1': jsonEncode([
+          {
+            'id': 'preferred_name',
+            'value': 'Psyche',
+            'updatedAt': 1786012880106000,
+          },
         ]),
       });
 

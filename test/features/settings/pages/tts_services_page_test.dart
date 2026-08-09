@@ -73,6 +73,14 @@ void main() {
       ),
     );
 
+    final settingsActionY = tester.getCenter(find.byTooltip('TTS settings')).dy;
+    final ttsAddY = tester.getCenter(find.byTooltip('Add')).dy;
+    final asrAddY = tester
+        .getCenter(find.byTooltip('Add speech recognition service'))
+        .dy;
+    expect(ttsAddY, greaterThan(settingsActionY + 20));
+    expect(asrAddY, greaterThan(ttsAddY));
+
     await tester.tap(find.byTooltip('Add'));
     await tester.pumpAndSettle();
 
@@ -119,6 +127,7 @@ void main() {
 
     expect(find.text('TTS Settings'), findsOneWidget);
     expect(find.text('Auto-play Assistant Replies'), findsOneWidget);
+    expect(find.text('Reuse Audio for Replay'), findsOneWidget);
     expect(find.text('Text Selection'), findsOneWidget);
   });
 }

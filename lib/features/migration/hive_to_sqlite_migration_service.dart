@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,6 +14,7 @@ import '../../core/database/chat_database_repository.dart';
 import '../../core/models/chat_message.dart';
 import '../../core/models/conversation.dart';
 import '../../core/services/backup/backup_settings_validator.dart';
+import '../../core/services/backup/restore_durability.dart';
 import '../../utils/app_directories.dart';
 
 enum HiveToSqliteMigrationStage {
@@ -124,8 +126,14 @@ class HiveToSqliteMigrationDecision {
 }
 
 class HiveToSqliteMigrationService {
-  HiveToSqliteMigrationService(this.decision);
+  HiveToSqliteMigrationService(
+    this.decision, {
+    RestoreDurability? durability,
+  }) : _durability = durability ?? RestorePlatformDurability();
 
+  static const skipAttemptThreshold = 2;
+  static const _attemptStateFileName =
+      'hive_to_sqlite_migration_attempt_v1.json';
   static const _conversationBoxName = 'conversations';
   static const _messagesBoxName = 'messages';
   static const _toolEventsBoxName = 'tool_events_v1';
@@ -147,12 +155,33 @@ class HiveToSqliteMigrationService {
       ];
 
   final HiveToSqliteMigrationDecision decision;
+
+  /// Invoked after all batches are written and immediately before [_validate].
+  /// Tests use this to corrupt the temporary database and assert rollback.
+  @visibleForTesting
+  Future<void> Function(ChatDatabaseRepository repo)? debugBeforeValidateForTest;
+  final RestoreDurability _durability;
   final _controller = StreamController<HiveToSqliteMigrationStatus>.broadcast();
   final _log = <String>[];
   var _lastBackupItems = const <HiveToSqliteBackupItem>[];
   var _chatsExportDegraded = false;
+  var _attemptCount = 0;
+  String? _persistedStageBreadcrumb;
 
   Stream<HiveToSqliteMigrationStatus> get statusStream => _controller.stream;
+
+  int get attemptCount => _attemptCount;
+
+  bool get canOfferSkip => _attemptCount >= skipAttemptThreshold;
+
+  String? get lastAttemptStage => _persistedStageBreadcrumb;
+
+  Future<int> loadAttemptState() async {
+    final state = await _readAttemptState();
+    _attemptCount = state.attempts;
+    _persistedStageBreadcrumb = state.stage;
+    return _attemptCount;
+  }
 
   static Future<HiveToSqliteMigrationDecision> check() async {
     final appDataDir = await AppDirectories.getAppDataDirectory();
@@ -177,6 +206,9 @@ class HiveToSqliteMigrationService {
       final repo = ChatDatabaseRepository.open(file: sqliteFile);
       try {
         if (await repo.isMigrationComplete()) {
+          await _deleteSqliteFamilyStatic(
+            File('${sqliteFile.path}.previous'),
+          );
           return HiveToSqliteMigrationDecision(
             needsMigration: false,
             appDataDir: appDataDir,
@@ -363,6 +395,11 @@ class HiveToSqliteMigrationService {
     LazyBox<dynamic>? toolEventsBox;
     var published = false;
     try {
+      await _beginAttempt();
+      await _recordStageBreadcrumb(
+        HiveToSqliteMigrationStage.migrating,
+        'schema',
+      );
       _emit(
         HiveToSqliteMigrationStage.migrating,
         0,
@@ -400,6 +437,8 @@ class HiveToSqliteMigrationService {
         (sum, conversation) => sum + conversation.messageIds.length,
       );
       var migratedMessages = 0;
+      var expectedToolCallParts = 0;
+      final expectedTextContentDigest = Uint8List(32);
       _emit(
         HiveToSqliteMigrationStage.migrating,
         0.04,
@@ -417,7 +456,20 @@ class HiveToSqliteMigrationService {
       // or skip those shapes instead of failing the whole migration.
       final repairStats = _MigrationRepairStats();
       final seenMessageIds = <String>{};
-      for (final conversation in conversations) {
+      await _recordStageBreadcrumb(
+        HiveToSqliteMigrationStage.migrating,
+        'messages',
+      );
+      for (final legacyConversation in conversations) {
+        final conversation = await _convertLegacyVersionSelections(
+          await _convertLegacyTruncateIndex(
+            legacyConversation,
+            messagesBox,
+            seenMessageIds,
+          ),
+          messagesBox,
+          seenMessageIds,
+        );
         var needsConversationInsert = true;
         var order = 0;
         final seenGroupVersions = <String>{};
@@ -466,10 +518,16 @@ class HiveToSqliteMigrationService {
             }
             batch.add((message: message, messageOrder: order));
             order++;
+            ChatDatabaseRepository.mixTextPartContentDigest(
+              expectedTextContentDigest,
+              message.id,
+              message.content,
+            );
             if (toolEventsBox != null) {
               final events = await _toolEventsFor(toolEventsBox, message.id);
               if (events.isNotEmpty) {
                 toolEventsByMessageId[message.id] = events;
+                expectedToolCallParts += events.length;
               }
               final signature = await _signatureFor(toolEventsBox, message.id);
               if (signature != null) {
@@ -515,6 +573,10 @@ class HiveToSqliteMigrationService {
         _logLine('legacy-data repairs: ${repairStats.describe()}');
       }
 
+      await _recordStageBreadcrumb(
+        HiveToSqliteMigrationStage.migrating,
+        'tool_events',
+      );
       _emit(
         HiveToSqliteMigrationStage.migrating,
         0.94,
@@ -524,6 +586,10 @@ class HiveToSqliteMigrationService {
         backupItems: _lastBackupItems,
         conversations: conversations.length,
         messages: migratedMessages,
+      );
+      await _recordStageBreadcrumb(
+        HiveToSqliteMigrationStage.migrating,
+        'validate',
       );
       _emit(
         HiveToSqliteMigrationStage.migrating,
@@ -535,14 +601,36 @@ class HiveToSqliteMigrationService {
         conversations: conversations.length,
         messages: migratedMessages,
       );
-      await _validate(repo, conversations.length, migratedMessages);
+      final beforeValidate = debugBeforeValidateForTest;
+      if (beforeValidate != null) {
+        await beforeValidate(repo);
+      }
+      await _validate(
+        repo,
+        expectedConversations: conversations.length,
+        expectedMessages: migratedMessages,
+        expectedTextContentDigest: ChatDatabaseRepository.textPartContentDigestHex(
+          expectedTextContentDigest,
+        ),
+        expectedToolCallParts: expectedToolCallParts,
+        backupPath: backupPath,
+        migratedMessages: migratedMessages,
+      );
       await repo.markMigrationComplete();
       await repo.checkpoint();
       await repo.close();
       repo = null;
+      // WAL truncate can leave empty -wal/-shm files behind; strip them before
+      // the publish assertion treats any sidecar as unexpected data loss.
+      await _deleteDatabaseSidecars(tempFile);
 
+      await _recordStageBreadcrumb(
+        HiveToSqliteMigrationStage.migrating,
+        'publish',
+      );
       await _replaceSqlite(tempFile, decision.sqliteFile);
       published = true;
+      await _clearAttemptState();
       _emit(
         HiveToSqliteMigrationStage.complete,
         1,
@@ -585,6 +673,94 @@ class HiveToSqliteMigrationService {
     }
   }
 
+  Future<Conversation> _convertLegacyTruncateIndex(
+    Conversation conversation,
+    LazyBox<ChatMessage> messagesBox,
+    Set<String> alreadyMigratedMessageIds,
+  ) async {
+    final truncateIndex = conversation.truncateIndex;
+    if (truncateIndex < 0 || truncateIndex > conversation.messageIds.length) {
+      return conversation;
+    }
+
+    final groupsBeforeTruncate = <String>{};
+    for (var i = 0; i < truncateIndex; i++) {
+      final message = await messagesBox.get(conversation.messageIds[i]);
+      if (message == null || alreadyMigratedMessageIds.contains(message.id)) {
+        continue;
+      }
+      groupsBeforeTruncate.add(message.groupId ?? message.id);
+    }
+    final logicalIndex = groupsBeforeTruncate.length;
+    return logicalIndex == truncateIndex
+        ? conversation
+        : conversation.copyWith(truncateIndex: logicalIndex);
+  }
+
+  Future<Conversation> _convertLegacyVersionSelections(
+    Conversation conversation,
+    LazyBox<ChatMessage> messagesBox,
+    Set<String> alreadyMigratedMessageIds,
+  ) async {
+    if (conversation.versionSelections.isEmpty) return conversation;
+
+    final messagesByGroup = <String, List<ChatMessage>>{
+      for (final groupId in conversation.versionSelections.keys)
+        groupId: <ChatMessage>[],
+    };
+    final repairedVersionsByMessageId = <String, int>{};
+    final localMessageIds = <String>{};
+    final seenGroupVersions = <String>{};
+    final maxGroupVersions = <String, int>{};
+    for (final messageId in conversation.messageIds) {
+      final message = await messagesBox.get(messageId);
+      if (message == null) continue;
+      messagesByGroup[message.groupId ?? message.id]?.add(message);
+      if (alreadyMigratedMessageIds.contains(message.id) ||
+          !localMessageIds.add(message.id)) {
+        continue;
+      }
+
+      final groupId = message.groupId;
+      if (groupId == null) continue;
+      var repairedVersion = message.version;
+      if (!seenGroupVersions.add('$groupId\u0000$repairedVersion')) {
+        repairedVersion = (maxGroupVersions[groupId] ?? repairedVersion) + 1;
+        repairedVersionsByMessageId[message.id] = repairedVersion;
+        seenGroupVersions.add('$groupId\u0000$repairedVersion');
+      }
+      final knownMax = maxGroupVersions[groupId];
+      if (knownMax == null || repairedVersion > knownMax) {
+        maxGroupVersions[groupId] = repairedVersion;
+      }
+    }
+
+    final convertedSelections = Map<String, int>.from(
+      conversation.versionSelections,
+    );
+    var changed = false;
+    for (final entry in conversation.versionSelections.entries) {
+      final messages = messagesByGroup[entry.key]!
+        ..sort((left, right) => left.version.compareTo(right.version));
+      if (messages.isEmpty) continue;
+      final ordinal = entry.value;
+      final selectedMessage = ordinal >= 0 && ordinal < messages.length
+          ? messages[ordinal]
+          : messages.last;
+      final version =
+          repairedVersionsByMessageId[selectedMessage.id] ??
+          selectedMessage.version;
+      if (version != ordinal) {
+        convertedSelections[entry.key] = version;
+        changed = true;
+      }
+    }
+
+    return changed
+        ? conversation.copyWith(versionSelections: convertedSelections)
+        : conversation;
+  }
+
   /// Escape hatch after repeated migration failures: renames the legacy Hive
   /// artifacts to `<name>.retired` so [check] stops requesting migration and
   /// the next launch starts with an empty SQLite database. The retired files
@@ -606,6 +782,10 @@ class HiveToSqliteMigrationService {
     }
     // A failed attempt can leave the temporary database family behind.
     await _deleteSqliteFamily(File('${decision.sqliteFile.path}.migrating'));
+    await _deleteSqliteFamily(
+      File('${decision.sqliteFile.path}.previous'),
+    );
+    await _clearAttemptState();
     _logLine('skip-migration: legacy hive files retired');
   }
 
@@ -1148,37 +1328,245 @@ class HiveToSqliteMigrationService {
   }
 
   Future<void> _validate(
-    ChatDatabaseRepository repo,
-    int expectedConversations,
-    int expectedMessages,
-  ) async {
+    ChatDatabaseRepository repo, {
+    required int expectedConversations,
+    required int expectedMessages,
+    required String expectedTextContentDigest,
+    required int expectedToolCallParts,
+    String? backupPath,
+    int migratedMessages = 0,
+  }) async {
     final conversationCount = await repo.getConversationCount();
-    final messageCount = await repo.getTotalMessageCount();
-    if (conversationCount != expectedConversations ||
-        messageCount != expectedMessages) {
+    if (conversationCount != expectedConversations) {
       throw StateError(
-        'Migration validation failed: expected $expectedConversations conversations / $expectedMessages messages, got $conversationCount / $messageCount.',
+        'Migration validation failed (conversation count): '
+        'expected $expectedConversations, got $conversationCount.',
+      );
+    }
+    final messageCount = await repo.getTotalMessageCount();
+    if (messageCount != expectedMessages) {
+      throw StateError(
+        'Migration validation failed (message count): '
+        'expected $expectedMessages, got $messageCount.',
+      );
+    }
+    final textPartCount = await repo.getTextPartCount();
+    if (textPartCount != expectedMessages) {
+      throw StateError(
+        'Migration validation failed (text part count): '
+        'expected $expectedMessages, got $textPartCount.',
+      );
+    }
+    final toolCallPartCount = await repo.getToolCallPartCount();
+    if (toolCallPartCount != expectedToolCallParts) {
+      throw StateError(
+        'Migration validation failed (tool_call part count): '
+        'expected $expectedToolCallParts, got $toolCallPartCount.',
+      );
+    }
+    // Digest scans multi-GB payloads on a worker isolate; map byte progress
+    // into the remaining validate window so the migration bar keeps moving.
+    var lastDigestProgressEmit = DateTime.fromMillisecondsSinceEpoch(0);
+    final textContentDigest = await repo.getTextPartContentDigest(
+      onProgress: (processedChars, totalChars) {
+        final now = DateTime.now();
+        final isDone = totalChars > 0 && processedChars >= totalChars;
+        if (!isDone &&
+            now.difference(lastDigestProgressEmit) <
+                const Duration(milliseconds: 100)) {
+          return;
+        }
+        lastDigestProgressEmit = now;
+        final fraction = totalChars <= 0
+            ? 1.0
+            : (processedChars / totalChars).clamp(0.0, 1.0);
+        _emit(
+          HiveToSqliteMigrationStage.migrating,
+          0.98 + 0.015 * fraction,
+          'migrate',
+          'validate',
+          backupPath: backupPath,
+          backupItems: _lastBackupItems,
+          conversations: expectedConversations,
+          messages: migratedMessages,
+        );
+      },
+    );
+    if (textContentDigest != expectedTextContentDigest) {
+      throw StateError(
+        'Migration validation failed (text content digest): '
+        'expected $expectedTextContentDigest, got $textContentDigest.',
       );
     }
   }
 
+  @visibleForTesting
+  Future<void> replaceSqliteForTest(File tempFile, File sqliteFile) {
+    return _replaceSqlite(tempFile, sqliteFile);
+  }
+
   Future<void> _replaceSqlite(File tempFile, File sqliteFile) async {
-    await _deleteSqliteFamily(sqliteFile);
-    for (final suffix in ['', '-wal', '-shm']) {
-      final source = File('${tempFile.path}$suffix');
-      if (await source.exists()) {
-        await source.rename('${sqliteFile.path}$suffix');
+    final asideFile = File('${sqliteFile.path}.previous');
+    final tempType = await FileSystemEntity.type(
+      tempFile.path,
+      followLinks: false,
+    );
+    final liveType = await FileSystemEntity.type(
+      sqliteFile.path,
+      followLinks: false,
+    );
+
+    if (tempType == FileSystemEntityType.notFound) {
+      if (liveType != FileSystemEntityType.file) {
+        throw StateError('migration_publish_missing_temp');
+      }
+      await _deleteDatabaseSidecars(sqliteFile);
+      await _deleteSqliteFamily(asideFile);
+      return;
+    }
+    if (tempType != FileSystemEntityType.file) {
+      throw StateError('migration_publish_temp_not_file');
+    }
+    await _requireNoDatabaseSidecars(tempFile);
+
+    if (liveType == FileSystemEntityType.directory) {
+      throw StateError('migration_publish_live_not_file');
+    }
+    if (liveType == FileSystemEntityType.file) {
+      await _deleteDatabaseSidecars(sqliteFile);
+      await _deleteSqliteFamily(asideFile);
+      await _durability.renameAndSync(
+        source: sqliteFile,
+        targetPath: asideFile.path,
+      );
+    }
+
+    final liveAfterAside = await FileSystemEntity.type(
+      sqliteFile.path,
+      followLinks: false,
+    );
+    if (liveAfterAside == FileSystemEntityType.notFound) {
+      await _durability.renameAndSync(
+        source: tempFile,
+        targetPath: sqliteFile.path,
+      );
+    } else if (await tempFile.exists()) {
+      throw StateError('migration_publish_split_brain');
+    }
+
+    await _durability.syncDirectory(
+      Directory(p.dirname(sqliteFile.path)),
+      fullBarrier: true,
+    );
+    await _deleteSqliteFamily(asideFile);
+  }
+
+  Future<void> _requireNoDatabaseSidecars(File databaseFile) async {
+    for (final suffix in const ['-wal', '-shm', '-journal']) {
+      final sidecar = File('${databaseFile.path}$suffix');
+      if (await FileSystemEntity.type(sidecar.path, followLinks: false) !=
+          FileSystemEntityType.notFound) {
+        throw StateError('database_sidecar:$suffix');
       }
     }
   }
 
-  Future<void> _deleteSqliteFamily(File file) async {
-    for (final suffix in ['', '-wal', '-shm']) {
+  Future<void> _deleteDatabaseSidecars(File databaseFile) async {
+    for (final suffix in const ['-wal', '-shm', '-journal']) {
+      final sidecar = File('${databaseFile.path}$suffix');
+      if (await FileSystemEntity.type(sidecar.path, followLinks: false) !=
+          FileSystemEntityType.notFound) {
+        await sidecar.delete();
+      }
+    }
+  }
+
+  Future<void> _deleteSqliteFamily(File file) => _deleteSqliteFamilyStatic(file);
+
+  static Future<void> _deleteSqliteFamilyStatic(File file) async {
+    for (final suffix in ['', '-wal', '-shm', '-journal']) {
       final target = File('${file.path}$suffix');
-      if (await target.exists()) {
+      if (await FileSystemEntity.type(target.path, followLinks: false) !=
+          FileSystemEntityType.notFound) {
         await target.delete();
       }
     }
+  }
+
+  File get _attemptStateFile =>
+      File(p.join(decision.appDataDir.path, _attemptStateFileName));
+
+  Future<void> _beginAttempt() async {
+    final state = await _readAttemptState();
+    _attemptCount = state.attempts + 1;
+    _persistedStageBreadcrumb = 'migrating/start';
+    await _writeAttemptState(
+      attempts: _attemptCount,
+      stage: _persistedStageBreadcrumb!,
+    );
+    _logLine(
+      'migration-attempt: $_attemptCount '
+      '(${HiveToSqliteMigrationStage.migrating.name}/start)',
+    );
+  }
+
+  Future<void> _recordStageBreadcrumb(
+    HiveToSqliteMigrationStage stage,
+    String detail,
+  ) async {
+    final breadcrumb = '${stage.name}/$detail';
+    if (breadcrumb == _persistedStageBreadcrumb) return;
+    _persistedStageBreadcrumb = breadcrumb;
+    _logLine('migration-stage: $breadcrumb');
+    await _writeAttemptState(attempts: _attemptCount, stage: breadcrumb);
+  }
+
+  Future<void> _clearAttemptState() async {
+    _attemptCount = 0;
+    _persistedStageBreadcrumb = null;
+    final file = _attemptStateFile;
+    if (await FileSystemEntity.type(file.path, followLinks: false) !=
+        FileSystemEntityType.notFound) {
+      await file.delete();
+    }
+  }
+
+  Future<({int attempts, String? stage})> _readAttemptState() async {
+    final file = _attemptStateFile;
+    if (await FileSystemEntity.type(file.path, followLinks: false) !=
+        FileSystemEntityType.file) {
+      return (attempts: 0, stage: null);
+    }
+    try {
+      final decoded = jsonDecode(await file.readAsString());
+      if (decoded is! Map) return (attempts: 0, stage: null);
+      final attempts = decoded['attempts'];
+      final stage = decoded['stage'];
+      return (
+        attempts: attempts is int && attempts > 0 ? attempts : 0,
+        stage: stage is String && stage.isNotEmpty ? stage : null,
+      );
+    } catch (_) {
+      return (attempts: 0, stage: null);
+    }
+  }
+
+  Future<void> _writeAttemptState({
+    required int attempts,
+    required String stage,
+  }) async {
+    final file = _attemptStateFile;
+    final temporary = File('${file.path}.tmp');
+    await temporary.writeAsString(
+      jsonEncode({'attempts': attempts, 'stage': stage}),
+      flush: true,
+    );
+    // POSIX rename replaces an existing target atomically. Windows requires
+    // the target to be absent, which briefly opens a neither-file window.
+    if (Platform.isWindows && await file.exists()) {
+      await file.delete();
+    }
+    await temporary.rename(file.path);
   }
 
   void _registerHiveAdapters() {

@@ -8,6 +8,7 @@ import '../../../core/providers/quick_phrase_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/services/haptics.dart';
 import '../../../theme/app_font_weights.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 class QuickPhrasesPage extends StatefulWidget {
   const QuickPhrasesPage({super.key, this.assistantId});
@@ -226,9 +227,7 @@ class _QuickPhrasesPageState extends State<QuickPhrasesPage> {
                           pressedScale: 0.98,
                           onTap: () => _showAddEditSheet(phrase: phrase),
                           builder: (pressed, overlay) {
-                            final baseBg = isDark
-                                ? Colors.white10
-                                : Colors.white.withValues(alpha: 0.96);
+                            final baseBg = context.appColors.surfaceCard;
                             return Container(
                               decoration: BoxDecoration(
                                 color: Color.alphaBlend(overlay, baseBg),
@@ -352,7 +351,6 @@ class _QuickPhraseEditSheetState extends State<_QuickPhraseEditSheet> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SafeArea(
       top: false,
@@ -396,7 +394,7 @@ class _QuickPhraseEditSheetState extends State<_QuickPhraseEditSheet> {
               decoration: InputDecoration(
                 labelText: l10n.quickPhraseTitleLabel,
                 filled: true,
-                fillColor: isDark ? Colors.white10 : const Color(0xFFF2F3F5),
+                fillColor: context.appColors.surfaceFill,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(
@@ -425,7 +423,7 @@ class _QuickPhraseEditSheetState extends State<_QuickPhraseEditSheet> {
                 labelText: l10n.quickPhraseContentLabel,
                 alignLabelWithHint: true,
                 filled: true,
-                fillColor: isDark ? Colors.white10 : const Color(0xFFF2F3F5),
+                fillColor: context.appColors.surfaceFill,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(
@@ -543,9 +541,7 @@ class _TactileCardState extends State<_TactileCard> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final overlay = _pressed
-        ? (isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.05))
+        ? (Theme.of(context).colorScheme.onSurface.withValues(alpha: isDark ? 0.06 : 0.05))
         : Colors.transparent;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,

@@ -118,8 +118,9 @@ class AssistantProvider extends ChangeNotifier {
     name: l10n.assistantProviderDefaultAssistantName,
     systemPrompt: '',
     thinkingBudget: null,
-    temperature: 0.6,
+    temperature: null,
     topP: null,
+    limitContextMessages: false,
   );
 
   // Ensure localized default assistants exist; call this after localization is ready.
@@ -136,14 +137,10 @@ class AssistantProvider extends ChangeNotifier {
         name: l10n.assistantProviderSampleAssistantName,
         systemPrompt: l10n.assistantProviderSampleAssistantSystemPrompt(
           '{model_name}',
-          '{cur_datetime}',
-          '"{locale}"',
-          '{timezone}',
-          '{device_info}',
-          '{system_version}',
         ),
-        temperature: 0.6,
+        temperature: null,
         topP: null,
+        limitContextMessages: false,
       ),
     );
     await _persist();
@@ -314,8 +311,9 @@ class AssistantProvider extends ChangeNotifier {
           (context != null
               ? AppLocalizations.of(context)!.assistantProviderNewAssistantName
               : 'New Assistant')),
-      temperature: 0.6,
+      temperature: null,
       topP: null,
+      limitContextMessages: false,
     );
     _assistants.add(a);
     await _persist();

@@ -13,6 +13,7 @@ import '../shared/widgets/ios_switch.dart';
 import '../shared/widgets/snackbar.dart';
 import '../features/model/widgets/model_edit_state_helper.dart';
 import '../theme/app_font_weights.dart';
+import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 Future<bool?> showDesktopModelEditDialog(
   BuildContext context, {
@@ -49,7 +50,7 @@ Future<bool?> _openDialog(
   await showGeneralDialog<bool>(
     context: context,
     barrierDismissible: true,
-    barrierColor: Colors.black.withValues(alpha: 0.25),
+    barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.25),
     barrierLabel: 'model-edit-dialog',
     pageBuilder: (ctx, _, __) => _ModelEditDialogBody(
       providerKey: providerKey,
@@ -276,12 +277,11 @@ class _ModelEditDialogBodyState extends State<_ModelEditDialogBody>
 
   // Desktop input decoration matching provider settings inputs
   InputDecoration _deskInputDecoration(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
     return InputDecoration(
       isDense: true,
       filled: true,
-      fillColor: isDark ? Colors.white10 : const Color(0xFFF7F7F9),
+      fillColor: context.appColors.surfaceFill,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide(
@@ -340,7 +340,7 @@ class _ModelEditDialogBodyState extends State<_ModelEditDialogBody>
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
               color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white.withValues(alpha: 0.08)
+                  ? cs.onSurface.withValues(alpha: 0.08)
                   : cs.outlineVariant.withValues(alpha: 0.25),
             ),
           ),
@@ -1005,7 +1005,7 @@ class _SegmentedSingle extends StatelessWidget {
     final selBg = isDark
         ? cs.primary.withValues(alpha: 0.20)
         : cs.primary.withValues(alpha: 0.12);
-    final baseBg = isDark ? Colors.white10 : const Color(0xFFF7F7F9);
+    final baseBg = context.appColors.surfaceFill;
     final children = <Widget>[];
     for (int i = 0; i < options.length; i++) {
       final selected = i == value;
@@ -1067,7 +1067,7 @@ class _SegmentedMulti extends StatelessWidget {
     final selBg = isDark
         ? cs.primary.withValues(alpha: 0.20)
         : cs.primary.withValues(alpha: 0.12);
-    final baseBg = isDark ? Colors.white10 : const Color(0xFFF7F7F9);
+    final baseBg = context.appColors.surfaceFill;
     final children = <Widget>[];
     for (int i = 0; i < options.length; i++) {
       final selected = isSelected[i];
@@ -1174,7 +1174,6 @@ class _HeaderRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -1186,7 +1185,7 @@ class _HeaderRow extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: l10n.modelDetailSheetHeaderKeyHint,
                 filled: true,
-                fillColor: isDark ? Colors.white10 : const Color(0xFFF7F7F9),
+                fillColor: context.appColors.surfaceFill,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide(
@@ -1223,7 +1222,7 @@ class _HeaderRow extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: l10n.modelDetailSheetHeaderValueHint,
                 filled: true,
-                fillColor: isDark ? Colors.white10 : const Color(0xFFF7F7F9),
+                fillColor: context.appColors.surfaceFill,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide(
@@ -1274,7 +1273,6 @@ class _BodyRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -1288,9 +1286,7 @@ class _BodyRow extends StatelessWidget {
                   decoration: InputDecoration(
                     hintText: l10n.modelDetailSheetBodyKeyHint,
                     filled: true,
-                    fillColor: isDark
-                        ? Colors.white10
-                        : const Color(0xFFF7F7F9),
+                    fillColor: context.appColors.surfaceFill,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                       borderSide: BorderSide(
@@ -1338,7 +1334,7 @@ class _BodyRow extends StatelessWidget {
             decoration: InputDecoration(
               hintText: l10n.modelDetailSheetBodyJsonHint,
               filled: true,
-              fillColor: isDark ? Colors.white10 : const Color(0xFFF7F7F9),
+              fillColor: context.appColors.surfaceFill,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(
@@ -1396,7 +1392,7 @@ class _ToolTileState extends State<_ToolTile> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
     final bool isDisabled = widget.onChanged == null;
-    final baseBg = isDark ? Colors.white10 : const Color(0xFFF2F3F5);
+    final baseBg = context.appColors.surfaceFill;
     final hoverBg = Color.alphaBlend(
       cs.primary.withValues(alpha: isDark ? 0.10 : 0.06),
       baseBg,
@@ -1489,9 +1485,7 @@ class _DeskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : const Color(0xFFF2F3F5);
+    final bg = context.appColors.surfaceFill;
     return Container(
       decoration: BoxDecoration(
         color: bg,
@@ -1547,9 +1541,7 @@ class _SegTabBarState extends State<_SegTabBar> {
                 (innerAvailWidth - gap * (tabs.length - 1)) / tabs.length;
             final double rowWidth =
                 segWidth * tabs.length + gap * (tabs.length - 1);
-            final Color shellBg = isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.white;
+            final Color shellBg = context.appColors.surfaceCard;
 
             List<Widget> children = [];
             for (int index = 0; index < tabs.length; index++) {
@@ -1558,9 +1550,7 @@ class _SegTabBarState extends State<_SegTabBar> {
               final Color bg = selected
                   ? cs.primary.withValues(alpha: 0.14)
                   : hovered
-                  ? (isDark
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : Colors.black.withValues(alpha: 0.03))
+                  ? (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.03))
                   : Colors.transparent;
               final Color fg = selected
                   ? cs.primary

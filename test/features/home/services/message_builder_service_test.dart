@@ -47,6 +47,8 @@ ChatMessage _message({
   required String role,
   required String content,
   String? reasoningText,
+  String? groupId,
+  int version = 0,
 }) {
   return ChatMessage(
     id: id,
@@ -54,10 +56,41 @@ ChatMessage _message({
     content: content,
     conversationId: 'conversation-1',
     reasoningText: reasoningText,
+    groupId: groupId,
+    version: version,
   );
 }
 
 void main() {
+  test('collapseVersions 按真实版本号选择消息', () {
+    final service = MessageBuilderService(
+      chatService: _FakeChatService(const {}),
+      contextProvider: _FakeBuildContext(),
+    );
+
+    final collapsed = service.collapseVersions(
+      [
+        _message(
+          id: 'v1',
+          role: 'assistant',
+          content: 'selected',
+          groupId: 'answer',
+          version: 1,
+        ),
+        _message(
+          id: 'v2',
+          role: 'assistant',
+          content: 'not selected',
+          groupId: 'answer',
+          version: 2,
+        ),
+      ],
+      const {'answer': 1},
+    );
+
+    expect(collapsed.single.id, 'v1');
+  });
+
   group('MessageBuilderService.parseInputFromRaw', () {
     test('默认将视频和音频文件路径纳入媒体路径供 API 使用', () {
       final service = MessageBuilderService(
@@ -553,7 +586,8 @@ void main() {
         contextProvider: _FakeBuildContext(),
       );
       // prepareApiMessages injects WorldBook against the full history, then
-      // applies a single context trim before OCR.
+      // applies a single context trim before OCR — only when the assistant
+      // opts into limitContextMessages (default is unlimited, D-30).
       final apiMessages = <Map<String, dynamic>>[
         {'role': 'system', 'content': 'system'},
         for (var index = 0; index < 6; index++)
@@ -567,7 +601,12 @@ void main() {
 
       service.applyContextLimit(
         apiMessages,
-        const Assistant(id: 'assistant-1', name: 'test', contextMessageSize: 4),
+        const Assistant(
+          id: 'assistant-1',
+          name: 'test',
+          contextMessageSize: 4,
+          limitContextMessages: true,
+        ),
       );
       expect(apiMessages.length, 5); // system + 4
       expect(apiMessages.first['role'], 'system');
@@ -598,7 +637,12 @@ void main() {
 
       service.applyContextLimit(
         apiMessages,
-        const Assistant(id: 'assistant-1', name: 'test', contextMessageSize: 2),
+        const Assistant(
+          id: 'assistant-1',
+          name: 'test',
+          contextMessageSize: 2,
+          limitContextMessages: true,
+        ),
       );
 
       expect(apiMessages, hasLength(2));
@@ -615,10 +659,7 @@ void main() {
         retainedUser[MessageBuilderService.internalRevisionIdKey],
         isNotNull,
       );
-      expect(
-        (retainedUser['content'] ?? '').toString(),
-        contains('[image:'),
-      );
+      expect((retainedUser['content'] ?? '').toString(), contains('[image:'));
     });
 
     test('无限制上下文不会裁掉一千条以上的消息', () {
@@ -678,7 +719,12 @@ void main() {
 
       service.applyContextLimit(
         apiMessages,
-        const Assistant(id: 'assistant-1', name: 'test', contextMessageSize: 3),
+        const Assistant(
+          id: 'assistant-1',
+          name: 'test',
+          contextMessageSize: 3,
+          limitContextMessages: true,
+        ),
       );
 
       expect(
@@ -725,7 +771,12 @@ void main() {
 
       service.applyContextLimit(
         apiMessages,
-        const Assistant(id: 'assistant-1', name: 'test', contextMessageSize: 4),
+        const Assistant(
+          id: 'assistant-1',
+          name: 'test',
+          contextMessageSize: 4,
+          limitContextMessages: true,
+        ),
       );
 
       expect(
@@ -815,10 +866,7 @@ void main() {
         ocrCalls.expand((paths) => paths),
         isNot(contains('/tmp/lore.png')),
       );
-      expect(
-        ocrCalls.expand((paths) => paths),
-        contains('/tmp/real.png'),
-      );
+      expect(ocrCalls.expand((paths) => paths), contains('/tmp/real.png'));
     });
   });
 }

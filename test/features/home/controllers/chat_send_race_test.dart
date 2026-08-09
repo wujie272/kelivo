@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -11,12 +12,18 @@ import 'package:provider/provider.dart';
 import '../../../support/business_test_harness.dart';
 import 'package:Kelivo/core/database/chat_database_repository.dart';
 import 'package:Kelivo/core/models/chat_input_data.dart';
+import 'package:Kelivo/core/models/chat_message.dart';
 import 'package:Kelivo/core/models/conversation.dart';
 import 'package:Kelivo/core/providers/assistant_provider.dart';
+import 'package:Kelivo/core/providers/mcp_provider.dart';
 import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/core/services/chat/chat_service.dart';
+import 'package:Kelivo/core/services/mcp/mcp_tool_service.dart';
+import 'package:Kelivo/features/chat/widgets/chat_message_widget.dart'
+    show ToolUIPart;
 import 'package:Kelivo/features/home/controllers/home_page_controller.dart';
 import 'package:Kelivo/features/home/controllers/scroll_controller.dart';
+import 'package:Kelivo/features/home/services/ask_user_interaction_service.dart';
 import 'package:Kelivo/features/home/widgets/chat_input_bar.dart';
 import 'package:Kelivo/l10n/app_localizations.dart';
 
@@ -175,6 +182,13 @@ void main() {
           ChangeNotifierProvider<AssistantProvider>.value(
             value: assistantProvider,
           ),
+          ChangeNotifierProvider<McpProvider>(
+            create: (_) =>
+                McpProvider(preferences: createBusinessTestPreferences()),
+          ),
+          ChangeNotifierProvider<McpToolService>(
+            create: (_) => McpToolService(),
+          ),
         ],
         child: MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -242,6 +256,74 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('single-flight cancel hides loading before slow teardown', (
+    tester,
+  ) async {
+    final controller = await pumpHarness(tester);
+    await tester.runAsync(() async {
+      final convo = await openConversation(controller);
+      controller.chatController.setConversationLoading(convo.id, true);
+      final releaseCancel = Completer<void>();
+      var cancelCalls = 0;
+      final source = StreamController<void>(
+        onCancel: () async {
+          cancelCalls++;
+          await releaseCancel.future;
+          throw StateError('cancel failed');
+        },
+      );
+      controller.chatController.setStreamSubscription(
+        convo.id,
+        source.stream.listen((_) {}),
+      );
+
+      final firstCancel = controller.cancelStreaming();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.isCurrentConversationLoading, isFalse);
+      expect(controller.chatController.isConversationLoading(convo.id), isTrue);
+      expect(controller.loadingConversationIds, isNot(contains(convo.id)));
+
+      final recoveredMessage = ChatMessage(
+        id: 'stopping-assistant',
+        role: 'assistant',
+        content: '',
+        conversationId: convo.id,
+      );
+      const recoveredPart = ToolUIPart(
+        id: 'ask-user',
+        toolName: AskUserToolNames.askUser,
+        arguments: <String, dynamic>{},
+        loading: true,
+      );
+      await controller.submitRecoveredAskUserAnswer(
+        recoveredMessage,
+        recoveredPart,
+        const AskUserResult.answer(<String, AskUserAnswerValue>{}),
+      );
+      expect(service.getToolEvents(recoveredMessage.id), isEmpty);
+      expect(controller.toolParts[recoveredMessage.id], isNull);
+
+      var secondCompleted = false;
+      final secondCancel = controller.cancelStreaming().whenComplete(
+        () => secondCompleted = true,
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(cancelCalls, 1);
+      expect(secondCompleted, isFalse);
+
+      releaseCancel.complete();
+      await Future.wait([firstCancel, secondCancel]);
+
+      expect(
+        controller.chatController.isConversationLoading(convo.id),
+        isFalse,
+      );
+      await source.close();
+    });
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('double suggestion tap persists a single user/assistant pair', (
     tester,
   ) async {
@@ -302,6 +384,102 @@ void main() {
         controller.chatController.isConversationLoading(convo.id),
         isFalse,
       );
+    });
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('assistant edit save and send creates a new reply slot', (
+    tester,
+  ) async {
+    final controller = await pumpHarness(tester);
+    await tester.runAsync(() async {
+      final convo = await openConversation(controller);
+      await controller.sendMessage(ChatInputData(text: 'hello'));
+      await waitFor(
+        () => !controller.chatController.isConversationLoading(convo.id),
+        'initial streaming to finish',
+      );
+      final before = await service.loadMessages(convo.id);
+      final original = before.firstWhere((m) => m.role == 'assistant');
+      final edited = await service.appendMessageVersion(
+        messageId: original.id,
+        content: 'edited answer',
+      );
+      expect(edited, isNotNull);
+
+      await controller.regenerateAtMessage(edited!, assistantAsNewReply: true);
+
+      await waitFor(() => streamRequestCount == 2, 'second stream to fire');
+      await waitFor(
+        () => !controller.chatController.isConversationLoading(convo.id),
+        'new reply streaming to finish',
+      );
+      final messages = await service.loadMessages(convo.id);
+      final editedGroupId = original.groupId ?? original.id;
+      final newReplies = messages.where(
+        (message) =>
+            message.role == 'assistant' &&
+            (message.groupId ?? message.id) != editedGroupId,
+      );
+      expect(
+        messages.where((message) => message.role == 'assistant'),
+        hasLength(3),
+      );
+      expect(newReplies, hasLength(1));
+      expect(
+        newReplies.single.groupId ?? newReplies.single.id,
+        newReplies.single.id,
+      );
+      expect(newReplies.single.version, 0);
+      expect(newReplies.single.isStreaming, isFalse);
+    });
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('temporary user edit saves and sends the in-memory version', (
+    tester,
+  ) async {
+    final controller = await pumpHarness(tester);
+    await tester.runAsync(() async {
+      final convo = await service.createDraftConversation(
+        title: 'Temporary Chat',
+        temporary: true,
+      );
+      controller.chatController.setDraftConversation(convo);
+      await controller.sendMessage(ChatInputData(text: 'original question'));
+      await waitFor(
+        () => !controller.chatController.isConversationLoading(convo.id),
+        'initial temporary streaming to finish',
+      );
+      final original = service
+          .getMessages(convo.id)
+          .firstWhere((message) => message.role == 'user');
+
+      await controller.startUserMessageEdit(original);
+      final result = await controller.sendMessage(
+        ChatInputData(text: 'edited question'),
+      );
+
+      expect(result, ChatInputSubmissionResult.sent);
+      await waitFor(() => streamRequestCount == 2, 'edited stream to fire');
+      await waitFor(
+        () => !controller.chatController.isConversationLoading(convo.id),
+        'edited temporary streaming to finish',
+      );
+      final edited = service.getMessages(convo.id).firstWhere(
+        (message) =>
+            message.role == 'user' &&
+            (message.groupId ?? message.id) ==
+                (original.groupId ?? original.id) &&
+            message.version == 1,
+      );
+      expect(edited.content, 'edited question');
+      expect(
+        service.getVersionSelections(convo.id),
+        containsPair(original.groupId ?? original.id, 1),
+      );
+      expect(service.isTemporaryConversation(convo.id), isTrue);
+      expect(service.getAllConversations(), isEmpty);
     });
     expect(tester.takeException(), isNull);
   });

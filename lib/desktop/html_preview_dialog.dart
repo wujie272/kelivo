@@ -61,7 +61,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
       final c = winweb.WebviewController();
       await c.initialize();
       try {
-        await c.setBackgroundColor(const Color(0x00000000));
+        await c.setBackgroundColor(Colors.transparent);
       } catch (_) {}
       _winCtrl = c;
       // Listen to web messages (console bridge)
@@ -277,7 +277,7 @@ extension _ConsoleDialogExt on _HtmlPreviewDialogState {
     showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.25),
+      barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.25),
       barrierLabel: 'console-logs',
       pageBuilder: (ctx, _, __) => _ConsoleDialog(
         title: l10n.messageWebViewConsoleLogs,

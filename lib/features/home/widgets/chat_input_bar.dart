@@ -18,6 +18,7 @@ import 'dart:async';
 import 'dart:io';
 import '../../../core/models/chat_input_data.dart';
 import '../../../utils/clipboard_images.dart';
+import '../../../core/providers/asr_provider.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/assistant_provider.dart';
 import '../../../core/services/search/search_service.dart';
@@ -26,6 +27,7 @@ import '../../../core/services/api/chat_api_service.dart';
 import '../../../core/utils/multimodal_input_utils.dart';
 import '../../../utils/brand_assets.dart';
 import '../../../shared/widgets/ios_tactile.dart';
+import '../../../shared/widgets/snackbar.dart';
 import '../../../utils/app_directories.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import '../../../desktop/desktop_context_menu.dart';
@@ -102,6 +104,7 @@ class ChatInputBar extends StatefulWidget {
     this.modelIcon,
     this.controller,
     this.mediaController,
+    this.asrProvider,
     this.loading = false,
     this.hasQueuedInput = false,
     this.queuedPreviewText,
@@ -153,6 +156,7 @@ class ChatInputBar extends StatefulWidget {
   final Widget? modelIcon;
   final TextEditingController? controller;
   final ChatInputBarController? mediaController;
+  final AsrProvider? asrProvider;
   final bool loading;
   final bool hasQueuedInput;
   final String? queuedPreviewText;
@@ -195,14 +199,26 @@ class _ChatInputBarState extends State<ChatInputBar>
     with WidgetsBindingObserver {
   late TextEditingController _controller;
   bool _isExpanded = false; // Track expand/collapse state for input field
+  // The ASR provider owns microphone capture. This widget only owns the
+  // composer presentation and an exact snapshot used by Cancel.
+  final List<double> _voiceLevels = <double>[];
+  static const int _maxVoiceLevels = 400;
+  Timer? _voiceLevelTimer;
+  TextEditingValue? _voiceBaseValue;
+  bool _ownsVoiceSession = false;
+  bool _finishingVoice = false;
+  String? _lastReportedVoiceError;
   final List<_DraftImage> _images = <_DraftImage>[];
   final Queue<_ImageProcessingTask> _imageProcessingQueue =
       Queue<_ImageProcessingTask>();
   final Set<int> _processingImageIds = <int>{};
   final Set<int> _failedImageIds = <int>{};
+  final Set<int> _pendingTextPasteIds = <int>{};
   static const int _maxConcurrentImageTasks = 2;
   int _activeImageTasks = 0;
   int _nextImageId = 0;
+  int _nextTextPasteId = 0;
+  Future<void> _textPasteWriteTail = Future<void>.value();
   final List<DocumentAttachment> _docs =
       <DocumentAttachment>[]; // files to upload
   final Map<LogicalKeyboardKey, Timer?> _repeatTimers = {};
@@ -218,6 +234,7 @@ class _ChatInputBarState extends State<ChatInputBar>
   static const double _documentPreviewHeight = 48;
   static const double _imagePreviewHeight = 64;
   static const double _imageRemoveButtonSize = 18;
+  static const int _maxInlinePasteCharacters = 5000;
   // Suppress context menu briefly after app resume to avoid flickering
   bool _suppressContextMenu = false;
   bool _isSubmitting = false;
@@ -245,7 +262,7 @@ class _ChatInputBarState extends State<ChatInputBar>
         : configuredOpacity;
     final overlayAlpha = isDark ? (backgroundImageActive ? 0.09 : 0.07) : 0.02;
     final overlayTint = isDark
-        ? Colors.white.withValues(alpha: overlayAlpha)
+        ? theme.colorScheme.onSurface.withValues(alpha: overlayAlpha)
         : theme.colorScheme.primary.withValues(alpha: overlayAlpha);
     final baseAlpha = ((targetOpacity - overlayAlpha) / (1.0 - overlayAlpha))
         .clamp(0.0, 1.0)
@@ -292,7 +309,9 @@ class _ChatInputBarState extends State<ChatInputBar>
 
   bool get _hasDraftMedia => _images.isNotEmpty || _docs.isNotEmpty;
   bool get _hasUnreadyImages =>
-      _processingImageIds.isNotEmpty || _failedImageIds.isNotEmpty;
+      _processingImageIds.isNotEmpty ||
+      _failedImageIds.isNotEmpty ||
+      _pendingTextPasteIds.isNotEmpty;
 
   // Instance method for onChanged to avoid recreating the callback on every build
   void _onTextChanged(String _) => setState(() {});
@@ -423,11 +442,15 @@ class _ChatInputBarState extends State<ChatInputBar>
   }
 
   void _clearFiles() {
-    setState(() => _docs.clear());
+    setState(() {
+      _pendingTextPasteIds.clear();
+      _docs.clear();
+    });
   }
 
   void _restoreInput(ChatInputData input) {
     setState(() {
+      _pendingTextPasteIds.clear();
       _discardImageState(_images.map((image) => image.id));
       _images
         ..clear()
@@ -459,6 +482,7 @@ class _ChatInputBarState extends State<ChatInputBar>
   void _clearDraft() {
     setState(() {
       _controller.clear();
+      _pendingTextPasteIds.clear();
       _discardImageState(_images.map((image) => image.id));
       _images.clear();
       _docs.clear();
@@ -481,6 +505,7 @@ class _ChatInputBarState extends State<ChatInputBar>
     super.initState();
     _controller = widget.controller ?? TextEditingController();
     widget.mediaController?._bind(this);
+    widget.asrProvider?.addListener(_handleAsrChanged);
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -503,12 +528,17 @@ class _ChatInputBarState extends State<ChatInputBar>
       // When going to background, hide any open toolbar
       _suppressContextMenu = true;
       widget.focusNode?.unfocus();
+      if (_ownsVoiceSession) unawaited(_cancelVoiceInput());
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _stopVoiceLevelSampling();
+    final asr = widget.asrProvider;
+    asr?.removeListener(_handleAsrChanged);
+    if (_ownsVoiceSession && asr != null) unawaited(asr.cancel());
     for (final timer in _repeatTimers.values) {
       try {
         timer?.cancel();
@@ -518,6 +548,7 @@ class _ChatInputBarState extends State<ChatInputBar>
     _imageProcessingQueue.clear();
     _processingImageIds.clear();
     _failedImageIds.clear();
+    _pendingTextPasteIds.clear();
     widget.mediaController?._unbind(this);
     if (widget.controller == null) {
       _controller.dispose();
@@ -528,6 +559,20 @@ class _ChatInputBarState extends State<ChatInputBar>
   @override
   void didUpdateWidget(covariant ChatInputBar oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.asrProvider, widget.asrProvider)) {
+      _stopVoiceLevelSampling();
+      oldWidget.asrProvider?.removeListener(_handleAsrChanged);
+      if (_ownsVoiceSession && oldWidget.asrProvider != null) {
+        unawaited(oldWidget.asrProvider!.cancel());
+        final original = _voiceBaseValue;
+        if (original != null) _controller.value = original;
+        _voiceBaseValue = null;
+        _ownsVoiceSession = false;
+        _finishingVoice = false;
+        _voiceLevels.clear();
+      }
+      widget.asrProvider?.addListener(_handleAsrChanged);
+    }
   }
 
   String _hint(BuildContext context) {
@@ -545,8 +590,308 @@ class _ChatInputBarState extends State<ChatInputBar>
   /// Whether to show the expand/collapse button (when text has 3+ lines).
   bool get _showExpandButton => _lineCount >= 3;
 
+  // ---------------------------------------------------------------------------
+  // Voice input
+  // ---------------------------------------------------------------------------
+
+  Future<void> _startVoiceInput() async {
+    final asr = widget.asrProvider;
+    final selected = context.read<SettingsProvider>().selectedAsrService;
+    if (_composerLocked ||
+        widget.loading ||
+        _ownsVoiceSession ||
+        asr == null ||
+        asr.isActive ||
+        selected == null ||
+        !asr.canUse(selected)) {
+      return;
+    }
+
+    _voiceBaseValue = _controller.value;
+    _ownsVoiceSession = true;
+    _finishingVoice = false;
+    _lastReportedVoiceError = null;
+    _voiceLevels.clear();
+    setState(() {});
+    widget.focusNode?.unfocus();
+
+    try {
+      await asr.start(selected);
+      if (mounted && _ownsVoiceSession && asr.isListening) {
+        _startVoiceLevelSampling();
+      }
+    } catch (error) {
+      _stopVoiceLevelSampling();
+      if (!mounted) return;
+      // Provider failures normally arrive through its listener first. This is
+      // the fallback for errors raised before the provider can publish state.
+      if (_ownsVoiceSession) {
+        final original = _voiceBaseValue;
+        if (original != null) _controller.value = original;
+        _voiceBaseValue = null;
+        _ownsVoiceSession = false;
+        _finishingVoice = false;
+        _voiceLevels.clear();
+        setState(() {});
+      }
+      if (_lastReportedVoiceError == null) _reportVoiceFailure(error);
+    }
+  }
+
+  void _handleAsrChanged() {
+    if (!mounted || !_ownsVoiceSession) return;
+    final asr = widget.asrProvider;
+    if (asr == null) return;
+
+    _applyVoiceTranscript(asr.transcript);
+    final error = asr.error;
+    if (error != null && error.trim().isNotEmpty) {
+      _stopVoiceLevelSampling();
+      _voiceBaseValue = null;
+      _ownsVoiceSession = false;
+      _finishingVoice = false;
+      _voiceLevels.clear();
+      _reportVoiceFailure(error);
+      scheduleMicrotask(asr.clearError);
+    } else if (!asr.isActive && !_finishingVoice) {
+      // Some system recognizers publish a final result and stop on their own.
+      _stopVoiceLevelSampling();
+      final detectedSpeech = asr.transcript.trim().isNotEmpty;
+      _voiceBaseValue = null;
+      _ownsVoiceSession = false;
+      _voiceLevels.clear();
+      if (!detectedSpeech) _reportNoSpeech();
+    }
+    setState(() {});
+    _ensureCaretVisible();
+  }
+
+  void _startVoiceLevelSampling() {
+    _voiceLevelTimer?.cancel();
+    _voiceLevelTimer = Timer.periodic(const Duration(milliseconds: 60), (_) {
+      if (!mounted || !_ownsVoiceSession || _finishingVoice) return;
+      final asr = widget.asrProvider;
+      if (asr?.isListening != true) return;
+      final level = asr!.soundLevel.clamp(0.0, 1.0).toDouble();
+      final previous = _voiceLevels.isEmpty ? 0.03 : _voiceLevels.last;
+      _voiceLevels.add(previous + (level - previous) * 0.55);
+      if (_voiceLevels.length > _maxVoiceLevels) _voiceLevels.removeAt(0);
+      setState(() {});
+    });
+  }
+
+  void _stopVoiceLevelSampling() {
+    _voiceLevelTimer?.cancel();
+    _voiceLevelTimer = null;
+  }
+
+  void _applyVoiceTranscript(String transcript) {
+    final baseValue = _voiceBaseValue;
+    if (baseValue == null) return;
+    final text = _joinVoiceText(baseValue.text, transcript);
+    if (_controller.text == text) return;
+    _controller.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+      composing: TextRange.empty,
+    );
+  }
+
+  String _joinVoiceText(String base, String transcript) {
+    final spoken = transcript.trim();
+    if (spoken.isEmpty) return base;
+    if (base.isEmpty || RegExp(r'\s$').hasMatch(base)) return '$base$spoken';
+
+    final first = spoken.substring(0, 1);
+    final last = base.substring(base.length - 1);
+    final punctuation = RegExp(r'^[,.;:!?，。！？、；：)\]}>》」』】…]');
+    final cjk = RegExp(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]');
+    final separator =
+        punctuation.hasMatch(first) || cjk.hasMatch(first) || cjk.hasMatch(last)
+        ? ''
+        : ' ';
+    return '$base$separator$spoken';
+  }
+
+  Future<void> _cancelVoiceInput() async {
+    if (!_ownsVoiceSession) return;
+    _stopVoiceLevelSampling();
+    final asr = widget.asrProvider;
+    final original = _voiceBaseValue;
+    _voiceBaseValue = null;
+    _ownsVoiceSession = false;
+    _finishingVoice = false;
+    _voiceLevels.clear();
+    if (original != null) _controller.value = original;
+    if (mounted) setState(() {});
+    try {
+      await asr?.cancel();
+    } catch (error) {
+      if (mounted) _reportVoiceFailure(error);
+    }
+  }
+
+  Future<void> _finishVoiceInput({required bool sendAfter}) async {
+    final asr = widget.asrProvider;
+    if (!_ownsVoiceSession || _finishingVoice || asr == null) return;
+    _stopVoiceLevelSampling();
+    _finishingVoice = true;
+    setState(() {});
+
+    try {
+      final transcript = await asr.finish();
+      if (!mounted) return;
+      _applyVoiceTranscript(transcript);
+      final detectedSpeech = transcript.trim().isNotEmpty;
+      _voiceBaseValue = null;
+      _ownsVoiceSession = false;
+      _finishingVoice = false;
+      _voiceLevels.clear();
+      setState(() {});
+      _ensureCaretVisible();
+      if (!detectedSpeech) {
+        _reportNoSpeech();
+      } else if (sendAfter && _controller.text.trim().isNotEmpty) {
+        await _handleSend();
+      }
+    } catch (error) {
+      if (!mounted) return;
+      if (_ownsVoiceSession) {
+        _voiceBaseValue = null;
+        _ownsVoiceSession = false;
+        _voiceLevels.clear();
+        setState(() {});
+      }
+      if (_lastReportedVoiceError == null) _reportVoiceFailure(error);
+    } finally {
+      _finishingVoice = false;
+      if (mounted) setState(() {});
+    }
+  }
+
+  void _reportNoSpeech() {
+    if (!mounted) return;
+    showAppSnackBar(
+      context,
+      message: AppLocalizations.of(context)!.asrServicesNoSpeechDetected,
+      type: NotificationType.warning,
+    );
+  }
+
+  void _reportVoiceFailure(Object error) {
+    if (!mounted) return;
+    final raw = error
+        .toString()
+        .replaceFirst(RegExp(r'^\w+(?:<[^>]+>)?:\s*'), '')
+        .trim();
+    if (_lastReportedVoiceError == raw) return;
+    _lastReportedVoiceError = raw;
+    final lower = raw.toLowerCase();
+    final l10n = AppLocalizations.of(context)!;
+    final message =
+        lower.contains('microphone') &&
+            (lower.contains('permission') ||
+                lower.contains('denied') ||
+                lower.contains('not granted'))
+        ? l10n.asrServicesMicrophonePermissionDenied
+        : lower.contains('no speech') || lower.contains('silence')
+        ? l10n.asrServicesNoSpeechDetected
+        : lower.contains('system') && lower.contains('unavailable')
+        ? l10n.asrServicesSystemCheckFailed
+        : l10n.asrServicesRecognitionFailed(raw);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showAppSnackBar(context, message: message, type: NotificationType.error);
+    });
+  }
+
+  /// Bottom row shown while recording: cancel (X) — waveform — stop — send.
+  Widget _buildVoiceRecordingRow(BuildContext context, ThemeData theme) {
+    final l10n = AppLocalizations.of(context)!;
+    final canFinish =
+        widget.asrProvider?.isListening == true && !_finishingVoice;
+    return Row(
+      key: const ValueKey('voice'),
+      children: [
+        _CompactIconButton(
+          tooltip: l10n.chatInputBarVoiceCancelTooltip,
+          icon: Lucide.X,
+          onTap: _finishingVoice ? null : () => unawaited(_cancelVoiceInput()),
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(left: 8, right: 2),
+            // Match the normal action row height (32) so the input bar
+            // doesn't jump when switching in/out of recording state
+            child: SizedBox(
+              height: 32,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                layoutBuilder: (currentChild, previousChildren) => Stack(
+                  fit: StackFit.expand,
+                  alignment: Alignment.center,
+                  children: <Widget>[
+                    ...previousChildren,
+                    if (currentChild != null) currentChild,
+                  ],
+                ),
+                child: _finishingVoice
+                    ? _VoiceTranscribingIndicator(
+                        key: const ValueKey('voice-transcribing-indicator'),
+                        label: l10n.chatInputBarVoiceTranscribing,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.72,
+                        ),
+                      )
+                    : _VoiceWaveform(
+                        key: const ValueKey('voice-waveform'),
+                        levels: _voiceLevels,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.85,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        ),
+        // Stop: finish recording and transcribe into the input field
+        _CompactIconButton(
+          tooltip: l10n.chatInputBarVoiceStopTooltip,
+          icon: Lucide.Square,
+          onTap: canFinish
+              ? () => unawaited(_finishVoiceInput(sendAfter: false))
+              : null,
+          childBuilder: (c) => Center(
+            child: Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: c,
+                borderRadius: BorderRadius.circular(3.5),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Send: transcribe and send the message right away
+        _CompactSendButton(
+          enabled: canFinish,
+          onSend: () => unawaited(_finishVoiceInput(sendAfter: true)),
+          color: theme.colorScheme.primary,
+          icon: Lucide.Check,
+          tooltip: l10n.chatInputBarVoiceSendTooltip,
+        ),
+      ],
+    );
+  }
+
   Future<void> _handleSend() async {
-    if (_isSubmitting || _hasUnreadyImages) return;
+    if (_isSubmitting ||
+        _hasUnreadyImages ||
+        _ownsVoiceSession ||
+        _finishingVoice) {
+      return;
+    }
     final text = _controller.text.trim();
     if (text.isEmpty && _images.isEmpty && _docs.isEmpty) return;
     _isSubmitting = true;
@@ -728,8 +1073,17 @@ class _ChatInputBarState extends State<ChatInputBar>
       );
     }
 
-    // Other platforms: keep default behavior.
-    final items = <ContextMenuButtonItem>[...state.contextMenuButtonItems];
+    final items = state.contextMenuButtonItems
+        .map((item) {
+          if (item.type != ContextMenuButtonType.paste) return item;
+          return item.copyWith(
+            onPressed: () {
+              unawaited(_handlePasteFromClipboard());
+              state.hideToolbar();
+            },
+          );
+        })
+        .toList(growable: false);
     return AdaptiveTextSelectionToolbar.buttonItems(
       anchors: state.contextMenuAnchors,
       buttonItems: items,
@@ -987,26 +1341,7 @@ class _ChatInputBarState extends State<ChatInputBar>
           try {
             final String? text = await reader.readValue(Formats.plainText);
             if (text != null && text.isNotEmpty) {
-              final value = _controller.value;
-              final sel = value.selection;
-              if (!sel.isValid) {
-                _controller.text = value.text + text;
-                _controller.selection = TextSelection.collapsed(
-                  offset: _controller.text.length,
-                );
-              } else {
-                final start = sel.start;
-                final end = sel.end;
-                final newText = value.text.replaceRange(start, end, text);
-                _controller.value = value.copyWith(
-                  text: newText,
-                  selection: TextSelection.collapsed(
-                    offset: start + text.length,
-                  ),
-                  composing: TextRange.empty,
-                );
-              }
-              setState(() {});
+              await _handlePastedText(text);
               return;
             }
           } catch (_) {}
@@ -1066,25 +1401,109 @@ class _ChatInputBarState extends State<ChatInputBar>
       final data = await Clipboard.getData(Clipboard.kTextPlain);
       final text = data?.text ?? '';
       if (text.isEmpty) return;
-      final value = _controller.value;
-      final sel = value.selection;
-      if (!sel.isValid) {
-        _controller.text = value.text + text;
-        _controller.selection = TextSelection.collapsed(
-          offset: _controller.text.length,
-        );
-      } else {
-        final start = sel.start;
-        final end = sel.end;
-        final newText = value.text.replaceRange(start, end, text);
-        _controller.value = value.copyWith(
-          text: newText,
-          selection: TextSelection.collapsed(offset: start + text.length),
-          composing: TextRange.empty,
-        );
-      }
-      setState(() {});
+      await _handlePastedText(text);
     } catch (_) {}
+  }
+
+  Future<void> _handlePastedText(String text) async {
+    final isLongPaste =
+        text.characters.take(_maxInlinePasteCharacters + 1).length >
+        _maxInlinePasteCharacters;
+    if (!isLongPaste) {
+      _insertPastedText(text);
+      return;
+    }
+
+    if (!mounted) return;
+    final pasteId = _nextTextPasteId++;
+    setState(() => _pendingTextPasteIds.add(pasteId));
+    final previousWrite = _textPasteWriteTail;
+    final writeDone = Completer<void>();
+    _textPasteWriteTail = writeDone.future;
+
+    try {
+      await previousWrite;
+      if (!mounted || !_pendingTextPasteIds.contains(pasteId)) return;
+
+      File? file;
+      DocumentAttachment? attachment;
+      try {
+        final dir = await AppDirectories.getUploadDirectory();
+        await dir.create(recursive: true);
+        file = await _reservePastedTextFile(dir);
+        await file.writeAsString(text, flush: true);
+        attachment = DocumentAttachment(
+          path: file.path,
+          fileName: p.basename(file.path),
+          mime: 'text/plain',
+        );
+      } catch (_) {}
+
+      if (attachment != null &&
+          mounted &&
+          _pendingTextPasteIds.contains(pasteId)) {
+        setState(() {
+          _pendingTextPasteIds.remove(pasteId);
+          _docs.add(attachment!);
+        });
+        return;
+      }
+
+      await _deleteUnclaimedPastedText(file);
+      if (!mounted || !_pendingTextPasteIds.contains(pasteId)) return;
+      setState(() => _pendingTextPasteIds.remove(pasteId));
+      _insertPastedText(text);
+    } finally {
+      writeDone.complete();
+    }
+  }
+
+  void _insertPastedText(String text) {
+    if (!mounted) return;
+    final value = _controller.value;
+    final selection = value.selection;
+    if (!selection.isValid) {
+      _controller.text = value.text + text;
+      _controller.selection = TextSelection.collapsed(
+        offset: _controller.text.length,
+      );
+    } else {
+      final start = selection.start;
+      final end = selection.end;
+      final newText = value.text.replaceRange(start, end, text);
+      _controller.value = value.copyWith(
+        text: newText,
+        selection: TextSelection.collapsed(offset: start + text.length),
+        composing: TextRange.empty,
+      );
+    }
+    setState(() {});
+  }
+
+  Future<File> _reservePastedTextFile(Directory dir) async {
+    final baseName = 'pasted_${DateTime.now().millisecondsSinceEpoch}';
+    var counter = 0;
+    while (true) {
+      final suffix = counter == 0 ? '' : '($counter)';
+      final file = File(p.join(dir.path, '$baseName$suffix.txt'));
+      try {
+        return await file.create(exclusive: true);
+      } on FileSystemException {
+        if (!await file.exists()) rethrow;
+        counter++;
+      }
+    }
+  }
+
+  Future<void> _deleteUnclaimedPastedText(File? file) async {
+    if (file == null) return;
+    try {
+      if (await file.exists()) await file.delete();
+    } catch (error) {
+      debugPrint(
+        '[ChatInputBar] Failed to delete unclaimed pasted text ${file.path}: $error',
+      );
+    }
   }
 
   // Copy arbitrary files to upload directory (without deleting the source),
@@ -1707,11 +2126,11 @@ class _ChatInputBarState extends State<ChatInputBar>
   Widget _buildInlineAttachmentPreviews(BuildContext context, bool isDark) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
-    final previewFill = isDark
-        ? Colors.white.withValues(alpha: 0.08)
-        : theme.colorScheme.onSurface.withValues(alpha: 0.045);
+    final previewFill = theme.colorScheme.onSurface.withValues(
+      alpha: isDark ? 0.08 : 0.045,
+    );
     final previewBorder = isDark
-        ? Colors.white.withValues(alpha: 0.10)
+        ? theme.colorScheme.onSurface.withValues(alpha: 0.10)
         : theme.colorScheme.outline.withValues(alpha: 0.13);
 
     return Padding(
@@ -1748,9 +2167,9 @@ class _ChatInputBarState extends State<ChatInputBar>
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(9),
                           child: processing
-                              ? const ColoredBox(
-                                  color: Colors.black,
-                                  child: SizedBox(width: 64, height: 64),
+                              ? ColoredBox(
+                                  color: theme.colorScheme.scrim,
+                                  child: const SizedBox(width: 64, height: 64),
                                 )
                               : Image.file(
                                   File(image.path),
@@ -1782,9 +2201,8 @@ class _ChatInputBarState extends State<ChatInputBar>
                                     message: l10n.chatInputBarImageProcessing,
                                     child: Container(
                                       decoration: BoxDecoration(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.32,
-                                        ),
+                                        color: theme.colorScheme.scrim
+                                            .withValues(alpha: 0.32),
                                         borderRadius: BorderRadius.circular(9),
                                       ),
                                       alignment: Alignment.center,
@@ -1795,7 +2213,7 @@ class _ChatInputBarState extends State<ChatInputBar>
                                           strokeWidth: 2,
                                           valueColor:
                                               AlwaysStoppedAnimation<Color>(
-                                                Colors.white,
+                                                Colors.white, // color-gate: ignore (on scrim over photo)
                                               ),
                                         ),
                                       ),
@@ -1831,9 +2249,9 @@ class _ChatInputBarState extends State<ChatInputBar>
                         child: IosCardPress(
                           key: ValueKey('chat-input-image-remove:$idx'),
                           haptics: false,
-                          baseColor: isDark
-                              ? Colors.black.withValues(alpha: 0.50)
-                              : Colors.black.withValues(alpha: 0.46),
+                          baseColor: theme.colorScheme.scrim.withValues(
+                            alpha: isDark ? 0.50 : 0.46,
+                          ),
                           pressedScale: 0.94,
                           borderRadius: BorderRadius.circular(
                             _imageRemoveButtonSize / 2,
@@ -1847,7 +2265,7 @@ class _ChatInputBarState extends State<ChatInputBar>
                             child: Icon(
                               Icons.close,
                               size: 11,
-                              color: Colors.white,
+                              color: Colors.white, // color-gate: ignore (on scrim over photo)
                             ),
                           ),
                         ),
@@ -1926,6 +2344,14 @@ class _ChatInputBarState extends State<ChatInputBar>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final settings = context.watch<SettingsProvider>();
+    final selectedAsrService = settings.selectedAsrService;
+    final asr = widget.asrProvider;
+    final showVoiceInput =
+        asr != null &&
+        selectedAsrService != null &&
+        asr.canUse(selectedAsrService) &&
+        !asr.isActive;
     final isDark = theme.brightness == Brightness.dark;
     final inputFillColor = _inputFillColor(
       theme: theme,
@@ -2009,7 +2435,9 @@ class _ChatInputBarState extends State<ChatInputBar>
                         // Use previous gray border for better contrast on white
                         border: Border.all(
                           color: isDark
-                              ? Colors.white.withValues(alpha: 0.10)
+                              ? theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.10,
+                                )
                               : theme.colorScheme.outline.withValues(
                                   alpha: 0.20,
                                 ),
@@ -2115,7 +2543,9 @@ class _ChatInputBarState extends State<ChatInputBar>
                                             controller: _controller,
                                             focusNode: widget.focusNode,
                                             onChanged: _onTextChanged,
-                                            readOnly: _composerLocked,
+                                            readOnly:
+                                                _composerLocked ||
+                                                _ownsVoiceSession,
                                             minLines: 1,
                                             maxLines: _isExpanded ? 25 : 5,
                                             // On mobile, optionally show "Send" on the return key and submit on tap.
@@ -2200,71 +2630,119 @@ class _ChatInputBarState extends State<ChatInputBar>
                               AppSpacing.xs,
                               AppSpacing.xs,
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                // Responsive left action bar that overflows into a + menu on desktop
-                                Expanded(
-                                  child: _buildResponsiveLeftActions(context),
-                                ),
-                                Row(
-                                  children: [
-                                    if (widget.showMoreButton) ...[
-                                      _CompactIconButton(
-                                        tooltip: AppLocalizations.of(
-                                          context,
-                                        )!.chatInputBarMoreTooltip,
-                                        icon: Lucide.Plus,
-                                        active: widget.moreOpen,
-                                        onTap: _composerLocked
-                                            ? null
-                                            : widget.onMore,
-                                        childBuilder: (c) => AnimatedSwitcher(
-                                          duration: const Duration(
-                                            milliseconds: 200,
-                                          ),
-                                          transitionBuilder: (child, anim) =>
-                                              RotationTransition(
-                                                turns: Tween<double>(
-                                                  begin: 0.85,
-                                                  end: 1,
-                                                ).animate(anim),
-                                                child: FadeTransition(
-                                                  opacity: anim,
-                                                  child: child,
-                                                ),
-                                              ),
-                                          child: Icon(
-                                            widget.moreOpen
-                                                ? Lucide.X
-                                                : Lucide.Plus,
-                                            key: ValueKey(
-                                              widget.moreOpen ? 'close' : 'add',
-                                            ),
-                                            size: 20,
-                                            color: c,
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 260),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
+                              transitionBuilder: (child, anim) =>
+                                  FadeTransition(
+                                    opacity: anim,
+                                    child: SlideTransition(
+                                      position: Tween<Offset>(
+                                        begin: const Offset(0, 0.35),
+                                        end: Offset.zero,
+                                      ).animate(anim),
+                                      child: child,
+                                    ),
+                                  ),
+                              child: _ownsVoiceSession
+                                  ? _buildVoiceRecordingRow(context, theme)
+                                  : Row(
+                                      key: const ValueKey('actions'),
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        // Responsive left action bar that overflows into a + menu on desktop
+                                        Expanded(
+                                          child: _buildResponsiveLeftActions(
+                                            context,
                                           ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                    ],
-                                    _CompactSendButton(
-                                      enabled:
-                                          (hasText || hasImages || hasDocs) &&
-                                          !_hasUnreadyImages &&
-                                          !widget.loading,
-                                      loading: widget.loading,
-                                      onSend: _handleSend,
-                                      onStop: widget.loading
-                                          ? widget.onStop
-                                          : null,
-                                      color: theme.colorScheme.primary,
-                                      icon: Lucide.ArrowUp,
-                                      tooltip: widget.sendButtonTooltip,
+                                        Row(
+                                          children: [
+                                            if (widget.showMoreButton) ...[
+                                              _CompactIconButton(
+                                                tooltip: AppLocalizations.of(
+                                                  context,
+                                                )!.chatInputBarMoreTooltip,
+                                                icon: Lucide.Plus,
+                                                active: widget.moreOpen,
+                                                onTap: _composerLocked
+                                                    ? null
+                                                    : widget.onMore,
+                                                childBuilder: (c) =>
+                                                    AnimatedSwitcher(
+                                                      duration: const Duration(
+                                                        milliseconds: 200,
+                                                      ),
+                                                      transitionBuilder:
+                                                          (
+                                                            child,
+                                                            anim,
+                                                          ) => RotationTransition(
+                                                            turns:
+                                                                Tween<double>(
+                                                                  begin: 0.85,
+                                                                  end: 1,
+                                                                ).animate(anim),
+                                                            child:
+                                                                FadeTransition(
+                                                                  opacity: anim,
+                                                                  child: child,
+                                                                ),
+                                                          ),
+                                                      child: Icon(
+                                                        widget.moreOpen
+                                                            ? Lucide.X
+                                                            : Lucide.Plus,
+                                                        key: ValueKey(
+                                                          widget.moreOpen
+                                                              ? 'close'
+                                                              : 'add',
+                                                        ),
+                                                        size: 20,
+                                                        color: c,
+                                                      ),
+                                                    ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                            ],
+                                            if (showVoiceInput) ...[
+                                              _CompactIconButton(
+                                                tooltip: AppLocalizations.of(
+                                                  context,
+                                                )!.chatInputBarVoiceInputTooltip,
+                                                icon: Lucide.Mic,
+                                                onTap:
+                                                    _composerLocked ||
+                                                        widget.loading
+                                                    ? null
+                                                    : () => unawaited(
+                                                        _startVoiceInput(),
+                                                      ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                            ],
+                                            _CompactSendButton(
+                                              enabled:
+                                                  (hasText ||
+                                                      hasImages ||
+                                                      hasDocs) &&
+                                                  !_hasUnreadyImages &&
+                                                  !widget.loading,
+                                              loading: widget.loading,
+                                              onSend: _handleSend,
+                                              onStop: widget.loading
+                                                  ? widget.onStop
+                                                  : null,
+                                              color: theme.colorScheme.primary,
+                                              icon: Lucide.ArrowUp,
+                                              tooltip: widget.sendButtonTooltip,
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              ],
                             ),
                           ),
                         ],
@@ -2326,8 +2804,8 @@ class _QueuedInputBanner extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withValues(alpha: 0.08)
-            : Colors.white.withValues(alpha: 0.84),
+            ? theme.colorScheme.onSurface.withValues(alpha: 0.08)
+            : theme.colorScheme.surface.withValues(alpha: 0.84),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: theme.colorScheme.outline.withValues(alpha: 0.16),
@@ -2416,11 +2894,9 @@ class _ImageModePill extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final bg = (isDark ? Colors.black : Colors.white).withValues(
-      alpha: isDark ? 0.34 : 0.58,
-    );
+    final bg = scheme.surface.withValues(alpha: isDark ? 0.34 : 0.58);
     final border = isDark
-        ? Colors.white.withValues(alpha: 0.14)
+        ? scheme.onSurface.withValues(alpha: 0.14)
         : scheme.primary.withValues(alpha: 0.36);
     final fg = isDark ? scheme.onSurface : scheme.primary;
     final iconColor = isDark ? scheme.primaryContainer : scheme.primary;
@@ -2530,7 +3006,7 @@ class _CompactIconButton extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final fgColor = active
         ? theme.colorScheme.primary
-        : (isDark ? Colors.white70 : Colors.black54);
+        : theme.colorScheme.onSurface.withValues(alpha: isDark ? 0.70 : 0.54);
     final bool isDesktop =
         Platform.isWindows || Platform.isLinux || Platform.isMacOS;
 
@@ -2602,15 +3078,13 @@ class _CompactSendButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
     final bg = (enabled || loading)
         ? color
-        : (isDark
-              ? Colors.white12
-              : Colors.grey.shade300.withValues(alpha: 0.84));
+        : cs.onSurface.withValues(alpha: 0.12);
     final fg = (enabled || loading)
-        ? (isDark ? Colors.black : Colors.white)
-        : (isDark ? Colors.white70 : Colors.grey.shade600);
+        ? cs.onPrimary
+        : cs.onSurface.withValues(alpha: 0.38);
 
     final button = Material(
       color: bg,
@@ -2646,4 +3120,137 @@ class _CompactSendButton extends StatelessWidget {
       child: Semantics(tooltip: tooltip!, child: button),
     );
   }
+}
+
+// Scrolling waveform driven by real mic amplitude samples (newest on the right).
+class _VoiceWaveform extends StatelessWidget {
+  const _VoiceWaveform({super.key, required this.levels, required this.color});
+
+  final List<double> levels;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _VoiceWaveformPainter(levels: levels, color: color),
+    );
+  }
+}
+
+class _VoiceTranscribingIndicator extends StatefulWidget {
+  const _VoiceTranscribingIndicator({
+    super.key,
+    required this.label,
+    required this.color,
+  });
+
+  final String label;
+  final Color color;
+
+  @override
+  State<_VoiceTranscribingIndicator> createState() =>
+      _VoiceTranscribingIndicatorState();
+}
+
+class _VoiceTranscribingIndicatorState
+    extends State<_VoiceTranscribingIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          RotationTransition(
+            turns: _controller,
+            child: Icon(Lucide.Loader, size: 15, color: widget.color),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            widget.label,
+            style: TextStyle(fontSize: 12, color: widget.color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VoiceWaveformPainter extends CustomPainter {
+  _VoiceWaveformPainter({required this.levels, required this.color});
+
+  /// Normalized mic levels in [0, 1]; the last entry is the newest sample.
+  final List<double> levels;
+  final Color color;
+
+  static const double _barWidth = 3;
+  static const double _barGap = 3.5;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    const step = _barWidth + _barGap;
+    final count = ((size.width + _barGap) / step).floor();
+    if (count <= 0) return;
+    final centerY = size.height / 2;
+    final maxH = size.height * 0.92;
+    // Center the bar row so both ends get the same inset — the capsule
+    // caps are then symmetric regardless of the exact width.
+    final leftInset = (size.width - (count * step - _barGap)) / 2;
+    // Samples are right-aligned onto the bar slots: the newest sample sits
+    // at the right edge and older samples scroll left, like a real recorder.
+    final visible = math.min(count, levels.length);
+    final first = levels.length - visible;
+    for (var i = 0; i < visible; i++) {
+      final level = levels[first + i].clamp(0.0, 1.0);
+      final slot = count - visible + i;
+      final x = leftInset + slot * step;
+      // True capsule silhouette: a rectangle with fully-rounded ends, i.e.
+      // the corner radius equals half the max bar height. Bars inside the
+      // cap are shortened along the semicircle but still follow the volume.
+      final radius = maxH / 2;
+      final dCenter =
+          math.min(x, size.width - (x + _barWidth)) +
+          _barWidth / 2; // bar center distance to the nearest edge
+      double envelope = 1.0;
+      if (dCenter < radius) {
+        envelope =
+            math.sqrt(
+              math.max(
+                0.0,
+                radius * radius - (radius - dCenter) * (radius - dCenter),
+              ),
+            ) /
+            radius;
+      }
+      final h = math.max(2.0, maxH * level * envelope);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(x, centerY - h / 2, _barWidth, h),
+          const Radius.circular(_barWidth / 2),
+        ),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_VoiceWaveformPainter oldDelegate) => true;
 }

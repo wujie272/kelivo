@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- Microphone access for voice input waveform -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Foreground service + notifications for background execution (Android only) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -41,6 +43,21 @@
                 <data android:mimeType="text/plain"/>
             </intent-filter>
         </activity>
+        <activity
+            android:name=".McpOAuthCallbackActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="psyche.kelivo" android:host="mcp-oauth-callback"/>
+            </intent-filter>
+        </activity>
         <!-- Foreground service to keep Flutter isolate alive for background generation -->
         <service
             android:name="de.julianassmann.flutter_background.IsolateHolderService"
@@ -69,6 +86,10 @@
         <!-- Allow querying TTS service on Android 11+ -->
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <!-- Allow checking whether a system speech recognizer is installed. -->
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
 </manifest>

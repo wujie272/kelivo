@@ -342,14 +342,14 @@ class _SettingsCard extends StatelessWidget {
     final sp = context.watch<SettingsProvider>();
     return Material(
       color: sp.usePureBackground
-          ? (isDark ? Colors.black : Colors.white)
-          : (isDark ? const Color(0xFF1C1C1E) : Colors.white),
+          ? cs.surface
+          : (Theme.of(context).colorScheme.surfaceContainerHigh),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(
           width: 0.5,
           color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
+              ? cs.onSurface.withValues(alpha: 0.06)
               : cs.outlineVariant.withValues(alpha: 0.12),
         ),
       ),
@@ -474,9 +474,7 @@ class _ThemeModeSegmentedState extends State<_ThemeModeSegmented> {
       (ThemeMode.system, l10n.settingsPageSystemMode, lucide.Lucide.Monitor),
     ];
 
-    final trackBg = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : Colors.black.withValues(alpha: 0.04);
+    final trackBg = cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.04);
     return Container(
       decoration: BoxDecoration(
         color: trackBg,
@@ -510,9 +508,7 @@ class _ThemeModeSegmentedState extends State<_ThemeModeSegmented> {
                         );
                       }
                       if (_hover == i) {
-                        return isDark
-                            ? Colors.white.withValues(alpha: 0.10)
-                            : Colors.black.withValues(alpha: 0.06);
+                        return cs.onSurface.withValues(alpha: isDark ? 0.10 : 0.06);
                       }
                       return Colors.transparent;
                     }(),
@@ -573,11 +569,14 @@ class _ThemeDots extends StatelessWidget {
   const _ThemeDots();
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final sp = context.watch<SettingsProvider>();
     final selected = sp.themePaletteId;
+    final isCustomActive = selected == ThemePalettes.customPaletteId;
     return Wrap(
       spacing: 10,
       runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (final p in ThemePalettes.all)
           _ThemeDot(
@@ -585,7 +584,153 @@ class _ThemeDots extends StatelessWidget {
             selected: selected == p.id,
             onTap: () => context.read<SettingsProvider>().setThemePalette(p.id),
           ),
+        for (final t in sp.customThemes)
+          _CustomThemeDotEntry(
+            theme: t,
+            selected: isCustomActive && sp.selectedCustomThemeId == t.id,
+            onTap: () =>
+                context.read<SettingsProvider>().selectCustomTheme(t.id),
+            onMenu: (pos) => showDesktopContextMenuAt(
+              context,
+              globalPosition: pos,
+              items: [
+                DesktopContextMenuItem(
+                  icon: lucide.Lucide.Pencil,
+                  label: l10n.customThemeEditTheme,
+                  onTap: () => showCustomThemeEditor(context, initial: t),
+                ),
+                DesktopContextMenuItem(
+                  icon: lucide.Lucide.Copy,
+                  label: l10n.customThemeCopyAction,
+                  onTap: () => exportCustomThemeToClipboard(context, t),
+                ),
+                DesktopContextMenuItem(
+                  icon: lucide.Lucide.Trash2,
+                  label: l10n.customThemeDelete,
+                  danger: true,
+                  onTap: () =>
+                      context.read<SettingsProvider>().deleteCustomTheme(t.id),
+                ),
+              ],
+            ),
+          ),
+        _ThemeActionDot(
+          icon: lucide.Lucide.Plus,
+          tooltip: l10n.customThemeNewTheme,
+          onTap: () => showCustomThemeEditor(context),
+        ),
+        _ThemeActionDot(
+          icon: lucide.Lucide.Download,
+          tooltip: l10n.customThemeImportTheme,
+          onTap: () => showImportCustomThemeDialog(context),
+        ),
       ],
+    );
+  }
+}
+
+class _CustomThemeDotEntry extends StatefulWidget {
+  const _CustomThemeDotEntry({
+    required this.theme,
+    required this.selected,
+    required this.onTap,
+    required this.onMenu,
+  });
+  final CustomTheme theme;
+  final bool selected;
+  final VoidCallback onTap;
+  final ValueChanged<Offset> onMenu;
+  @override
+  State<_CustomThemeDotEntry> createState() => _CustomThemeDotEntryState();
+}
+
+class _CustomThemeDotEntryState extends State<_CustomThemeDotEntry> {
+  bool _hover = false;
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        onSecondaryTapDown: (d) => widget.onMenu(d.globalPosition),
+        onLongPressStart: (d) => widget.onMenu(d.globalPosition),
+        child: Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: widget.selected
+                  ? cs.onSurface.withValues(alpha: 0.85)
+                  : cs.surface,
+              width: 2,
+            ),
+          ),
+          child: ClipOval(
+            child: CustomThemeDot(
+              theme: widget.theme,
+              size: 20,
+              selected: widget.selected || _hover,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeActionDot extends StatefulWidget {
+  const _ThemeActionDot({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  @override
+  State<_ThemeActionDot> createState() => _ThemeActionDotState();
+}
+
+class _ThemeActionDotState extends State<_ThemeActionDot> {
+  bool _hover = false;
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      cursor: SystemMouseCursors.click,
+      child: Tooltip(
+        message: widget.tooltip,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOutCubic,
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _hover
+                  ? cs.onSurface.withValues(alpha: 0.08)
+                  : cs.onSurface.withValues(alpha: 0.04),
+              border: Border.all(
+                color: cs.onSurface.withValues(alpha: _hover ? 0.35 : 0.2),
+                width: 1,
+              ),
+            ),
+            child: Icon(
+              widget.icon,
+              size: 13,
+              color: cs.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -634,7 +779,7 @@ class _ThemeDotState extends State<_ThemeDot> {
             border: Border.all(
               color: widget.selected
                   ? cs.onSurface.withValues(alpha: 0.85)
-                  : Colors.white,
+                  : cs.surface,
               width: widget.selected ? 2 : 2,
             ),
           ),
@@ -808,9 +953,7 @@ class _SimpleOptionTileState extends State<_SimpleOptionTile> {
     final bg = widget.selected
         ? cs.primary.withValues(alpha: 0.12)
         : (_hover
-              ? (isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : Colors.black.withValues(alpha: 0.04))
+              ? (cs.onSurface.withValues(alpha: isDark ? 0.08 : 0.04))
               : Colors.transparent);
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
@@ -1021,9 +1164,7 @@ class _HoverDropdownButton extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = hovered || open
-        ? (isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.04))
+        ? (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.04))
         : Colors.transparent;
     final angle = open ? 3.1415926 : 0.0;
     return MouseRegion(
@@ -1126,9 +1267,7 @@ class _OverlayMenuItemState extends State<_OverlayMenuItem> {
     final bg = widget.selected
         ? cs.primary.withValues(alpha: 0.08)
         : (_hover
-              ? (isDark
-                    ? Colors.white.withValues(alpha: 0.06)
-                    : Colors.black.withValues(alpha: 0.04))
+              ? (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.04))
               : Colors.transparent);
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
@@ -1191,9 +1330,7 @@ class _OverlayItemState extends State<_OverlayItem> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = _hover
         ? Color.alphaBlend(
-            (isDark
-                ? Colors.white.withValues(alpha: 0.06)
-                : Colors.black.withValues(alpha: 0.04)),
+            (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.04)),
             widget.background,
           )
         : widget.background;
@@ -1317,9 +1454,7 @@ class _LanguageDropdownState extends State<_LanguageDropdown> {
           color: Colors.transparent,
           child: Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? const Color(0xFF1C1C1E)
-                  : Colors.white,
+              color: cs.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: cs.outlineVariant.withValues(alpha: 0.12),
@@ -1327,7 +1462,7 @@ class _LanguageDropdownState extends State<_LanguageDropdown> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: cs.shadow.withValues(alpha: 0.05),
                   blurRadius: 12,
                   offset: const Offset(0, 6),
                 ),
@@ -1426,9 +1561,7 @@ class _LanguageDropdownItemState extends State<_LanguageDropdownItem> {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             color: _hover
-                ? (isDark
-                      ? Colors.white.withValues(alpha: 0.06)
-                      : Colors.black.withValues(alpha: 0.04))
+                ? (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.04))
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
@@ -1565,7 +1698,6 @@ class _BorderInputState extends State<_BorderInput> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     // hover to change border color (not background)
     final baseBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),
@@ -1597,7 +1729,7 @@ class _BorderInputState extends State<_BorderInput> {
         decoration: InputDecoration(
           isDense: true,
           filled: true,
-          fillColor: isDark ? Colors.white10 : Colors.white,
+          fillColor: context.appColors.surfaceCard,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 6,
             vertical: 8,
@@ -1730,9 +1862,7 @@ class _DesktopFontDropdownButtonState
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = _hover
-        ? (isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.05))
+        ? (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05))
         : Colors.transparent;
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
@@ -1834,8 +1964,7 @@ Future<String?> _showDesktopFontChooserDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        final bg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+        final bg = Theme.of(context).colorScheme.surfaceContainerHigh;
         final cs2 = Theme.of(ctx).colorScheme;
         return Dialog(
           elevation: 0,
@@ -1926,9 +2055,7 @@ Future<String?> _showDesktopFontChooserDialog(
                         filled: true,
                         hintText: l10n.desktopFontFilterHint,
                         fillColor:
-                            Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white10
-                            : const Color(0xFFF7F7F9),
+                            context.appColors.surfaceFill,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: BorderSide(
@@ -1965,9 +2092,7 @@ Future<String?> _showDesktopFontChooserDialog(
                     Expanded(
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white10
-                              : Colors.black.withValues(alpha: 0.03),
+                          color: context.appColors.surfaceFill,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: ListView.builder(
@@ -2043,9 +2168,7 @@ class _FontRowItemState extends State<_FontRowItem> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = _hover
-        ? (isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.04))
+        ? (cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.04))
         : Colors.transparent;
     final sample = 'Aa字';
     return MouseRegion(
@@ -3148,14 +3271,13 @@ class _SendShortcutDropdownState extends State<_SendShortcutDropdown> {
 
     _entry = OverlayEntry(
       builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         final usePure = Provider.of<SettingsProvider>(
           ctx,
           listen: false,
         ).usePureBackground;
         final bgColor = usePure
-            ? (isDark ? Colors.black : Colors.white)
-            : (isDark ? const Color(0xFF1C1C1E) : Colors.white);
+            ? Theme.of(ctx).colorScheme.surface
+            : (Theme.of(context).colorScheme.surfaceContainerHigh);
         final sp = Provider.of<SettingsProvider>(ctx, listen: false);
 
         return Stack(
@@ -3192,7 +3314,6 @@ class _SendShortcutDropdownState extends State<_SendShortcutDropdown> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final sp = context.watch<SettingsProvider>();
     final label = _labelFor(context, sp.desktopSendShortcut);
 
@@ -3215,7 +3336,7 @@ class _SendShortcutDropdownState extends State<_SendShortcutDropdown> {
             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
             constraints: const BoxConstraints(minWidth: 130, minHeight: 34),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF141414) : Colors.white,
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: borderColor, width: 1),
               boxShadow: _open
@@ -3332,7 +3453,7 @@ class _SendShortcutOverlayState extends State<_SendShortcutOverlay>
               border: Border.all(color: borderColor, width: 0.5),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.32 : 0.08),
+                  color: cs.shadow.withValues(alpha: isDark ? 0.32 : 0.08),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
