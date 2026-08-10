@@ -656,8 +656,13 @@ class ChatController extends ChangeNotifier {
   /// Opens the logical window around an already-persisted revision mutation.
   ///
   /// Editing or selecting a version can target a slot far outside the tail
-  /// window, so it must not reuse the append-to-tail navigation path.
-  Future<bool> openAroundPersistedMessage(ChatMessage message) async {
+  /// window, so it must not reuse the append-to-tail navigation path. Set
+  /// [truncateFollowingSlots] when persistence removed every logical slot
+  /// after the target.
+  Future<bool> openAroundPersistedMessage(
+    ChatMessage message, {
+    bool truncateFollowingSlots = false,
+  }) async {
     final conversation = _currentConversation;
     if (conversation == null || message.conversationId != conversation.id) {
       return false;
@@ -670,16 +675,47 @@ class ChatController extends ChangeNotifier {
     if (visibleIndex >= 0) {
       // An edited revision belongs to the same logical timeline slot. Keep the
       // current bounded window intact so the list can preserve its visible
-      // anchor while only this slot remeasures its extent.
+      // anchor while only this slot remeasures its extent. Preserve the current
+      // visible-group snapshot until its asynchronous refresh completes so
+      // unrelated version switchers do not briefly disappear.
+      final visibleSnapshot = List<ChatMessage>.of(
+        _messagesWithVisibleGroups(),
+      );
+      final groupInsertIndex = visibleSnapshot.indexWhere(
+        (candidate) => (candidate.groupId ?? candidate.id) == groupId,
+      );
+      final groupMessages =
+          visibleSnapshot
+              .where(
+                (candidate) => (candidate.groupId ?? candidate.id) == groupId,
+              )
+              .where((candidate) => candidate.id != message.id)
+              .toList()
+            ..add(message)
+            ..sort((left, right) => left.version.compareTo(right.version));
+
       _messages[visibleIndex] = message;
+      if (truncateFollowingSlots) {
+        _messages.removeRange(visibleIndex + 1, _messages.length);
+        _totalMessageCount = _loadedStartIndex + _messages.length;
+      }
       invalidateCache();
+      if (groupInsertIndex >= 0) {
+        visibleSnapshot.removeWhere(
+          (candidate) => (candidate.groupId ?? candidate.id) == groupId,
+        );
+        visibleSnapshot.insertAll(groupInsertIndex, groupMessages);
+        if (truncateFollowingSlots) {
+          visibleSnapshot.removeRange(
+            groupInsertIndex + groupMessages.length,
+            visibleSnapshot.length,
+          );
+        }
+        _messagesWithVisibleGroupsCache = visibleSnapshot;
+      }
       _loadVersionSelections();
-      await Future.wait([
-        _chatService.loadMessagesForGroups(conversation.id, [groupId]),
-        _chatService.loadFirstMessageIndicesForGroups(conversation.id, [
-          groupId,
-        ]),
-      ]);
+      await _preloadVisibleGroupData();
+      if (_currentConversation?.id != conversation.id) return false;
       notifyListeners();
       return true;
     }

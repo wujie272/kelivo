@@ -563,6 +563,8 @@ class _CompleteStep extends StatelessWidget {
         _StatsCard(
           conversations: status.conversations,
           messages: status.messages,
+          converted: status.converted,
+          malformed: status.malformed,
         ),
         const SizedBox(height: 12),
         if (status.backupPath != null)
@@ -1328,27 +1330,64 @@ class _BackupFileCard extends StatelessWidget {
 }
 
 class _StatsCard extends StatelessWidget {
-  const _StatsCard({required this.conversations, required this.messages});
+  const _StatsCard({
+    required this.conversations,
+    required this.messages,
+    this.converted = 0,
+    this.malformed = 0,
+  });
 
   final int conversations;
   final int messages;
+  final int converted;
+  final int malformed;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
+    // Match checklist/card hairlines — full-opacity outlineVariant reads too
+    // heavy against surfaceContainerLow cards.
+    final dividerColor = cs.outlineVariant.withValues(alpha: 0.28);
+    Widget verticalDivider() =>
+        Container(width: 1, height: 42, color: dividerColor);
+
     return _Card(
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: _Stat(
-              label: l10n.migrationConversationCount,
-              value: conversations,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _Stat(
+                  label: l10n.migrationConversationCount,
+                  value: conversations,
+                ),
+              ),
+              verticalDivider(),
+              Expanded(
+                child: _Stat(label: l10n.migrationMessageCount, value: messages),
+              ),
+            ],
           ),
-          Container(width: 1, height: 42, color: cs.outlineVariant),
-          Expanded(
-            child: _Stat(label: l10n.migrationMessageCount, value: messages),
+          const SizedBox(height: 12),
+          Container(height: 1, color: dividerColor),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _Stat(
+                  label: l10n.migrationConvertedCount,
+                  value: converted,
+                ),
+              ),
+              verticalDivider(),
+              Expanded(
+                child: _Stat(
+                  label: l10n.migrationMalformedCount,
+                  value: malformed,
+                ),
+              ),
+            ],
           ),
         ],
       ),
