@@ -1577,6 +1577,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backupPageRestartContent => '导入成功。重启 Kelivo 后将安全应用。';
 
   @override
+  String backupPageRestartContentWithSkipped(int count) {
+    return '导入已完成，但已跳过 $count 个消息顺序非法的会话。重启 Kelivo 后将安全应用已导入的数据。';
+  }
+
+  @override
   String get restartAppFailedMessage => 'Kelivo 无法自动重启，请完全关闭后重新打开。';
 
   @override
@@ -1612,6 +1617,46 @@ class AppLocalizationsZh extends AppLocalizations {
   String backupRestoreFailureDiagnostic(String code) {
     return '诊断码：$code';
   }
+
+  @override
+  String get startupRecoveryMoreOptions => '更多恢复选项';
+
+  @override
+  String get startupRecoveryRepairButton => '修复并重启';
+
+  @override
+  String get startupRecoveryExportButton => '导出我的数据副本';
+
+  @override
+  String get startupRecoveryResetButton => '重置数据';
+
+  @override
+  String get startupRecoveryBusy => '处理中…';
+
+  @override
+  String get startupRecoveryExportSucceeded => '已保存一份数据副本。';
+
+  @override
+  String get startupRecoveryExportFailed => '无法导出数据副本。';
+
+  @override
+  String get startupRecoveryRepairFailed => '修复未能解决问题。请先导出数据副本，然后重置。';
+
+  @override
+  String get startupRecoveryResetFailed => '重置失败。请彻底关闭 Kelivo 后重新打开。';
+
+  @override
+  String get startupRecoveryResetDialogTitle => '重置全部数据？';
+
+  @override
+  String get startupRecoveryResetDialogContent =>
+      '这将永久删除本设备上 Kelivo 的数据库并重新开始。如果之后可能还需要这些数据，请先导出一份副本。此操作无法撤销。';
+
+  @override
+  String get startupRecoveryResetDialogConfirm => '重置并重启';
+
+  @override
+  String get startupRecoveryResetDialogCancel => '取消';
 
   @override
   String get startupDatabaseUpdateRequiredTitle => '请更新 Kelivo 以继续';
@@ -2140,6 +2185,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chatMessageWidgetOpenLinkError => '打开链接失败';
 
   @override
+  String get chatMessageWidgetAttachmentUnavailable => '附件不可用';
+
+  @override
   String chatMessageWidgetCitationsTitle(int count) {
     return '引用（共$count条）';
   }
@@ -2417,6 +2465,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get sideDrawerMenuRegenerateTitle => '重新生成标题';
+
+  @override
+  String get sideDrawerMenuCopy => '复制';
 
   @override
   String get sideDrawerMenuMoveTo => '移动到';
@@ -2899,6 +2950,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get defaultModelPageOcrModelTitle => 'OCR 模型';
 
   @override
+  String backgroundTaskFailed(String task, String error) {
+    return '$task失败：$error';
+  }
+
+  @override
   String get defaultModelPageOcrModelSubtitle => '用于对图片执行文字识别的模型';
 
   @override
@@ -3187,6 +3243,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get providerDetailPageModelsTab => '模型';
+
+  @override
+  String get providerDetailPageCustomRequestTitle => '自定义请求';
+
+  @override
+  String get providerDetailPageCustomRequestDescription =>
+      '应用于此供应商的所有模型。模型配置优先于此处，此处配置优先于助手配置。';
 
   @override
   String get providerDetailPageNetworkTab => '网络代理';
@@ -4643,7 +4706,81 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ttsServicesFieldLanguageLabel => '语言';
 
   @override
+  String get ttsServicesFieldWorkspaceIdLabel => '业务空间 ID';
+
+  @override
+  String get ttsServicesFieldRegionLabel => '地域';
+
+  @override
+  String get ttsServicesFieldFormatLabel => '音频格式';
+
+  @override
+  String get ttsServicesFieldOutputFormatLabel => '输出格式';
+
+  @override
+  String get ttsServicesFieldSampleRateLabel => '采样率';
+
+  @override
+  String get ttsServicesFieldVolumeLabel => '音量';
+
+  @override
+  String get ttsServicesFieldPitchLabel => '音调';
+
+  @override
+  String get ttsServicesFieldLanguageBoostLabel => '语言增强';
+
+  @override
+  String get ttsServicesFieldBitrateLabel => '比特率';
+
+  @override
+  String get ttsServicesFieldChannelLabel => '声道数';
+
+  @override
+  String get ttsServicesFieldSubtitlesLabel => '生成字幕';
+
+  @override
+  String get ttsServicesFieldPronunciationDictionaryLabel => '发音词典（每行一项）';
+
+  @override
+  String get ttsServicesFieldInstructionLabel => '风格／音色描述';
+
+  @override
+  String get ttsServicesFieldStreamingLabel => '流式输出';
+
+  @override
+  String get ttsServicesFieldOptimizeTextPreviewLabel => '优化播报文本';
+
+  @override
+  String get ttsServicesFieldReferenceAudioLabel => '参考音频（WAV/MP3 数据 URI）';
+
+  @override
+  String get ttsServicesFieldChooseReferenceAudioButton => '选择参考音频';
+
+  @override
+  String get ttsServicesFieldTemperatureLabel => '随机度';
+
+  @override
+  String get ttsServicesFieldTopPLabel => 'Top P';
+
+  @override
+  String get ttsServicesFieldLatencyLabel => '延迟模式';
+
+  @override
+  String get ttsServicesEmotionAutoLabel => '自动匹配';
+
+  @override
   String get ttsServicesValidationApiKeyRequired => 'API Key 不能为空';
+
+  @override
+  String get ttsServicesValidationReferenceIdRequired => '音色／参考 ID 不能为空';
+
+  @override
+  String get ttsServicesValidationInstructionRequired => '音色描述不能为空';
+
+  @override
+  String ttsServicesValidationSampleRate(String format, String rates) {
+    return '$format 格式要求使用 $rates Hz。';
+  }
 
   @override
   String get ttsServicesViewDetailsButton => '查看详情';
@@ -4919,6 +5056,12 @@ class AppLocalizationsZh extends AppLocalizations {
       '博查 AI 全网网页搜索，支持时间范围与摘要，更适合 AI 使用。';
 
   @override
+  String get searchServiceNameDoubao => '豆包';
+
+  @override
+  String get searchProviderDoubaoDescription => '火山引擎豆包网页搜索 API。';
+
+  @override
   String get searchServiceNameSerper => 'Serper';
 
   @override
@@ -4938,6 +5081,27 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get searchProviderGrokDescription =>
       '通过 xAI Responses API 使用 Grok 搜索。调用网页和 X 搜索工具，并返回带引用的来源。';
+
+  @override
+  String get searchServiceNameStepFun => 'StepFun';
+
+  @override
+  String get searchProviderStepFunDescription =>
+      '通过 StepFun POST /v1/search 进行网页搜索。';
+
+  @override
+  String get searchServiceNameFirecrawl => 'Firecrawl';
+
+  @override
+  String get searchProviderFirecrawlDescription =>
+      'Firecrawl Search API v2。需要 Bearer API Key。此处不支持 Scrape。';
+
+  @override
+  String get searchServiceNameTinyFish => 'TinyFish';
+
+  @override
+  String get searchProviderTinyFishDescription =>
+      'TinyFish Search API，支持地区与语言参数。需要 API Key。此处不支持 Fetch/Scrape。';
 
   @override
   String get searchServicesDialogCountryOptional => '国家/地区（可选）';
@@ -5154,6 +5318,34 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get assistantEditLocalToolCalculateSubtitle =>
       '计算数学表达式，支持加减乘除幂运算 sqrt sin cos 等。';
+
+  @override
+  String get assistantEditLocalToolScreenTimeTitle => '屏幕使用时间';
+
+  @override
+  String get assistantEditLocalToolScreenTimeSubtitle =>
+      '查询本设备的应用使用时长，需要授予使用情况访问权限。';
+
+  @override
+  String get chatMessageWidgetScreenTimeTotal => '总屏幕时间';
+
+  @override
+  String get chatMessageWidgetScreenTimePermissionRequired =>
+      '未授予使用情况访问权限，请在系统设置中开启后重试。';
+
+  @override
+  String get assistantEditLocalToolCalendarQueryTitle => '查询日历';
+
+  @override
+  String get assistantEditLocalToolCalendarQuerySubtitle =>
+      '读取本设备上的日历日程，需要授予日历权限。';
+
+  @override
+  String get assistantEditLocalToolCalendarCreateTitle => '创建日程';
+
+  @override
+  String get assistantEditLocalToolCalendarCreateSubtitle =>
+      '在你确认后于本设备创建日历日程，需要授予日历权限。';
 
   @override
   String get assistantEditMemorySwitchDescription => '允许助手主动存储并在对话间引用用户相关信息';
@@ -5588,7 +5780,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memorySettingsModelUnset => '未选择';
 
   @override
-  String get memorySettingsModelTip => '后台会频繁调用此模型，建议选择便宜且速度快的模型。';
+  String get memorySettingsModelTip => '开启「自动整理记忆」后，后台会频繁调用此模型，建议选择便宜且速度快的模型。';
 
   @override
   String get memorySettingsAboutTitle => '记忆说明';
@@ -8491,6 +8683,11 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get backupPageRestartContent => '导入成功。重启 Kelivo 后将安全应用。';
 
   @override
+  String backupPageRestartContentWithSkipped(int count) {
+    return '导入已完成，但已跳过 $count 个消息顺序非法的会话。重启 Kelivo 后将安全应用已导入的数据。';
+  }
+
+  @override
   String get restartAppFailedMessage => 'Kelivo 无法自动重启，请完全关闭后重新打开。';
 
   @override
@@ -8526,6 +8723,46 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String backupRestoreFailureDiagnostic(String code) {
     return '诊断码：$code';
   }
+
+  @override
+  String get startupRecoveryMoreOptions => '更多恢复选项';
+
+  @override
+  String get startupRecoveryRepairButton => '修复并重启';
+
+  @override
+  String get startupRecoveryExportButton => '导出我的数据副本';
+
+  @override
+  String get startupRecoveryResetButton => '重置数据';
+
+  @override
+  String get startupRecoveryBusy => '处理中…';
+
+  @override
+  String get startupRecoveryExportSucceeded => '已保存一份数据副本。';
+
+  @override
+  String get startupRecoveryExportFailed => '无法导出数据副本。';
+
+  @override
+  String get startupRecoveryRepairFailed => '修复未能解决问题。请先导出数据副本，然后重置。';
+
+  @override
+  String get startupRecoveryResetFailed => '重置失败。请彻底关闭 Kelivo 后重新打开。';
+
+  @override
+  String get startupRecoveryResetDialogTitle => '重置全部数据？';
+
+  @override
+  String get startupRecoveryResetDialogContent =>
+      '这将永久删除本设备上 Kelivo 的数据库并重新开始。如果之后可能还需要这些数据，请先导出一份副本。此操作无法撤销。';
+
+  @override
+  String get startupRecoveryResetDialogConfirm => '重置并重启';
+
+  @override
+  String get startupRecoveryResetDialogCancel => '取消';
 
   @override
   String get startupDatabaseUpdateRequiredTitle => '请更新 Kelivo 以继续';
@@ -9054,6 +9291,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get chatMessageWidgetOpenLinkError => '打开链接失败';
 
   @override
+  String get chatMessageWidgetAttachmentUnavailable => '附件不可用';
+
+  @override
   String chatMessageWidgetCitationsTitle(int count) {
     return '引用（共$count条）';
   }
@@ -9331,6 +9571,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get sideDrawerMenuRegenerateTitle => '重新生成标题';
+
+  @override
+  String get sideDrawerMenuCopy => '复制';
 
   @override
   String get sideDrawerMenuMoveTo => '移动到';
@@ -9813,6 +10056,11 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get defaultModelPageOcrModelTitle => 'OCR 模型';
 
   @override
+  String backgroundTaskFailed(String task, String error) {
+    return '$task失败：$error';
+  }
+
+  @override
   String get defaultModelPageOcrModelSubtitle => '用于对图片执行文字识别的模型';
 
   @override
@@ -10101,6 +10349,13 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get providerDetailPageModelsTab => '模型';
+
+  @override
+  String get providerDetailPageCustomRequestTitle => '自定义请求';
+
+  @override
+  String get providerDetailPageCustomRequestDescription =>
+      '应用于此供应商的所有模型。模型配置优先于此处，此处配置优先于助手配置。';
 
   @override
   String get providerDetailPageNetworkTab => '网络代理';
@@ -11831,6 +12086,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
       '博查 AI 全网网页搜索，支持时间范围与摘要，更适合 AI 使用。';
 
   @override
+  String get searchServiceNameDoubao => '豆包';
+
+  @override
+  String get searchProviderDoubaoDescription => '火山引擎豆包网页搜索 API。';
+
+  @override
   String get searchServiceNameSerper => 'Serper';
 
   @override
@@ -11850,6 +12111,27 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   @override
   String get searchProviderGrokDescription =>
       '通过 xAI Responses API 使用 Grok 搜索。调用网页和 X 搜索工具，并返回带引用的来源。';
+
+  @override
+  String get searchServiceNameStepFun => 'StepFun';
+
+  @override
+  String get searchProviderStepFunDescription =>
+      '通过 StepFun POST /v1/search 进行网页搜索。';
+
+  @override
+  String get searchServiceNameFirecrawl => 'Firecrawl';
+
+  @override
+  String get searchProviderFirecrawlDescription =>
+      'Firecrawl Search API v2。需要 Bearer API Key。此处不支持 Scrape。';
+
+  @override
+  String get searchServiceNameTinyFish => 'TinyFish';
+
+  @override
+  String get searchProviderTinyFishDescription =>
+      'TinyFish Search API，支持地区与语言参数。需要 API Key。此处不支持 Fetch/Scrape。';
 
   @override
   String get searchServicesDialogCountryOptional => '国家/地区（可选）';
@@ -12066,6 +12348,34 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   @override
   String get assistantEditLocalToolCalculateSubtitle =>
       '计算数学表达式，支持加减乘除幂运算 sqrt sin cos 等。';
+
+  @override
+  String get assistantEditLocalToolScreenTimeTitle => '屏幕使用时间';
+
+  @override
+  String get assistantEditLocalToolScreenTimeSubtitle =>
+      '查询本设备的应用使用时长，需要授予使用情况访问权限。';
+
+  @override
+  String get chatMessageWidgetScreenTimeTotal => '总屏幕时间';
+
+  @override
+  String get chatMessageWidgetScreenTimePermissionRequired =>
+      '未授予使用情况访问权限，请在系统设置中开启后重试。';
+
+  @override
+  String get assistantEditLocalToolCalendarQueryTitle => '查询日历';
+
+  @override
+  String get assistantEditLocalToolCalendarQuerySubtitle =>
+      '读取本设备上的日历日程，需要授予日历权限。';
+
+  @override
+  String get assistantEditLocalToolCalendarCreateTitle => '创建日程';
+
+  @override
+  String get assistantEditLocalToolCalendarCreateSubtitle =>
+      '在你确认后于本设备创建日历日程，需要授予日历权限。';
 
   @override
   String get assistantEditMemorySwitchDescription => '允许助手主动存储并在对话间引用用户相关信息';
@@ -12500,7 +12810,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get memorySettingsModelUnset => '未选择';
 
   @override
-  String get memorySettingsModelTip => '后台会频繁调用此模型，建议选择便宜且速度快的模型。';
+  String get memorySettingsModelTip => '开启「自动整理记忆」后，后台会频繁调用此模型，建议选择便宜且速度快的模型。';
 
   @override
   String get memorySettingsAboutTitle => '记忆说明';
@@ -15403,6 +15713,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get backupPageRestartContent => '匯入成功。重新啟動 Kelivo 後將安全套用。';
 
   @override
+  String backupPageRestartContentWithSkipped(int count) {
+    return '匯入已完成，但已略過 $count 個訊息順序無效的會話。重新啟動 Kelivo 後將安全套用已匯入的資料。';
+  }
+
+  @override
   String get restartAppFailedMessage => 'Kelivo 無法自動重新啟動，請完全關閉後再重新開啟。';
 
   @override
@@ -15438,6 +15753,46 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String backupRestoreFailureDiagnostic(String code) {
     return '診斷碼：$code';
   }
+
+  @override
+  String get startupRecoveryMoreOptions => '更多復原選項';
+
+  @override
+  String get startupRecoveryRepairButton => '修復並重新啟動';
+
+  @override
+  String get startupRecoveryExportButton => '匯出我的資料副本';
+
+  @override
+  String get startupRecoveryResetButton => '重設資料';
+
+  @override
+  String get startupRecoveryBusy => '處理中…';
+
+  @override
+  String get startupRecoveryExportSucceeded => '已儲存一份資料副本。';
+
+  @override
+  String get startupRecoveryExportFailed => '無法匯出資料副本。';
+
+  @override
+  String get startupRecoveryRepairFailed => '修復未能解決問題。請先匯出資料副本，然後重設。';
+
+  @override
+  String get startupRecoveryResetFailed => '重設失敗。請完全關閉 Kelivo 後再重新開啟。';
+
+  @override
+  String get startupRecoveryResetDialogTitle => '重設全部資料？';
+
+  @override
+  String get startupRecoveryResetDialogContent =>
+      '這會永久刪除本裝置上 Kelivo 的資料庫並重新開始。如果之後可能還需要這些資料，請先匯出一份副本。此操作無法復原。';
+
+  @override
+  String get startupRecoveryResetDialogConfirm => '重設並重新啟動';
+
+  @override
+  String get startupRecoveryResetDialogCancel => '取消';
 
   @override
   String get startupDatabaseUpdateRequiredTitle => '請更新 Kelivo 以繼續';
@@ -15965,6 +16320,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get chatMessageWidgetOpenLinkError => '開啟連結失敗';
 
   @override
+  String get chatMessageWidgetAttachmentUnavailable => '附件不可用';
+
+  @override
   String chatMessageWidgetCitationsTitle(int count) {
     return '引用（共$count條）';
   }
@@ -16242,6 +16600,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get sideDrawerMenuRegenerateTitle => '重新生成標題';
+
+  @override
+  String get sideDrawerMenuCopy => '複製';
 
   @override
   String get sideDrawerMenuMoveTo => '移動到';
@@ -16724,6 +17085,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get defaultModelPageOcrModelTitle => 'OCR 模型';
 
   @override
+  String backgroundTaskFailed(String task, String error) {
+    return '$task失敗：$error';
+  }
+
+  @override
   String get defaultModelPageOcrModelSubtitle => '用於對圖片執行文字辨識的模型';
 
   @override
@@ -17012,6 +17378,13 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get providerDetailPageModelsTab => '模型';
+
+  @override
+  String get providerDetailPageCustomRequestTitle => '自訂請求';
+
+  @override
+  String get providerDetailPageCustomRequestDescription =>
+      '套用於此供應商的所有模型。模型設定優先於此處，此處設定優先於助手設定。';
 
   @override
   String get providerDetailPageNetworkTab => '網路代理';
@@ -18466,7 +18839,81 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get ttsServicesFieldLanguageLabel => '語言';
 
   @override
+  String get ttsServicesFieldWorkspaceIdLabel => '業務空間 ID';
+
+  @override
+  String get ttsServicesFieldRegionLabel => '地域';
+
+  @override
+  String get ttsServicesFieldFormatLabel => '音訊格式';
+
+  @override
+  String get ttsServicesFieldOutputFormatLabel => '輸出格式';
+
+  @override
+  String get ttsServicesFieldSampleRateLabel => '取樣率';
+
+  @override
+  String get ttsServicesFieldVolumeLabel => '音量';
+
+  @override
+  String get ttsServicesFieldPitchLabel => '音調';
+
+  @override
+  String get ttsServicesFieldLanguageBoostLabel => '語言增強';
+
+  @override
+  String get ttsServicesFieldBitrateLabel => '位元率';
+
+  @override
+  String get ttsServicesFieldChannelLabel => '聲道數';
+
+  @override
+  String get ttsServicesFieldSubtitlesLabel => '產生字幕';
+
+  @override
+  String get ttsServicesFieldPronunciationDictionaryLabel => '發音詞典（每行一項）';
+
+  @override
+  String get ttsServicesFieldInstructionLabel => '風格／音色描述';
+
+  @override
+  String get ttsServicesFieldStreamingLabel => '串流輸出';
+
+  @override
+  String get ttsServicesFieldOptimizeTextPreviewLabel => '最佳化播報文字';
+
+  @override
+  String get ttsServicesFieldReferenceAudioLabel => '參考音訊（WAV/MP3 資料 URI）';
+
+  @override
+  String get ttsServicesFieldChooseReferenceAudioButton => '選擇參考音訊';
+
+  @override
+  String get ttsServicesFieldTemperatureLabel => '隨機度';
+
+  @override
+  String get ttsServicesFieldTopPLabel => 'Top P';
+
+  @override
+  String get ttsServicesFieldLatencyLabel => '延遲模式';
+
+  @override
+  String get ttsServicesEmotionAutoLabel => '自動配對';
+
+  @override
   String get ttsServicesValidationApiKeyRequired => 'API Key 不能為空';
+
+  @override
+  String get ttsServicesValidationReferenceIdRequired => '音色／參考 ID 不能為空';
+
+  @override
+  String get ttsServicesValidationInstructionRequired => '音色描述不能為空';
+
+  @override
+  String ttsServicesValidationSampleRate(String format, String rates) {
+    return '$format 格式要求使用 $rates Hz。';
+  }
 
   @override
   String get ttsServicesViewDetailsButton => '檢視詳細';
@@ -18743,6 +19190,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
       '博查 AI 全網網頁搜尋，支援時間範圍與摘要，更適合 AI 使用。';
 
   @override
+  String get searchServiceNameDoubao => '豆包';
+
+  @override
+  String get searchProviderDoubaoDescription => '火山引擎豆包網頁搜尋 API。';
+
+  @override
   String get searchServiceNameSerper => 'Serper';
 
   @override
@@ -18762,6 +19215,27 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get searchProviderGrokDescription =>
       '透過 xAI Responses API 使用 Grok 搜尋。呼叫網頁和 X 搜尋工具，並返回帶引用的來源。';
+
+  @override
+  String get searchServiceNameStepFun => 'StepFun';
+
+  @override
+  String get searchProviderStepFunDescription =>
+      '透過 StepFun POST /v1/search 進行網頁搜尋。';
+
+  @override
+  String get searchServiceNameFirecrawl => 'Firecrawl';
+
+  @override
+  String get searchProviderFirecrawlDescription =>
+      'Firecrawl Search API v2。需要 Bearer API Key。此處不支援 Scrape。';
+
+  @override
+  String get searchServiceNameTinyFish => 'TinyFish';
+
+  @override
+  String get searchProviderTinyFishDescription =>
+      'TinyFish Search API，支援地區與語言參數。需要 API Key。此處不支援 Fetch/Scrape。';
 
   @override
   String get searchServicesDialogCountryOptional => '國家/地區（可選）';
@@ -18979,6 +19453,34 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get assistantEditLocalToolCalculateSubtitle =>
       '計算數學表達式，支援加減乘除冪運算 sqrt sin cos 等。';
+
+  @override
+  String get assistantEditLocalToolScreenTimeTitle => '螢幕使用時間';
+
+  @override
+  String get assistantEditLocalToolScreenTimeSubtitle =>
+      '查詢本裝置的應用使用時長，需要授予使用情況存取權限。';
+
+  @override
+  String get chatMessageWidgetScreenTimeTotal => '總螢幕使用時間';
+
+  @override
+  String get chatMessageWidgetScreenTimePermissionRequired =>
+      '未授予使用記錄存取權限，請在系統設定中開啟後重試。';
+
+  @override
+  String get assistantEditLocalToolCalendarQueryTitle => '查詢日曆';
+
+  @override
+  String get assistantEditLocalToolCalendarQuerySubtitle =>
+      '讀取本裝置上的日曆行程，需要授予日曆權限。';
+
+  @override
+  String get assistantEditLocalToolCalendarCreateTitle => '建立行程';
+
+  @override
+  String get assistantEditLocalToolCalendarCreateSubtitle =>
+      '在你確認後於本裝置建立日曆行程，需要授予日曆權限。';
 
   @override
   String get assistantEditMemorySwitchDescription => '允許助理主動儲存並在對話間引用使用者相關資訊';
@@ -19413,7 +19915,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get memorySettingsModelUnset => '未選擇';
 
   @override
-  String get memorySettingsModelTip => '後台會頻繁呼叫此模型，建議選擇便宜且速度快的模型。';
+  String get memorySettingsModelTip => '開啟「自動整理記憶」後，後台會頻繁呼叫此模型，建議選擇便宜且速度快的模型。';
 
   @override
   String get memorySettingsAboutTitle => '記憶說明';

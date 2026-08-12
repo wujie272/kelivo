@@ -5,6 +5,7 @@ import 'dart:isolate';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import '../../database/app_database.dart';
@@ -89,6 +90,12 @@ class ChatService extends ChangeNotifier {
   ChatDatabaseLease? _databaseLease;
   Future<void>? _assetReferenceMaintenanceFuture;
   Future<void>? _postStartupAssetMaintenanceFuture;
+  // Per-conversation full message-ID skeleton backfill kicked off by
+  // loadTimelinePage so first paint is not blocked on getMessageIds.
+  // Futures cover idle wait + query and are awaitable before idle fires.
+  final Map<String, Future<void>> _messageOrderBackfillFutures = {};
+  // Completing these aborts the idle wait (close) without resurrecting order.
+  final Map<String, Completer<void>> _messageOrderBackfillAbort = {};
 
   String? _currentConversationId;
   final Map<String, List<ChatMessage>> _messagesCache = {};
@@ -105,6 +112,8 @@ class ChatService extends ChangeNotifier {
   final Map<String, String> _geminiThoughtSigsCache = {};
   final Map<String, Map<String, int>> _firstGroupIndicesCache = {};
   final Map<String, int> _messageCounts = {};
+  // Invariant: a key is either absent or holds the complete authoritative
+  // message-ID order. Never store a partial / half-filled skeleton.
   final Map<String, List<String>> _messageOrderIds = {};
 
   // OCR identity memo: avoids re-reading image bytes on every send. Validated
@@ -118,6 +127,48 @@ class ChatService extends ChangeNotifier {
 
   @visibleForTesting
   int get debugTimelineFastPathHitCount => _timelineFastPathHitCount;
+
+  /// In-flight full order backfill for [conversationId], if any.
+  ///
+  /// [loadTimelinePage] schedules this after caching the first-page window so
+  /// callers (and tests) can await completeness without blocking first paint.
+  @visibleForTesting
+  Future<void>? debugMessageOrderBackfillFuture(String conversationId) =>
+      _messageOrderBackfillFutures[conversationId];
+
+  /// Whether `_messageOrderIds` currently holds a complete skeleton entry.
+  @visibleForTesting
+  bool debugHasMessageOrderSkeleton(String conversationId) =>
+      _messageOrderIds.containsKey(conversationId);
+
+  /// Length of the cached order skeleton, or null when absent.
+  @visibleForTesting
+  int? debugMessageOrderSkeletonLength(String conversationId) =>
+      _messageOrderIds[conversationId]?.length;
+
+  /// Test-only: prime message cache / count / order without private-field access.
+  @visibleForTesting
+  void debugPrimeMessageCountState(
+    String conversationId, {
+    List<ChatMessage>? cachedMessages,
+    int? messageCount,
+    List<String>? orderIds,
+    bool clearCounts = false,
+  }) {
+    if (cachedMessages != null) {
+      _messagesCache[conversationId] = List<ChatMessage>.of(cachedMessages);
+    }
+    if (clearCounts) {
+      _messageCounts.remove(conversationId);
+      _messageOrderIds.remove(conversationId);
+    }
+    if (messageCount != null) {
+      _messageCounts[conversationId] = messageCount;
+    }
+    if (orderIds != null) {
+      _messageOrderIds[conversationId] = List<String>.of(orderIds);
+    }
+  }
 
   // Localized default title for new conversations; set by UI on startup.
   String _defaultConversationTitle = 'New Chat';
@@ -244,6 +295,19 @@ class ChatService extends ChangeNotifier {
         await assetMaintenance;
       } catch (_) {}
     }
+    // Abort idle waits so close never hangs on Priority.idle.
+    for (final abort in _messageOrderBackfillAbort.values) {
+      if (!abort.isCompleted) abort.complete();
+    }
+    _messageOrderBackfillAbort.clear();
+    final orderBackfills =
+        List<Future<void>>.of(_messageOrderBackfillFutures.values);
+    _messageOrderBackfillFutures.clear();
+    for (final backfill in orderBackfills) {
+      try {
+        await backfill;
+      } catch (_) {}
+    }
     _initialized = false;
     final lease = _databaseLease;
     _databaseLease = null;
@@ -267,14 +331,13 @@ class ChatService extends ChangeNotifier {
 
   Future<void> _loadConversationsCache() async {
     final conversations = await _repo.getAllConversationSummaries();
-    final messageCounts = await _repo.getMessageCountsByConversation();
     _toolEventsCache.clear();
     _geminiThoughtSigsCache.clear();
     _messageOrderIds.clear();
     _firstGroupIndicesCache.clear();
-    _messageCounts
-      ..clear()
-      ..addAll(messageCounts);
+    // Drop stale counts on reload; do not re-fill via full-DB aggregation.
+    // Counts are resolved lazily on read/write paths that need them.
+    _messageCounts.clear();
     _conversationsCache
       ..clear()
       ..addEntries(
@@ -285,15 +348,162 @@ class ChatService extends ChangeNotifier {
     _bumpConversationListRevision();
   }
 
+  /// Returns a known in-memory count, or resolves once via the per-conversation
+  /// index and caches it. Never returns the unknown sentinel (-1).
+  ///
+  /// Temporary/draft conversations use in-memory message length and do not hit
+  /// DB. Persisted unknowns query only [_repo.getMessageCount] for that id;
+  /// never [ChatDatabaseRepository.getMessageCountsByConversation].
+  Future<int> resolveMessageCount(String conversationId) async {
+    if (_temporaryConversationIds.contains(conversationId) ||
+        _draftConversations.containsKey(conversationId)) {
+      return _messagesCache[conversationId]?.length ?? 0;
+    }
+    final cached = getMessageCount(conversationId);
+    if (cached >= 0) return cached;
+    final count = await _repo.getMessageCount(conversationId);
+    _messageCounts[conversationId] = count;
+    return count;
+  }
+
+  Future<int> _resolveMessageCount(String conversationId) =>
+      resolveMessageCount(conversationId);
+
   Future<List<String>> _loadMessageOrder(String conversationId) async {
     final cached = _messageOrderIds[conversationId];
     if (cached != null) return cached;
     final ids = (await _repo.getMessageIds(
       conversationId,
     )).toList(growable: true);
+    // Presence means complete & authoritative. A concurrent writer may have
+    // installed a full skeleton (and appended newer ids) while getMessageIds
+    // was in flight — never clobber that with a potentially stale snapshot.
+    final raced = _messageOrderIds[conversationId];
+    if (raced != null) return raced;
     _messageOrderIds[conversationId] = ids;
     _messageCounts[conversationId] = ids.length;
     return ids;
+  }
+
+  /// Idle-deferred full order backfill. Keeps `_messageOrderIds` absent until a
+  /// complete list is ready. Failure only logs — it never removes a concurrent
+  /// foreground-installed skeleton. Cancel/close leave an absent key absent.
+  ///
+  /// Does not start [getMessageIds] immediately — waits past the next frame,
+  /// then for [SchedulerBinding.scheduleTask] at [Priority.idle] (same pattern
+  /// as chat/home idle warm-ups). Post-frame matters: an idle task alone can
+  /// still start during first-paint sibling awaits (e.g. visible-group preload)
+  /// and contend for SQLite. The registered future covers frame + idle wait +
+  /// query so tests and [close] can await it deterministically.
+  void _scheduleMessageOrderBackfill(String conversationId) {
+    if (_messageOrderIds.containsKey(conversationId)) return;
+    if (_messageOrderBackfillFutures.containsKey(conversationId)) return;
+
+    final abort = Completer<void>();
+    _messageOrderBackfillAbort[conversationId] = abort;
+
+    late final Future<void> backfill;
+    backfill = _runMessageOrderBackfill(conversationId, abort).whenComplete(() {
+      if (identical(_messageOrderBackfillFutures[conversationId], backfill)) {
+        _messageOrderBackfillFutures.remove(conversationId);
+      }
+      if (identical(_messageOrderBackfillAbort[conversationId], abort)) {
+        _messageOrderBackfillAbort.remove(conversationId);
+      }
+    });
+    _messageOrderBackfillFutures[conversationId] = backfill;
+    unawaited(backfill);
+  }
+
+  void _abortMessageOrderBackfill(String conversationId) {
+    final abort = _messageOrderBackfillAbort.remove(conversationId);
+    if (abort != null && !abort.isCompleted) {
+      abort.complete();
+    }
+  }
+
+  /// Returns `false` when [abort] wins before the idle slot is granted.
+  Future<bool> _awaitMessageOrderBackfillSlot(Completer<void> abort) async {
+    try {
+      final binding = SchedulerBinding.instance;
+      // 1) Past the next frame so first paint / visible-group preload DB work
+      // is not contended by a full-ID scan during their awaits.
+      final frame = Completer<void>();
+      binding.addPostFrameCallback((_) {
+        if (!frame.isCompleted) frame.complete();
+      });
+      binding.ensureVisualUpdate();
+      await Future.any<void>([frame.future, abort.future]);
+      if (abort.isCompleted) return false;
+
+      // 2) Project idle-priority slot (chat/home warm-up pattern).
+      await Future.any<void>([
+        binding.scheduleTask<void>(
+          () {},
+          Priority.idle,
+          debugLabel: 'chat.messageOrderBackfill',
+        ),
+        abort.future,
+      ]);
+      return !abort.isCompleted;
+    } catch (_) {
+      // No scheduler binding (rare bare isolates): proceed immediately.
+      return !abort.isCompleted;
+    }
+  }
+
+  Future<void> _runMessageOrderBackfill(
+    String conversationId,
+    Completer<void> abort,
+  ) async {
+    try {
+      if (!await _awaitMessageOrderBackfillSlot(abort)) return;
+      if (_messageOrderIds.containsKey(conversationId)) return;
+
+      // Race the query against abort so [close] never hangs on a gated /
+      // slow getMessageIds. Orphaned queries swallow late errors.
+      final query = Completer<List<String>>();
+      unawaited(() async {
+        try {
+          final ids = (await _repo.getMessageIds(
+            conversationId,
+          )).toList(growable: true);
+          if (!query.isCompleted) query.complete(ids);
+        } catch (error, stack) {
+          if (!query.isCompleted) query.completeError(error, stack);
+        }
+      }());
+      await Future.any<void>([query.future.then((_) {}), abort.future]);
+      if (abort.isCompleted) {
+        unawaited(query.future.catchError((Object _) => <String>[]));
+        return;
+      }
+      final ids = await query.future;
+
+      // Cancel / delete while in flight: do not resurrect a removed skeleton.
+      if (abort.isCompleted) return;
+      final raced = _messageOrderIds[conversationId];
+      if (raced != null) return;
+      if (!_conversationsCache.containsKey(conversationId) &&
+          !_draftConversations.containsKey(conversationId)) {
+        return;
+      }
+      // Existence == complete: install atomically with matching count.
+      _messageOrderIds[conversationId] = ids;
+      _messageCounts[conversationId] = ids.length;
+      // Re-project any already-cached messages through the complete order so
+      // getMessages matches the pre-Issue-7 awaited-skeleton ordering.
+      final cached = _messagesCache[conversationId];
+      if (cached != null) {
+        _cacheLoadedMessages(conversationId, cached);
+      }
+    } catch (error) {
+      // Do not remove caches on failure: this task never installs a partial
+      // skeleton (existence == complete), and a concurrent foreground
+      // `_loadMessageOrder` may have already written a full authoritative
+      // entry while our getMessageIds was in flight.
+      debugPrint('Message order backfill failed for $conversationId: $error');
+    }
   }
 
   Future<List<ChatMessage>> loadActiveTimelineMessages(
@@ -397,9 +607,18 @@ class ChatService extends ChangeNotifier {
     if (loadedSlots.length != page.slots.length) {
       throw StateError('timeline_selected_revision_shadow_missing');
     }
-    await _loadMessageOrder(conversationId);
+    // First-page paint must not await the full message-ID skeleton. Cache the
+    // window, return, then backfill order in the background. Invariant:
+    // `_messageOrderIds` stays absent until backfill installs a complete list.
+    //
+    // Scroll audit (home_page_controller.scrollToMessageId / post-initChat):
+    // jump uses collapsed-index + loadUntilMessageVisible, not getMessageIndex
+    // on the order skeleton, so an absent order during first paint is safe.
+    // `_tryAppendPersistedTail` already treats missing order (index -1 / count
+    // unknown) as a contiguity miss and falls back to a full reload.
     _cacheLoadedMessages(conversationId, messages);
     await _cacheMessageArtifacts(messages);
+    _scheduleMessageOrderBackfill(conversationId);
     return LoadedTimelinePage(
       conversationId: conversationId,
       stateRevision:
@@ -865,7 +1084,16 @@ class ChatService extends ChangeNotifier {
       return _messagesCache[conversationId]?.length ?? 0;
     }
     if (!_initialized) return 0;
-    return _messageCounts[conversationId] ?? 0;
+    final count = _messageCounts[conversationId];
+    if (count != null) return count;
+    final orderLen = _messageOrderIds[conversationId]?.length;
+    if (orderLen != null) return orderLen;
+    return -1;
+  }
+
+  bool isMessageCountKnown(String conversationId) {
+    return _messageCounts.containsKey(conversationId) ||
+        _messageOrderIds.containsKey(conversationId);
   }
 
   /// Ids only, in message order; never hydrates messages into the LRU cache
@@ -954,7 +1182,10 @@ class ChatService extends ChangeNotifier {
         _draftConversations.containsKey(conversationId)) {
       return getMessagesForGroups(conversationId, groupIds);
     }
-    await _loadMessageOrder(conversationId);
+    // Group-directed preload must not await / install the full order skeleton.
+    // `_cacheLoadedMessages` merges bodies only when order is absent and never
+    // creates a half `_messageOrderIds` or writes `_messageCounts` from a
+    // partial group load (existence == complete).
     final messages = await _repo.getMessagesForGroups(conversationId, groupIds);
     _cacheLoadedMessages(conversationId, messages);
     await _cacheMessageArtifacts(messages);
@@ -1019,7 +1250,11 @@ class ChatService extends ChangeNotifier {
   bool isConversationFullyCached(String conversationId) {
     if (!_initialized) return false;
     final cached = _messagesCache[conversationId];
-    return cached != null && cached.length == getMessageCount(conversationId);
+    if (cached == null) return false;
+    final known =
+        _messageCounts[conversationId] ??
+        _messageOrderIds[conversationId]?.length;
+    return known != null && cached.length == known;
   }
 
   static const int _titleSourceMaxChars = 3000;
@@ -1156,22 +1391,26 @@ class ChatService extends ChangeNotifier {
 
   Future<List<ChatMessage>> loadMessages(String conversationId) async {
     if (!_initialized) return const [];
-    final cached = _messagesCache[conversationId];
-    if (cached != null && cached.length == getMessageCount(conversationId)) {
-      return cached;
+    // Require a known count: unknown (-1) must not short-circuit as a cache hit.
+    if (isConversationFullyCached(conversationId)) {
+      return _messagesCache[conversationId]!;
     }
     final conversation =
         _conversationsCache[conversationId] ??
         _draftConversations[conversationId];
     if (conversation == null) return [];
 
-    final messages = _temporaryConversationIds.contains(conversationId)
-        ? (_messagesCache[conversationId] ?? const <ChatMessage>[])
-        : await _repo.getMessagesRange(
-            conversationId,
-            start: 0,
-            limit: getMessageCount(conversationId),
-          );
+    final List<ChatMessage> messages;
+    if (_temporaryConversationIds.contains(conversationId)) {
+      messages = _messagesCache[conversationId] ?? const <ChatMessage>[];
+    } else {
+      final total = await _resolveMessageCount(conversationId);
+      messages = await _repo.getMessagesRange(
+        conversationId,
+        start: 0,
+        limit: total,
+      );
+    }
 
     if (!_temporaryConversationIds.contains(conversationId)) {
       await _cacheMessageArtifacts(messages);
@@ -1412,7 +1651,9 @@ class ChatService extends ChangeNotifier {
       return const <ChatMessage>[];
     }
 
-    final total = getMessageCount(conversationId);
+    // Resolve unknown (-1) before empty short-circuit / clamp; -1 must never
+    // reuse the total == 0 branch or become a clamp upper bound.
+    final total = await _resolveMessageCount(conversationId);
     if (total == 0) return const <ChatMessage>[];
     final minCount = minMessages.clamp(1, total).toInt();
     final maxCount = maxMessages < minCount ? minCount : maxMessages;
@@ -1561,6 +1802,19 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<Conversation?> duplicateConversation(String id) async {
+    if (!_initialized) await init();
+    final duplicate = await _repo.duplicateConversation(id);
+    if (duplicate == null) return null;
+
+    _conversationsCache[duplicate.id] = duplicate;
+    _messageOrderIds[duplicate.id] = List<String>.of(duplicate.messageIds);
+    _messageCounts[duplicate.id] = duplicate.messageIds.length;
+    _bumpConversationListRevision();
+    notifyListeners();
+    return duplicate;
+  }
+
   Future<bool> _deleteDraftConversation(String id) async {
     if (!_draftConversations.containsKey(id)) return false;
 
@@ -1586,6 +1840,9 @@ class ChatService extends ChangeNotifier {
 
     await _repo.deleteConversation(id);
     _conversationsCache.remove(id);
+    // Stop any deferred/in-flight order backfill before clearing caches so a
+    // late getMessageIds cannot resurrect order/count for a deleted id.
+    _abortMessageOrderBackfill(id);
     final removedMessages = _messagesCache.remove(id);
     final removedOrder = _messageOrderIds.remove(id);
     _messageCounts.remove(id);
@@ -1645,22 +1902,20 @@ class ChatService extends ChangeNotifier {
         // asset sync — missing files would otherwise dirty/throw forever.
         if (part.unavailable) continue;
         final uri = part.uri.trim();
-        if (uri.isEmpty ||
-            uri.startsWith('http') ||
-            uri.startsWith('data:')) {
+        if (uri.isEmpty || uri.startsWith('http') || uri.startsWith('data:')) {
           continue;
         }
-        final fixed = SandboxPathResolver.fix(uri);
+        final fixed = SandboxPathResolver.resolveForIo(uri);
+        if (fixed == null) continue;
         fromParts['image:$fixed'] = (path: fixed, kind: 'image');
       } else if (part is FilePart) {
         if (part.unavailable) continue;
         final uri = part.uri.trim();
-        if (uri.isEmpty ||
-            uri.startsWith('http') ||
-            uri.startsWith('data:')) {
+        if (uri.isEmpty || uri.startsWith('http') || uri.startsWith('data:')) {
           continue;
         }
-        final fixed = SandboxPathResolver.fix(uri);
+        final fixed = SandboxPathResolver.resolveForIo(uri);
+        if (fixed == null) continue;
         fromParts['file:$fixed'] = (path: fixed, kind: 'file');
       }
     }
@@ -1679,14 +1934,19 @@ class ChatService extends ChangeNotifier {
       if (path.startsWith('data:')) {
         fromParts.add(path);
       } else {
-        fromParts.add(SandboxPathResolver.fix(path));
+        final resolved = SandboxPathResolver.resolveForIo(path);
+        if (resolved != null) fromParts.add(resolved);
       }
     }
     return fromParts;
   }
 
-  bool _messageCanOwnAssets(ChatMessage message) =>
-      message.parts.any((part) => part is ImagePart || part is FilePart);
+  bool _messageCanOwnAssets(ChatMessage message) => message.parts.any(
+    (part) =>
+        part is ImagePart ||
+        part is FilePart ||
+        (part is MalformedPart && part.isAttachmentKind),
+  );
 
   Future<void> _backfillAssetReferences(Directory appDataDir) async {
     final targetRoot = p.normalize(appDataDir.absolute.path);
@@ -1699,6 +1959,7 @@ class ChatService extends ChangeNotifier {
       return;
     }
     var cursor = '';
+    var loggedMalformedAttachment = false;
     while (true) {
       final messages = await _repo.getMessagesForAssetReferenceBackfill(
         afterMessageId: cursor,
@@ -1706,12 +1967,19 @@ class ChatService extends ChangeNotifier {
       );
       if (messages.isEmpty) break;
       for (final message in messages) {
+        cursor = message.id;
         try {
-          await _synchronizeMessageAssets(message);
+          final synchronized = await _synchronizeMessageAssets(message);
+          if (!synchronized && !loggedMalformedAttachment) {
+            debugPrint(
+              'Asset reference backfill left malformed attachment revisions '
+              'dirty; they will be retried on the next maintenance pass.',
+            );
+            loggedMalformedAttachment = true;
+          }
         } catch (error) {
           debugPrint('Asset reference backfill skipped ${message.id}: $error');
         }
-        cursor = message.id;
         await Future<void>.delayed(Duration.zero);
       }
     }
@@ -1747,8 +2015,16 @@ class ChatService extends ChangeNotifier {
     await runAssetReferenceMaintenance();
   }
 
-  Future<void> _synchronizeMessageAssets(ChatMessage message) async {
-    if (isTemporaryConversation(message.conversationId)) return;
+  Future<bool> _synchronizeMessageAssets(ChatMessage message) async {
+    if (isTemporaryConversation(message.conversationId)) return true;
+    if (message.parts.any(
+      (part) => part is MalformedPart && part.isAttachmentKind,
+    )) {
+      // Parsing is insufficient to build an authoritative replacement set.
+      // Preserve existing message_asset_rows and keep the revision retryable.
+      await _repo.markMessageAssetReferencesDirty(message.id);
+      return false;
+    }
     final appDataDir = await AppDirectories.getAppDataDirectory();
     final allowedRoots = [
       p.normalize(p.join(appDataDir.absolute.path, 'upload')),
@@ -1771,7 +2047,7 @@ class ChatService extends ChangeNotifier {
         MessageAssetRegistration(
           assetId: 'asset_$contentHash',
           contentHash: contentHash,
-          path: normalizedPath,
+          path: SandboxPathResolver.canonicalize(normalizedPath),
           byteSize: await file.length(),
           kind: attachment.kind,
         ),
@@ -1782,6 +2058,7 @@ class ChatService extends ChangeNotifier {
       revisionId: message.id,
       assets: registrations,
     );
+    return true;
   }
 
   static Future<String> _hashAssetFile(File file) {
@@ -1810,11 +2087,17 @@ class ChatService extends ChangeNotifier {
     if (targetRoot == null || targetRoot.isEmpty) {
       throw StateError('sandbox_path_resolver_not_ready');
     }
-    await _repo.migrateSandboxPaths(
+    final result = await _repo.migrateSandboxPaths(
       targetVersion: 1,
       targetRoot: targetRoot,
-      rewriteUri: SandboxPathResolver.fix,
+      rewriteUri: SandboxPathResolver.canonicalize,
     );
+    if (result.skippedParts > 0) {
+      debugPrint(
+        'Sandbox path migration completed with '
+        '${result.skippedParts} malformed attachment parts unchanged.',
+      );
+    }
   }
 
   /// Reset stale isStreaming flags left over from a previous app crash or
@@ -1846,7 +2129,12 @@ class ChatService extends ChangeNotifier {
         final regularFiles = <File>[];
         var safe = true;
         for (final candidatePath in paths) {
-          final normalized = p.normalize(File(candidatePath).absolute.path);
+          final resolved = SandboxPathResolver.resolveForIo(candidatePath);
+          if (resolved == null) {
+            safe = false;
+            break;
+          }
+          final normalized = p.normalize(File(resolved).absolute.path);
           if (!allowedRoots.any((root) => p.isWithin(root, normalized))) {
             safe = false;
             break;
@@ -1882,6 +2170,7 @@ class ChatService extends ChangeNotifier {
           final completed = await _repo.completeAssetGc(
             assetId: candidate.assetId,
             expectedGeneration: candidate.generation,
+            path: candidate.path,
           );
           if (!completed) continue;
           for (final moved in quarantined) {
@@ -2030,6 +2319,23 @@ class ChatService extends ChangeNotifier {
     await _loadConversationsCache();
     notifyListeners();
     return report;
+  }
+
+  /// Chats-only merge/restore follow-up for imported conversations.
+  Future<int> recomputeImportedAttachmentAvailability({
+    required Iterable<String> conversationIds,
+    required bool filesRestored,
+  }) async {
+    if (!_initialized) await init();
+    final updated = await _repo.recomputeAttachmentAvailabilityForConversations(
+      conversationIds: conversationIds,
+      filesRestored: filesRestored,
+    );
+    if (updated > 0) {
+      _clearPersistedMessageCache();
+      notifyListeners();
+    }
+    return updated;
   }
 
   Future<void> _resetAfterOverwriteRestore() async {
@@ -3068,7 +3374,8 @@ class ChatService extends ChangeNotifier {
           result[path] = await _hashDataUrl(path);
           continue;
         }
-        final fixed = SandboxPathResolver.fix(path);
+        final fixed = SandboxPathResolver.resolveForIo(path);
+        if (fixed == null) continue;
         final normalized = p.normalize(File(fixed).absolute.path);
         final file = File(normalized);
         if (await FileSystemEntity.type(file.path, followLinks: false) !=
@@ -3286,6 +3593,7 @@ class ChatService extends ChangeNotifier {
     if (isTemporaryConversation(message.conversationId)) {
       final conversation = _draftConversations[message.conversationId];
       conversation?.messageIds.remove(messageId);
+      conversation?.chatSuggestions = const <String>[];
       final messages = _messagesCache[message.conversationId];
       messages?.removeWhere((m) => m.id == messageId);
       _temporaryToolEvents.remove(messageId);
@@ -3319,6 +3627,7 @@ class ChatService extends ChangeNotifier {
       if (deletedIds.isEmpty) return const <String>{};
       messages.removeWhere((message) => deletedIds.contains(message.id));
       conversation.messageIds.removeWhere(deletedIds.contains);
+      conversation.chatSuggestions = const <String>[];
       for (final entry in versionSelectionChanges.entries) {
         final version = entry.value;
         if (version == null) {

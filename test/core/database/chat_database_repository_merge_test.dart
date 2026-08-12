@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:Kelivo/core/database/chat_database_repository.dart';
 import 'package:Kelivo/core/models/chat_message.dart';
 import 'package:Kelivo/core/models/conversation.dart';
+import 'package:Kelivo/core/models/message_part.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite;
 
@@ -130,6 +131,80 @@ void main() {
       );
     }
 
+    Future<void> putConversationWithAttachments(
+      ChatDatabaseRepository repository, {
+      required String conversationId,
+      required String messageId,
+      required String content,
+      required List<MessagePart> parts,
+    }) {
+      final anchor = DateTime.utc(2026, 8, 7, 12);
+      return repository.putMigrationBatch(
+        conversations: [
+          Conversation(
+            id: conversationId,
+            title: 'Attachments',
+            createdAt: anchor,
+            updatedAt: anchor,
+            messageIds: [messageId],
+            mcpServerIds: const ['server'],
+            versionSelections: {messageId: 0},
+          ),
+        ],
+        messages: [
+          (
+            message: ChatMessage(
+              id: messageId,
+              role: 'user',
+              content: content,
+              conversationId: conversationId,
+              timestamp: anchor,
+              parts: parts,
+            ),
+            messageOrder: 0,
+          ),
+        ],
+        toolEventsByMessageId: const {},
+        geminiSignaturesByMessageId: const {},
+      );
+    }
+
+    Future<void> putSparseConversation({
+      required String conversationId,
+      required String messagePrefix,
+    }) async {
+      final anchor = DateTime.utc(2026, 8, 7, 12);
+      final messages = [
+        for (var index = 0; index < 3; index++)
+          ChatMessage(
+            id: '$messagePrefix-${String.fromCharCode(97 + index)}',
+            role: index.isEven ? 'user' : 'assistant',
+            content: String.fromCharCode(97 + index),
+            conversationId: conversationId,
+            timestamp: anchor.add(Duration(minutes: index)),
+          ),
+      ];
+      await source.putMigrationBatch(
+        conversations: [
+          Conversation(
+            id: conversationId,
+            title: 'Sparse',
+            createdAt: anchor,
+            updatedAt: anchor,
+            messageIds: messages.map((message) => message.id).toList(),
+            versionSelections: {for (final message in messages) message.id: 0},
+          ),
+        ],
+        messages: [
+          for (var index = 0; index < messages.length; index++)
+            (message: messages[index], messageOrder: index),
+        ],
+        toolEventsByMessageId: const {},
+        geminiSignaturesByMessageId: const {},
+      );
+      await source.deleteMessage(messages[1].id);
+    }
+
     Future<void> reopenLive() async {
       await live.close();
       live = ChatDatabaseRepository.open(
@@ -247,9 +322,11 @@ void main() {
       expect(await live.getAllConversations(), hasLength(2));
 
       expect(
-        (await live.getMessagesRange('swap', start: 0, limit: 10))
-            .map((message) => message.content)
-            .toList(),
+        (await live.getMessagesRange(
+          'swap',
+          start: 0,
+          limit: 10,
+        )).map((message) => message.content).toList(),
         const ['alpha content', 'beta content'],
       );
       final imported = await live.getMessagesRange(
@@ -257,17 +334,121 @@ void main() {
         start: 0,
         limit: 10,
       );
-      expect(
-        imported.map((message) => message.content).toList(),
-        const ['beta content', 'alpha content'],
-      );
-      expect(
-        imported.map((message) => message.reasoningText).toList(),
-        const ['beta reasoning', 'alpha reasoning'],
-      );
+      expect(imported.map((message) => message.content).toList(), const [
+        'beta content',
+        'alpha content',
+      ]);
+      expect(imported.map((message) => message.reasoningText).toList(), const [
+        'beta reasoning',
+        'alpha reasoning',
+      ]);
       expect(await live.getToolEvents(imported.first.id), const [
         {'id': 'tool', 'content': 'beta tool'},
       ]);
+    });
+
+    test('正文相同但附件不同不会被误判为重复', () async {
+      await putConversationWithAttachments(
+        live,
+        conversationId: 'attach',
+        messageId: 'attach-msg',
+        content: 'same body',
+        parts: const [
+          ImagePart(
+            uri: 'kelivo-file:///upload/a.png',
+            mime: 'image/png',
+            assetId: 'asset-a',
+          ),
+        ],
+      );
+      await putConversationWithAttachments(
+        source,
+        conversationId: 'attach',
+        messageId: 'attach-msg',
+        content: 'same body',
+        parts: const [
+          ImagePart(
+            uri: 'kelivo-file:///upload/b.png',
+            mime: 'image/png',
+            assetId: 'asset-b',
+          ),
+        ],
+      );
+      await source.close();
+      sourceClosed = true;
+
+      final report = await live.mergeBackupSnapshot(sourceFile);
+      expect(report.deduplicatedConversations, 0);
+      expect(report.importedConversations, 1);
+      expect(await live.getAllConversations(), hasLength(2));
+    });
+
+    test('仅 unavailable 不同仍按附件身份去重', () async {
+      await putConversationWithAttachments(
+        live,
+        conversationId: 'avail',
+        messageId: 'avail-msg',
+        content: 'same body',
+        parts: const [
+          ImagePart(
+            uri: 'kelivo-file:///upload/a.png',
+            mime: 'image/png',
+            assetId: 'asset-a',
+            unavailable: false,
+          ),
+        ],
+      );
+      await putConversationWithAttachments(
+        source,
+        conversationId: 'avail',
+        messageId: 'avail-msg',
+        content: 'same body',
+        parts: const [
+          ImagePart(
+            uri: 'kelivo-file:///upload/a.png',
+            mime: 'image/png',
+            assetId: 'asset-a',
+            unavailable: true,
+          ),
+        ],
+      );
+      await source.close();
+      sourceClosed = true;
+
+      final report = await live.mergeBackupSnapshot(sourceFile);
+      expect(report.deduplicatedConversations, 1);
+      expect(report.importedConversations, 0);
+      expect(await live.getAllConversations(), hasLength(1));
+    });
+
+    test('附件 ordinal 顺序不同产生不同指纹', () async {
+      await putConversationWithAttachments(
+        live,
+        conversationId: 'order',
+        messageId: 'order-msg',
+        content: 'same body',
+        parts: const [
+          ImagePart(uri: 'kelivo-file:///upload/a.png', mime: 'image/png'),
+          ImagePart(uri: 'kelivo-file:///upload/b.png', mime: 'image/png'),
+        ],
+      );
+      await putConversationWithAttachments(
+        source,
+        conversationId: 'order',
+        messageId: 'order-msg',
+        content: 'same body',
+        parts: const [
+          ImagePart(uri: 'kelivo-file:///upload/b.png', mime: 'image/png'),
+          ImagePart(uri: 'kelivo-file:///upload/a.png', mime: 'image/png'),
+        ],
+      );
+      await source.close();
+      sourceClosed = true;
+
+      final report = await live.mergeBackupSnapshot(sourceFile);
+      expect(report.deduplicatedConversations, 0);
+      expect(report.importedConversations, 1);
+      expect(await live.getAllConversations(), hasLength(2));
     });
 
     test('同 conversation ID 异内容时整会话 remap 并可重复去重', () async {
@@ -409,11 +590,7 @@ void main() {
       );
       await source.putMigrationBatch(
         conversations: [
-          Conversation(
-            id: 'versioned',
-            title: 'Imported',
-            messageIds: [v0.id],
-          ),
+          Conversation(id: 'versioned', title: 'Imported', messageIds: [v0.id]),
         ],
         messages: [(message: v0, messageOrder: 0)],
         toolEventsByMessageId: const {},
@@ -448,45 +625,99 @@ void main() {
       expect(await live.getAllConversations(), hasLength(2));
     });
 
-    test('非法 order 在事务写入前拒绝且 live 不变', () async {
+    test('删除中间消息后的稀疏 order 可导入、稳定去重并保留水位', () async {
+      await putSparseConversation(
+        conversationId: 'sparse',
+        messagePrefix: 'sparse',
+      );
+      await source.close();
+      sourceClosed = true;
+
+      final first = await live.mergeBackupSnapshot(sourceFile);
+
+      expect(first.importedConversations, 1);
+      expect(first.skippedConversations, 0);
+      expect((await live.getConversation('sparse'))?.messageIds, const [
+        'sparse-a',
+        'sparse-c',
+      ]);
+      expect(await live.getMessageIndex('sparse', 'sparse-a'), 0);
+      expect(await live.getMessageIndex('sparse', 'sparse-c'), 2);
+      expect(
+        (await live.getConversation('sparse'))?.lastMemoryExtractedOrder,
+        2,
+      );
+
+      final second = await live.mergeBackupSnapshot(sourceFile);
+      expect(second.importedConversations, 0);
+      expect(second.deduplicatedConversations, 1);
+      expect(second.skippedConversations, 0);
+    });
+
+    test('稀疏 order 在 conversation ID 冲突时可整会话 remap', () async {
       await putConversation(
         live,
-        conversationId: 'local',
+        conversationId: 'sparse-remap',
         title: 'Local',
         messageId: 'local-message',
         content: 'local',
       );
+      await putSparseConversation(
+        conversationId: 'sparse-remap',
+        messagePrefix: 'remap',
+      );
+      await source.close();
+      sourceClosed = true;
+
+      final report = await live.mergeBackupSnapshot(sourceFile);
+      final remappedId = report.remappedConversationIds['sparse-remap'];
+
+      expect(remappedId, isNotNull);
+      expect(report.skippedConversations, 0);
+      final imported = await live.getConversation(remappedId!);
+      expect(imported?.messageIds, hasLength(2));
+      expect(
+        await live.getMessageIndex(remappedId, imported!.messageIds[0]),
+        0,
+      );
+      expect(await live.getMessageIndex(remappedId, imported.messageIds[1]), 2);
+      expect(imported.lastMemoryExtractedOrder, 2);
+    });
+
+    test('非法 order 仅跳过所属会话并计数', () async {
       await putConversation(
         source,
+        conversationId: 'valid',
+        title: 'Valid',
+        messageId: 'valid-message',
+        content: 'valid',
+      );
+      await putTwoMessageConversation(
+        source,
         conversationId: 'invalid',
-        title: 'Invalid',
-        messageId: 'invalid-message',
-        content: 'invalid',
+        firstMessageId: 'invalid-a',
+        secondMessageId: 'invalid-b',
+        firstBody: 'a',
+        secondBody: 'b',
       );
       await source.close();
       sourceClosed = true;
       final raw = sqlite.sqlite3.open(sourceFile.path);
       try {
+        raw.execute('PRAGMA ignore_check_constraints = ON;');
         raw.execute(
-          'UPDATE message_rows SET message_order = 2 '
-          "WHERE id = 'invalid-message';",
+          'UPDATE message_rows SET message_order = -1 '
+          "WHERE id = 'invalid-b';",
         );
       } finally {
         raw.close();
       }
 
-      await expectLater(
-        live.mergeBackupSnapshot(sourceFile),
-        throwsA(
-          isA<StateError>().having(
-            (error) => error.message,
-            'message',
-            'conversation_message_order',
-          ),
-        ),
-      );
+      final report = await live.mergeBackupSnapshot(sourceFile);
 
-      expect(await live.getConversation('local'), isNotNull);
+      expect(report.importedConversations, 1);
+      expect(report.skippedConversations, 1);
+      expect(await live.getConversation('valid'), isNotNull);
       expect(await live.getConversation('invalid'), isNull);
       expect(await live.getAllConversations(), hasLength(1));
     });

@@ -251,7 +251,9 @@ class _DesktopProvidersBodyState extends State<_DesktopProvidersBody> {
                       onPressed: () => Navigator.of(ctx).pop(true),
                       child: Text(
                         l10n.providerDetailPageDeleteButton,
-                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     ),
                   ],
@@ -294,6 +296,7 @@ class _DesktopProvidersBodyState extends State<_DesktopProvidersBody> {
       (name: 'Tensdaq', key: 'Tensdaq'),
       (name: 'DeepSeek', key: 'DeepSeek'),
       (name: 'AIhubmix', key: 'AIhubmix'),
+      (name: '随想AI中转站', key: '随想AI中转站'),
       (name: l10n.providersPageAliyunName, key: 'Aliyun'),
       (name: l10n.providersPageZhipuName, key: 'Zhipu AI'),
       (name: 'Claude', key: 'Claude'),
@@ -764,10 +767,7 @@ class _DesktopProvidersSearchField extends StatelessWidget {
     return TextField(
       controller: controller,
       onChanged: onChanged,
-      style: TextStyle(
-        color: cs.onSurface,
-        fontSize: 14,
-      ),
+      style: TextStyle(color: cs.onSurface, fontSize: 14),
       cursorColor: cs.primary,
       decoration: InputDecoration(
         hintText: hintText,
@@ -1373,6 +1373,69 @@ class _DesktopProviderDetailPaneState
                                 ..onTap = () async {
                                   final uri = Uri.parse(
                                     'https://siliconflow.cn',
+                                  );
+                                  try {
+                                    final ok = await launchUrl(
+                                      uri,
+                                      mode: LaunchMode.externalApplication,
+                                    );
+                                    if (!ok) {
+                                      await launchUrl(uri);
+                                    }
+                                  } catch (_) {
+                                    await launchUrl(uri);
+                                  }
+                                },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              if (widget.providerKey.toLowerCase() == '随想ai中转站') ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: cs.primary.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '可靠高效的 API 中继服务，提供 Claude、Codex、Gemini 等中继服务。注重隐私·无数据倒卖·无模型掺水，充值额度 1:1，按量付费。多线路冗余、跨区域容灾、自动故障切换，长链路 SSE 不中断。',
+                        style: TextStyle(
+                          color: cs.onSurface.withValues(alpha: 0.8),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text.rich(
+                        TextSpan(
+                          text: '官网：',
+                          style: TextStyle(
+                            color: cs.onSurface.withValues(alpha: 0.8),
+                          ),
+                          children: [
+                            TextSpan(
+                              text: 'https://sui-xiang.com',
+                              style: TextStyle(
+                                color: cs.primary,
+                                fontWeight: AppFontWeights.emphasis,
+                              ),
+                              recognizer: TapGestureRecognizer()
+                                ..onTap = () async {
+                                  final uri = Uri.parse(
+                                    'https://sui-xiang.com',
                                   );
                                   try {
                                     final ok = await launchUrl(
@@ -2680,7 +2743,9 @@ class _DesktopProviderDetailPaneState
                                           TextEditingController();
                                       final ok = await showDialog<bool>(
                                         context: ctx,
-                                        barrierColor: cs.scrim.withValues(alpha: 0.12),
+                                        barrierColor: cs.scrim.withValues(
+                                          alpha: 0.12,
+                                        ),
                                         builder: (dctx) => AlertDialog(
                                           title: Text(
                                             l10n.providerGroupsCreateDialogTitle,
@@ -2731,7 +2796,9 @@ class _DesktopProviderDetailPaneState
                                       showDialog<void>(
                                         context: ctx,
                                         barrierDismissible: true,
-                                        barrierColor: cs.scrim.withValues(alpha: 0.12),
+                                        barrierColor: cs.scrim.withValues(
+                                          alpha: 0.12,
+                                        ),
                                         builder: (_) =>
                                             const _DesktopProviderGroupsDialog(),
                                       ),
@@ -3542,6 +3609,34 @@ class _DesktopProviderDetailPaneState
                               duration: const Duration(milliseconds: 180),
                               sizeCurve: Curves.easeOutCubic,
                             ),
+                            const SizedBox(height: 16),
+                            ProviderCustomRequestEditor(
+                              key: ValueKey(
+                                'desktop-provider-custom-request-${widget.providerKey}',
+                              ),
+                              headers: cfgNow.customHeaders,
+                              body: cfgNow.customBody,
+                              onHeadersChanged: (rows) async {
+                                final old = spWatch.getProviderConfig(
+                                  widget.providerKey,
+                                  defaultName: widget.displayName,
+                                );
+                                await spWatch.setProviderConfig(
+                                  widget.providerKey,
+                                  old.copyWith(customHeaders: rows),
+                                );
+                              },
+                              onBodyChanged: (rows) async {
+                                final old = spWatch.getProviderConfig(
+                                  widget.providerKey,
+                                  defaultName: widget.displayName,
+                                );
+                                await spWatch.setProviderConfig(
+                                  widget.providerKey,
+                                  old.copyWith(customBody: rows),
+                                );
+                              },
+                            ),
                           ],
                         ),
                       ),
@@ -3808,7 +3903,9 @@ class _DesktopProviderDetailPaneState
                             aspectRatio: 1,
                             child: Container(
                               decoration: BoxDecoration(
-                                color: cs.primary.withValues(alpha: isDark ? 0.18 : 0.1),
+                                color: cs.primary.withValues(
+                                  alpha: isDark ? 0.18 : 0.1,
+                                ),
                                 shape: BoxShape.circle,
                                 border: selected
                                     ? Border.all(color: cs.primary, width: 2)
@@ -6107,7 +6204,8 @@ class _DesktopProviderShareDialogState
                   child: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.white, // color-gate: ignore (QR scannability)
+                      color:
+                          Colors.white, // color-gate: ignore (QR scannability)
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: cs.outlineVariant.withValues(alpha: 0.2),
@@ -6425,8 +6523,11 @@ class _ProviderListRowState extends State<_ProviderListRow> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: (widget.enabled ? context.appColors.success : context.appColors.warning)
-                      .withValues(alpha: 0.12),
+                  color:
+                      (widget.enabled
+                              ? context.appColors.success
+                              : context.appColors.warning)
+                          .withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(999),
                   // No border for left list status
                 ),
@@ -6438,7 +6539,9 @@ class _ProviderListRowState extends State<_ProviderListRow> {
                         )!.providersPageDisabledStatus,
                   style: TextStyle(
                     fontSize: 11,
-                    color: widget.enabled ? context.appColors.success : context.appColors.warning,
+                    color: widget.enabled
+                        ? context.appColors.success
+                        : context.appColors.warning,
                     fontWeight: AppFontWeights.emphasis,
                   ),
                 ),
@@ -6945,7 +7048,9 @@ class _ModelRow extends StatelessWidget {
                         ? lucide.Lucide.CheckCircle
                         : lucide.Lucide.XCircle,
                     size: 16,
-                    color: detectionResult! ? context.appColors.success : cs.error,
+                    color: detectionResult!
+                        ? context.appColors.success
+                        : cs.error,
                   ),
                 ),
               ),
@@ -7018,7 +7123,9 @@ class _CardPressState extends State<_CardPress> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final overlay = _pressed
-        ? (Theme.of(context).colorScheme.onSurface.withValues(alpha: isDark ? 0.06 : 0.04))
+        ? (Theme.of(
+            context,
+          ).colorScheme.onSurface.withValues(alpha: isDark ? 0.06 : 0.04))
         : Colors.transparent;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,

@@ -210,6 +210,7 @@ class _DesktopBackupPaneState extends State<DesktopBackupPane> {
     Future<void> Function(RestoreMode) action,
   ) async {
     final rootCtx = Navigator.of(context, rootNavigator: true).context;
+    final backupProvider = context.read<BackupProvider>();
     final mode = await showDialog<RestoreMode>(
       context: context,
       builder: (ctx) => _RestoreModeDialog(),
@@ -227,7 +228,10 @@ class _DesktopBackupPaneState extends State<DesktopBackupPane> {
       return;
     }
     if (!rootCtx.mounted) return;
-    await showBackupRestartRequiredDialog(rootCtx);
+    await showBackupRestartRequiredDialog(
+      rootCtx,
+      skippedConversations: backupProvider.skippedConversations,
+    );
   }
 
   @override
@@ -505,6 +509,8 @@ class _DesktopBackupPaneState extends State<DesktopBackupPane> {
                                           throw Exception(msg);
                                         }
                                       },
+                                      skippedConversations: () =>
+                                          backupProvider.skippedConversations,
                                       deleteAndReload:
                                           backupProvider.deleteAndReload,
                                     );
@@ -771,6 +777,8 @@ class _DesktopBackupPaneState extends State<DesktopBackupPane> {
                                           throw Exception(msg);
                                         }
                                       },
+                                      skippedConversations: () =>
+                                          s3BackupProvider.skippedConversations,
                                       deleteAndReload:
                                           s3BackupProvider.deleteAndReload,
                                     );
@@ -869,7 +877,16 @@ class _DesktopBackupPaneState extends State<DesktopBackupPane> {
                             .read<BackupReminderProvider>()
                             .recordBackupCompleted();
                       }
-                    } catch (_) {}
+                    } catch (e) {
+                      // A full disk or unwritable target must not look like
+                      // a successful export.
+                      if (!context.mounted) return;
+                      showAppSnackBar(
+                        context,
+                        message: e.toString(),
+                        type: NotificationType.error,
+                      );
+                    }
                   }
                 },
               ),
@@ -1363,6 +1380,7 @@ class _RemoteBackupsDialog extends StatefulWidget {
     required this.title,
     required this.listRemote,
     required this.restoreFromItem,
+    required this.skippedConversations,
     required this.deleteAndReload,
   });
 
@@ -1370,6 +1388,7 @@ class _RemoteBackupsDialog extends StatefulWidget {
   final Future<List<BackupFileItem>> Function() listRemote;
   final Future<void> Function(BackupFileItem item, RestoreMode mode)
   restoreFromItem;
+  final int Function() skippedConversations;
   final Future<List<BackupFileItem>> Function(BackupFileItem item)
   deleteAndReload;
 
@@ -1451,7 +1470,10 @@ class _RemoteBackupsDialogState extends State<_RemoteBackupsDialog> {
       if (mounted) setState(() => _loading = false);
     }
     if (!rootCtx.mounted) return;
-    await showBackupRestartRequiredDialog(rootCtx);
+    await showBackupRestartRequiredDialog(
+      rootCtx,
+      skippedConversations: widget.skippedConversations(),
+    );
   }
 
   @override
@@ -1606,6 +1628,7 @@ void _showRemoteBackupsDialog(
   required Future<List<BackupFileItem>> Function() listRemote,
   required Future<void> Function(BackupFileItem item, RestoreMode mode)
   restoreFromItem,
+  required int Function() skippedConversations,
   required Future<List<BackupFileItem>> Function(BackupFileItem item)
   deleteAndReload,
 }) {
@@ -1615,6 +1638,7 @@ void _showRemoteBackupsDialog(
       title: title,
       listRemote: listRemote,
       restoreFromItem: restoreFromItem,
+      skippedConversations: skippedConversations,
       deleteAndReload: deleteAndReload,
     ),
   );

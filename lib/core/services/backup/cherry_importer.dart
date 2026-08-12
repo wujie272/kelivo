@@ -14,6 +14,7 @@ import '../../models/conversation.dart';
 import '../../models/message_part.dart';
 import '../chat/chat_service.dart';
 import '../../../utils/app_directories.dart';
+import '../../../utils/sandbox_path_resolver.dart';
 import 'cherry_direct_backup_reader.dart';
 
 export 'cherry_direct_backup_reader.dart'
@@ -470,10 +471,7 @@ class CherryImporter {
       } else if (raw.length > speculativeJsonProbeBytes) {
         return null;
       }
-      return _tryDecodeBackupJsonBytes(
-        raw,
-        allowMalformed: identified,
-      );
+      return _tryDecodeBackupJsonBytes(raw, allowMalformed: identified);
     } catch (_) {
       return null;
     }
@@ -516,10 +514,7 @@ class CherryImporter {
     if (_looksLikeGzip(bytes)) {
       try {
         final gunzipped = GZipDecoder().decodeBytes(bytes, verify: false);
-        final obj = _tryDecodeBackupJsonBytes(
-          gunzipped,
-          allowMalformed: true,
-        );
+        final obj = _tryDecodeBackupJsonBytes(gunzipped, allowMalformed: true);
         if (obj != null) return obj;
       } catch (_) {}
     }
@@ -933,8 +928,19 @@ class CherryImporter {
         final fn = safeName.isNotEmpty
             ? safeName
             : (ext.isNotEmpty ? 'file.$ext' : 'file');
-        final fileName = 'cherry_${id}_$fn';
+        // `id` comes straight from the imported archive's JSON. Sanitize it
+        // like the display name: an id such as `x/../../y` would otherwise
+        // escape the upload directory on Windows, whose Win32 path
+        // normalization resolves `..` lexically without requiring the
+        // intermediate directory to exist.
+        final safeId = id.replaceAll(RegExp(r'[/\\\0]'), '_');
+        final fileName = 'cherry_${safeId}_$fn';
         final outPath = p.join(uploadDirPath, fileName);
+        // Defense in depth: never write outside the upload directory even if
+        // a future refactor weakens the sanitization above.
+        if (!p.isWithin(p.normalize(uploadDirPath), p.normalize(outPath))) {
+          continue;
+        }
 
         if (File(outPath).existsSync()) {
           result[id] = outPath;
@@ -991,10 +997,7 @@ class CherryImporter {
               if (!done &&
                   diskFilesIndexByRel != null &&
                   diskFilesIndexByRel.containsKey(key)) {
-                if (_copyDiskFileToUpload(
-                  diskFilesIndexByRel[key]!,
-                  outPath,
-                )) {
+                if (_copyDiskFileToUpload(diskFilesIndexByRel[key]!, outPath)) {
                   result[id] = outPath;
                   done = true;
                 }
@@ -1056,7 +1059,8 @@ class CherryImporter {
               continue;
             }
           }
-          if (filesIndexByBase != null && filesIndexByBase.containsKey(idPlus)) {
+          if (filesIndexByBase != null &&
+              filesIndexByBase.containsKey(idPlus)) {
             if (_writeArchiveEntryToFile(filesIndexByBase[idPlus]!, outPath)) {
               result[id] = outPath;
               continue;
@@ -1472,10 +1476,7 @@ class CherryImporter {
             content = _stripDataImageUrls(content);
           }
         }
-        final parts = <MessagePart>[
-          TextPart(content),
-          ...attachmentParts,
-        ];
+        final parts = <MessagePart>[TextPart(content), ...attachmentParts];
 
         messages.add(
           ChatMessage(
@@ -1530,15 +1531,16 @@ class CherryImporter {
     required String mime,
     bool unavailable = false,
   }) {
+    final uri = SandboxPathResolver.canonicalize(target);
     if (isImage) {
       return ImagePart(
-        uri: target,
+        uri: uri,
         mime: mime.isNotEmpty ? mime : null,
         unavailable: unavailable,
       );
     }
     return FilePart(
-      uri: target,
+      uri: uri,
       name: name.isNotEmpty ? name : 'file',
       mime: mime.isNotEmpty ? mime : 'application/octet-stream',
       unavailable: unavailable,

@@ -18,10 +18,12 @@ import 'package:Kelivo/secrets/fallback.dart';
 import '../../../utils/markdown_media_sanitizer.dart';
 import '../../../utils/unicode_sanitizer.dart';
 import 'builtin_tools.dart';
+import 'kimi_formula_search.dart';
 import 'gemini_tool_config.dart';
 import '../logging/flutter_logger.dart';
 import '../model_override_resolver.dart';
 import '../model_override_payload_parser.dart';
+import '../custom_request_merger.dart';
 import 'provider_request_headers.dart';
 import '../../utils/multimodal_input_utils.dart';
 
@@ -56,7 +58,6 @@ class ChatApiService {
   static const String _aihubmixAppCode = 'ZKRT3588';
   static final Map<String, CancelToken> _activeCancelTokens =
       <String, CancelToken>{};
-
 
   @visibleForTesting
   static bool shouldAttachVertexMediaAuthForTest(Uri uri) =>
@@ -155,27 +156,38 @@ class ChatApiService {
 
   static Map<String, String> _customHeaders(
     ProviderConfig cfg,
-    String modelId,
-  ) {
+    String modelId, {
+    Map<String, String> baseHeaders = const <String, String>{},
+    Map<String, String>? assistantHeaders,
+  }) {
     final ov = _modelOverride(cfg, modelId);
-    final out = <String, String>{
-      ...providerDefaultHeaders(cfg),
-      ...ModelOverridePayloadParser.customHeaders(ov),
-    };
+    final automatic = <String, String>{...providerDefaultHeaders(cfg)};
     // AIhubmix promo header (opt-in per-provider)
     if (_isAihubmix(cfg) && cfg.aihubmixAppCodeEnabled == true) {
-      out.putIfAbsent('APP-Code', () => _aihubmixAppCode);
+      automatic.putIfAbsent('APP-Code', () => _aihubmixAppCode);
     }
-    return out;
+    return CustomRequestMerger.mergeHeaders(
+      base: baseHeaders,
+      assistant: assistantHeaders,
+      providerAutomatic: automatic,
+      provider: ModelOverridePayloadParser.customHeadersFromRows(
+        cfg.customHeaders,
+      ),
+      model: ModelOverridePayloadParser.customHeaders(ov),
+    );
   }
 
-  static dynamic _parseOverrideValue(String v) {
-    return ModelOverridePayloadParser.parseOverrideValue(v);
-  }
-
-  static Map<String, dynamic> _customBody(ProviderConfig cfg, String modelId) {
+  static Map<String, dynamic> _customBody(
+    ProviderConfig cfg,
+    String modelId, {
+    Map<String, dynamic>? assistantBody,
+  }) {
     final ov = _modelOverride(cfg, modelId);
-    return ModelOverridePayloadParser.customBody(ov);
+    return CustomRequestMerger.mergeBody(
+      assistant: assistantBody,
+      providerRows: cfg.customBody,
+      model: ModelOverridePayloadParser.customBody(ov),
+    );
   }
 
   static bool _isAihubmix(ProviderConfig cfg) {
@@ -376,8 +388,13 @@ class ChatApiService {
           continue;
         }
         try {
-          final fixed = SandboxPathResolver.fix(url);
-          final file = File(fixed);
+          final resolved = SandboxPathResolver.resolveForIo(url);
+          if (resolved == null) {
+            buf.write(full);
+            i = m1.end;
+            continue;
+          }
+          final file = File(resolved);
           if (!file.existsSync()) {
             // Missing local file: do NOT treat as image; keep original markdown.
             buf.write(full);
@@ -405,12 +422,15 @@ class ChatApiService {
     String path, {
     bool withPrefix = false,
   }) async {
-    final fixed = SandboxPathResolver.fix(path);
-    final file = File(fixed);
+    final resolved = SandboxPathResolver.resolveForIo(path);
+    if (resolved == null) {
+      throw FileSystemException('rejected local path', path);
+    }
+    final file = File(resolved);
     final bytes = await file.readAsBytes();
     final b64 = base64Encode(bytes);
     if (withPrefix) {
-      final mime = _mimeFromPath(fixed);
+      final mime = _mimeFromPath(resolved);
       return 'data:$mime;base64,$b64';
     }
     return b64;
@@ -423,10 +443,11 @@ class ChatApiService {
     bool withPrefix = false,
   }) async {
     try {
-      final fixed = SandboxPathResolver.fix(path);
-      final file = File(fixed);
+      final resolved = SandboxPathResolver.resolveForIo(path);
+      if (resolved == null) return null;
+      final file = File(resolved);
       if (!await file.exists()) return null;
-      return _encodeBase64File(fixed, withPrefix: withPrefix);
+      return _encodeBase64File(resolved, withPrefix: withPrefix);
     } catch (_) {
       return null;
     }
@@ -755,13 +776,19 @@ class ChatApiService {
                 id,
               );
             }
+            if (BuiltInToolsHelper.isArkProvider(config)) {
+              return BuiltInToolsHelper.isDoubaoResponsesBuiltInSearchSupportedModel(
+                id,
+              );
+            }
             return false;
           }
 
           if (isResponsesWebSearchSupported(upstreamModelId)) {
             final builtIns = _builtInTools(config, modelId);
             if (builtIns.contains(BuiltInToolNames.search)) {
-              if (BuiltInToolsHelper.isDashScopeProvider(config)) {
+              if (BuiltInToolsHelper.isDashScopeProvider(config) ||
+                  BuiltInToolsHelper.isArkProvider(config)) {
                 toolsList.add({'type': 'web_search'});
               } else {
                 Map<String, dynamic> ws = const <String, dynamic>{};
@@ -816,7 +843,6 @@ class ChatApiService {
             'messages': [
               {'role': 'user', 'content': safePrompt},
             ],
-            'temperature': 0.3,
             if (isReasoning && effort != 'off' && effort != 'auto')
               'reasoning_effort': effort,
           };
@@ -840,21 +866,17 @@ class ChatApiService {
           isReasoning: isReasoning,
           thinkingBudget: thinkingBudget,
         );
-        final headers = <String, String>{
-          'Authorization': 'Bearer ${_apiKeyForRequest(config, modelId)}',
-          'Content-Type': 'application/json',
-        };
-        headers.addAll(_customHeaders(config, modelId));
-        if (extraHeaders != null && extraHeaders.isNotEmpty) {
-          headers.addAll(extraHeaders);
-        }
-        final extra = _customBody(config, modelId);
+        final headers = _customHeaders(
+          config,
+          modelId,
+          baseHeaders: <String, String>{
+            'Authorization': 'Bearer ${_apiKeyForRequest(config, modelId)}',
+            'Content-Type': 'application/json',
+          },
+          assistantHeaders: extraHeaders,
+        );
+        final extra = _customBody(config, modelId, assistantBody: extraBody);
         if (extra.isNotEmpty) body.addAll(extra);
-        if (extraBody != null && extraBody.isNotEmpty) {
-          (extraBody).forEach((k, v) {
-            body[k] = (v is String) ? _parseOverrideValue(v) : v;
-          });
-        }
         // Vendor-specific reasoning knobs for chat-completions compatible hosts (non-streaming)
         if (config.useResponseApi != true) {
           _applyVendorReasoningKnobs(
@@ -940,10 +962,6 @@ class ChatApiService {
         final isReasoning = effectiveInfo.abilities.contains(
           ModelAbility.reasoning,
         );
-        final omitSamplingParams = _claudeShouldOmitSamplingParams(
-          upstreamModelId,
-          thinkingBudget,
-        );
         final thinking = isReasoning
             ? _claudeThinkingConfig(
                 upstreamModelId,
@@ -961,30 +979,24 @@ class ChatApiService {
         final body = <String, dynamic>{
           'model': upstreamModelId,
           'max_tokens': 512,
-          if (!omitSamplingParams && !_isClaudeReasoningEnabled(thinkingBudget))
-            'temperature': 0.3,
           'messages': [
             {'role': 'user', 'content': safePrompt},
           ],
           if (thinking != null) 'thinking': thinking,
           if (outputConfig != null) 'output_config': outputConfig,
         };
-        final headers = <String, String>{
-          'x-api-key': _apiKeyForRequest(config, modelId),
-          'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
-        };
-        headers.addAll(_customHeaders(config, modelId));
-        if (extraHeaders != null && extraHeaders.isNotEmpty) {
-          headers.addAll(extraHeaders);
-        }
-        final extra = _customBody(config, modelId);
+        final headers = _customHeaders(
+          config,
+          modelId,
+          baseHeaders: <String, String>{
+            'x-api-key': _apiKeyForRequest(config, modelId),
+            'anthropic-version': '2023-06-01',
+            'Content-Type': 'application/json',
+          },
+          assistantHeaders: extraHeaders,
+        );
+        final extra = _customBody(config, modelId, assistantBody: extraBody);
         if (extra.isNotEmpty) body.addAll(extra);
-        if (extraBody != null && extraBody.isNotEmpty) {
-          (extraBody).forEach((k, v) {
-            body[k] = (v is String) ? _parseOverrideValue(v) : v;
-          });
-        }
         final resp = await client.post(
           url,
           headers: headers,
@@ -1055,7 +1067,6 @@ class ChatApiService {
               ],
             },
           ],
-          'generationConfig': {'temperature': 0.3},
         };
 
         // Inject Gemini built-in tools with version-aware mutual exclusion.
@@ -1074,34 +1085,33 @@ class ChatApiService {
             body['tools'] = toolsArr;
           }
         }
-        final headers = <String, String>{'Content-Type': 'application/json'};
+        final baseHeaders = <String, String>{
+          'Content-Type': 'application/json',
+        };
         // Add API Key header for non-Vertex
         if (!(config.vertexAI == true)) {
           final apiKey = _apiKeyForRequest(config, modelId);
           if (apiKey.isNotEmpty) {
-            headers['x-goog-api-key'] = apiKey;
+            baseHeaders['x-goog-api-key'] = apiKey;
           }
         }
         // Add Bearer for Vertex via service account JSON
         if (config.vertexAI == true) {
           final token = await _maybeVertexAccessToken(config);
           if (token != null && token.isNotEmpty) {
-            headers['Authorization'] = 'Bearer $token';
+            baseHeaders['Authorization'] = 'Bearer $token';
           }
           final proj = (config.projectId ?? '').trim();
-          if (proj.isNotEmpty) headers['X-Goog-User-Project'] = proj;
+          if (proj.isNotEmpty) baseHeaders['X-Goog-User-Project'] = proj;
         }
-        headers.addAll(_customHeaders(config, modelId));
-        if (extraHeaders != null && extraHeaders.isNotEmpty) {
-          headers.addAll(extraHeaders);
-        }
-        final extra = _customBody(config, modelId);
+        final headers = _customHeaders(
+          config,
+          modelId,
+          baseHeaders: baseHeaders,
+          assistantHeaders: extraHeaders,
+        );
+        final extra = _customBody(config, modelId, assistantBody: extraBody);
         if (extra.isNotEmpty) body.addAll(extra);
-        if (extraBody != null && extraBody.isNotEmpty) {
-          (extraBody).forEach((k, v) {
-            body[k] = (v is String) ? _parseOverrideValue(v) : v;
-          });
-        }
         final resp = await client.post(
           Uri.parse(url),
           headers: headers,

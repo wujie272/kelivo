@@ -3130,6 +3130,12 @@ abstract class AppLocalizations {
   /// **'Import successful. Restart Kelivo to apply it safely.'**
   String get backupPageRestartContent;
 
+  /// No description provided for @backupPageRestartContentWithSkipped.
+  ///
+  /// In en, this message translates to:
+  /// **'Import completed, but {count} conversations with invalid message ordering were skipped. Restart Kelivo to apply the imported data safely.'**
+  String backupPageRestartContentWithSkipped(int count);
+
   /// No description provided for @restartAppFailedMessage.
   ///
   /// In en, this message translates to:
@@ -3195,6 +3201,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Diagnostic code: {code}'**
   String backupRestoreFailureDiagnostic(String code);
+
+  /// No description provided for @startupRecoveryMoreOptions.
+  ///
+  /// In en, this message translates to:
+  /// **'More recovery options'**
+  String get startupRecoveryMoreOptions;
+
+  /// No description provided for @startupRecoveryRepairButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair and restart'**
+  String get startupRecoveryRepairButton;
+
+  /// No description provided for @startupRecoveryExportButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Export a copy of my data'**
+  String get startupRecoveryExportButton;
+
+  /// No description provided for @startupRecoveryResetButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset data'**
+  String get startupRecoveryResetButton;
+
+  /// No description provided for @startupRecoveryBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'Working…'**
+  String get startupRecoveryBusy;
+
+  /// No description provided for @startupRecoveryExportSucceeded.
+  ///
+  /// In en, this message translates to:
+  /// **'A copy of your data was saved.'**
+  String get startupRecoveryExportSucceeded;
+
+  /// No description provided for @startupRecoveryExportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not export a copy of your data.'**
+  String get startupRecoveryExportFailed;
+
+  /// No description provided for @startupRecoveryRepairFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair could not fix this. Export a copy of your data, then reset.'**
+  String get startupRecoveryRepairFailed;
+
+  /// No description provided for @startupRecoveryResetFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset failed. Fully close Kelivo, then open it again.'**
+  String get startupRecoveryResetFailed;
+
+  /// No description provided for @startupRecoveryResetDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset all data?'**
+  String get startupRecoveryResetDialogTitle;
+
+  /// No description provided for @startupRecoveryResetDialogContent.
+  ///
+  /// In en, this message translates to:
+  /// **'This permanently deletes Kelivo\'s database on this device and starts fresh. If you might need this data, export a copy first. This cannot be undone.'**
+  String get startupRecoveryResetDialogContent;
+
+  /// No description provided for @startupRecoveryResetDialogConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset and restart'**
+  String get startupRecoveryResetDialogConfirm;
+
+  /// No description provided for @startupRecoveryResetDialogCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get startupRecoveryResetDialogCancel;
 
   /// No description provided for @startupDatabaseUpdateRequiredTitle.
   ///
@@ -4204,6 +4288,12 @@ abstract class AppLocalizations {
   /// **'Failed to open link'**
   String get chatMessageWidgetOpenLinkError;
 
+  /// No description provided for @chatMessageWidgetAttachmentUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Attachment unavailable'**
+  String get chatMessageWidgetAttachmentUnavailable;
+
   /// No description provided for @chatMessageWidgetCitationsTitle.
   ///
   /// In en, this message translates to:
@@ -4701,6 +4791,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Regenerate Title'**
   String get sideDrawerMenuRegenerateTitle;
+
+  /// No description provided for @sideDrawerMenuCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get sideDrawerMenuCopy;
 
   /// No description provided for @sideDrawerMenuMoveTo.
   ///
@@ -5620,6 +5716,12 @@ abstract class AppLocalizations {
   /// **'OCR Model'**
   String get defaultModelPageOcrModelTitle;
 
+  /// No description provided for @backgroundTaskFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'{task} failed: {error}'**
+  String backgroundTaskFailed(String task, String error);
+
   /// No description provided for @defaultModelPageOcrModelSubtitle.
   ///
   /// In en, this message translates to:
@@ -6162,6 +6264,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Models'**
   String get providerDetailPageModelsTab;
+
+  /// No description provided for @providerDetailPageCustomRequestTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Request'**
+  String get providerDetailPageCustomRequestTitle;
+
+  /// No description provided for @providerDetailPageCustomRequestDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Applies to every model from this provider. Model settings override these values; these values override assistant settings.'**
+  String get providerDetailPageCustomRequestDescription;
 
   /// No description provided for @providerDetailPageNetworkTab.
   ///
@@ -8953,11 +9067,155 @@ abstract class AppLocalizations {
   /// **'Language'**
   String get ttsServicesFieldLanguageLabel;
 
+  /// No description provided for @ttsServicesFieldWorkspaceIdLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspace ID'**
+  String get ttsServicesFieldWorkspaceIdLabel;
+
+  /// No description provided for @ttsServicesFieldRegionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Region'**
+  String get ttsServicesFieldRegionLabel;
+
+  /// No description provided for @ttsServicesFieldFormatLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio format'**
+  String get ttsServicesFieldFormatLabel;
+
+  /// No description provided for @ttsServicesFieldOutputFormatLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Output format'**
+  String get ttsServicesFieldOutputFormatLabel;
+
+  /// No description provided for @ttsServicesFieldSampleRateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sample rate'**
+  String get ttsServicesFieldSampleRateLabel;
+
+  /// No description provided for @ttsServicesFieldVolumeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume'**
+  String get ttsServicesFieldVolumeLabel;
+
+  /// No description provided for @ttsServicesFieldPitchLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Pitch'**
+  String get ttsServicesFieldPitchLabel;
+
+  /// No description provided for @ttsServicesFieldLanguageBoostLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Language boost'**
+  String get ttsServicesFieldLanguageBoostLabel;
+
+  /// No description provided for @ttsServicesFieldBitrateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Bitrate'**
+  String get ttsServicesFieldBitrateLabel;
+
+  /// No description provided for @ttsServicesFieldChannelLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Channels'**
+  String get ttsServicesFieldChannelLabel;
+
+  /// No description provided for @ttsServicesFieldSubtitlesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate subtitles'**
+  String get ttsServicesFieldSubtitlesLabel;
+
+  /// No description provided for @ttsServicesFieldPronunciationDictionaryLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Pronunciation dictionary (one entry per line)'**
+  String get ttsServicesFieldPronunciationDictionaryLabel;
+
+  /// No description provided for @ttsServicesFieldInstructionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Style / voice description'**
+  String get ttsServicesFieldInstructionLabel;
+
+  /// No description provided for @ttsServicesFieldStreamingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Streaming'**
+  String get ttsServicesFieldStreamingLabel;
+
+  /// No description provided for @ttsServicesFieldOptimizeTextPreviewLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Optimize text preview'**
+  String get ttsServicesFieldOptimizeTextPreviewLabel;
+
+  /// No description provided for @ttsServicesFieldReferenceAudioLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reference audio (WAV/MP3 data URI)'**
+  String get ttsServicesFieldReferenceAudioLabel;
+
+  /// No description provided for @ttsServicesFieldChooseReferenceAudioButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose reference audio'**
+  String get ttsServicesFieldChooseReferenceAudioButton;
+
+  /// No description provided for @ttsServicesFieldTemperatureLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Temperature'**
+  String get ttsServicesFieldTemperatureLabel;
+
+  /// No description provided for @ttsServicesFieldTopPLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Top P'**
+  String get ttsServicesFieldTopPLabel;
+
+  /// No description provided for @ttsServicesFieldLatencyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Latency'**
+  String get ttsServicesFieldLatencyLabel;
+
+  /// No description provided for @ttsServicesEmotionAutoLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto match'**
+  String get ttsServicesEmotionAutoLabel;
+
   /// No description provided for @ttsServicesValidationApiKeyRequired.
   ///
   /// In en, this message translates to:
   /// **'API Key is required'**
   String get ttsServicesValidationApiKeyRequired;
+
+  /// No description provided for @ttsServicesValidationReferenceIdRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice/reference ID is required'**
+  String get ttsServicesValidationReferenceIdRequired;
+
+  /// No description provided for @ttsServicesValidationInstructionRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'A voice description is required'**
+  String get ttsServicesValidationInstructionRequired;
+
+  /// No description provided for @ttsServicesValidationSampleRate.
+  ///
+  /// In en, this message translates to:
+  /// **'{format} requires {rates} Hz.'**
+  String ttsServicesValidationSampleRate(String format, String rates);
 
   /// No description provided for @ttsServicesViewDetailsButton.
   ///
@@ -9457,6 +9715,18 @@ abstract class AppLocalizations {
   /// **'Bocha web search API. Accurate web results with optional summaries.'**
   String get searchProviderBochaDescription;
 
+  /// No description provided for @searchServiceNameDoubao.
+  ///
+  /// In en, this message translates to:
+  /// **'Doubao'**
+  String get searchServiceNameDoubao;
+
+  /// No description provided for @searchProviderDoubaoDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Doubao web search API by Volcano Engine.'**
+  String get searchProviderDoubaoDescription;
+
   /// No description provided for @searchServiceNameSerper.
   ///
   /// In en, this message translates to:
@@ -9492,6 +9762,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Grok search via xAI Responses API. Uses web and X search tools and returns cited sources.'**
   String get searchProviderGrokDescription;
+
+  /// No description provided for @searchServiceNameStepFun.
+  ///
+  /// In en, this message translates to:
+  /// **'StepFun'**
+  String get searchServiceNameStepFun;
+
+  /// No description provided for @searchProviderStepFunDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'StepFun web search via POST /v1/search.'**
+  String get searchProviderStepFunDescription;
+
+  /// No description provided for @searchServiceNameFirecrawl.
+  ///
+  /// In en, this message translates to:
+  /// **'Firecrawl'**
+  String get searchServiceNameFirecrawl;
+
+  /// No description provided for @searchProviderFirecrawlDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Firecrawl Search API v2. Requires a Bearer API key. Scrape is not supported here.'**
+  String get searchProviderFirecrawlDescription;
+
+  /// No description provided for @searchServiceNameTinyFish.
+  ///
+  /// In en, this message translates to:
+  /// **'TinyFish'**
+  String get searchServiceNameTinyFish;
+
+  /// No description provided for @searchProviderTinyFishDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'TinyFish Search API with region/language filters. Requires an API key. Fetch/Scrape is not supported here.'**
+  String get searchProviderTinyFishDescription;
 
   /// No description provided for @searchServicesDialogCountryOptional.
   ///
@@ -9912,6 +10218,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Evaluate mathematical expressions, supports + - * / power sqrt sin cos etc.'**
   String get assistantEditLocalToolCalculateSubtitle;
+
+  /// No description provided for @assistantEditLocalToolScreenTimeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Screen Time'**
+  String get assistantEditLocalToolScreenTimeTitle;
+
+  /// No description provided for @assistantEditLocalToolScreenTimeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Query app screen usage on this device, requires the Usage access permission.'**
+  String get assistantEditLocalToolScreenTimeSubtitle;
+
+  /// No description provided for @chatMessageWidgetScreenTimeTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Total screen time'**
+  String get chatMessageWidgetScreenTimeTotal;
+
+  /// No description provided for @chatMessageWidgetScreenTimePermissionRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Usage access permission is not granted. Please enable it in system settings and try again.'**
+  String get chatMessageWidgetScreenTimePermissionRequired;
+
+  /// No description provided for @assistantEditLocalToolCalendarQueryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Query Calendar'**
+  String get assistantEditLocalToolCalendarQueryTitle;
+
+  /// No description provided for @assistantEditLocalToolCalendarQuerySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Read calendar events on this device, requires the calendar permission.'**
+  String get assistantEditLocalToolCalendarQuerySubtitle;
+
+  /// No description provided for @assistantEditLocalToolCalendarCreateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Event'**
+  String get assistantEditLocalToolCalendarCreateTitle;
+
+  /// No description provided for @assistantEditLocalToolCalendarCreateSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create calendar events on this device with your confirmation, requires the calendar permission.'**
+  String get assistantEditLocalToolCalendarCreateSubtitle;
 
   /// No description provided for @assistantEditMemorySwitchDescription.
   ///
@@ -10732,7 +11086,7 @@ abstract class AppLocalizations {
   /// No description provided for @memorySettingsModelTip.
   ///
   /// In en, this message translates to:
-  /// **'This model is called frequently in the background. Prefer a cheap, fast model.'**
+  /// **'After Auto-organize memory is enabled, this model is called frequently in the background. Prefer a cheap, fast model.'**
   String get memorySettingsModelTip;
 
   /// No description provided for @memorySettingsAboutTitle.

@@ -1631,6 +1631,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'Import successful. Restart Kelivo to apply it safely.';
 
   @override
+  String backupPageRestartContentWithSkipped(int count) {
+    return 'Import completed, but $count conversations with invalid message ordering were skipped. Restart Kelivo to apply the imported data safely.';
+  }
+
+  @override
   String get restartAppFailedMessage =>
       'Kelivo could not restart automatically. Fully close it, then open it again.';
 
@@ -1669,6 +1674,49 @@ class AppLocalizationsEn extends AppLocalizations {
   String backupRestoreFailureDiagnostic(String code) {
     return 'Diagnostic code: $code';
   }
+
+  @override
+  String get startupRecoveryMoreOptions => 'More recovery options';
+
+  @override
+  String get startupRecoveryRepairButton => 'Repair and restart';
+
+  @override
+  String get startupRecoveryExportButton => 'Export a copy of my data';
+
+  @override
+  String get startupRecoveryResetButton => 'Reset data';
+
+  @override
+  String get startupRecoveryBusy => 'Working…';
+
+  @override
+  String get startupRecoveryExportSucceeded => 'A copy of your data was saved.';
+
+  @override
+  String get startupRecoveryExportFailed =>
+      'Could not export a copy of your data.';
+
+  @override
+  String get startupRecoveryRepairFailed =>
+      'Repair could not fix this. Export a copy of your data, then reset.';
+
+  @override
+  String get startupRecoveryResetFailed =>
+      'Reset failed. Fully close Kelivo, then open it again.';
+
+  @override
+  String get startupRecoveryResetDialogTitle => 'Reset all data?';
+
+  @override
+  String get startupRecoveryResetDialogContent =>
+      'This permanently deletes Kelivo\'s database on this device and starts fresh. If you might need this data, export a copy first. This cannot be undone.';
+
+  @override
+  String get startupRecoveryResetDialogConfirm => 'Reset and restart';
+
+  @override
+  String get startupRecoveryResetDialogCancel => 'Cancel';
 
   @override
   String get startupDatabaseUpdateRequiredTitle => 'Update Kelivo to continue';
@@ -2213,6 +2261,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatMessageWidgetOpenLinkError => 'Failed to open link';
 
   @override
+  String get chatMessageWidgetAttachmentUnavailable => 'Attachment unavailable';
+
+  @override
   String chatMessageWidgetCitationsTitle(int count) {
     return 'Citations ($count)';
   }
@@ -2506,6 +2557,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sideDrawerMenuRegenerateTitle => 'Regenerate Title';
+
+  @override
+  String get sideDrawerMenuCopy => 'Copy';
 
   @override
   String get sideDrawerMenuMoveTo => 'Move to';
@@ -3002,6 +3056,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get defaultModelPageOcrModelTitle => 'OCR Model';
 
   @override
+  String backgroundTaskFailed(String task, String error) {
+    return '$task failed: $error';
+  }
+
+  @override
   String get defaultModelPageOcrModelSubtitle =>
       'Used for extracting text and descriptions from images';
 
@@ -3308,6 +3367,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get providerDetailPageModelsTab => 'Models';
+
+  @override
+  String get providerDetailPageCustomRequestTitle => 'Custom Request';
+
+  @override
+  String get providerDetailPageCustomRequestDescription =>
+      'Applies to every model from this provider. Model settings override these values; these values override assistant settings.';
 
   @override
   String get providerDetailPageNetworkTab => 'Network';
@@ -4833,7 +4899,87 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ttsServicesFieldLanguageLabel => 'Language';
 
   @override
+  String get ttsServicesFieldWorkspaceIdLabel => 'Workspace ID';
+
+  @override
+  String get ttsServicesFieldRegionLabel => 'Region';
+
+  @override
+  String get ttsServicesFieldFormatLabel => 'Audio format';
+
+  @override
+  String get ttsServicesFieldOutputFormatLabel => 'Output format';
+
+  @override
+  String get ttsServicesFieldSampleRateLabel => 'Sample rate';
+
+  @override
+  String get ttsServicesFieldVolumeLabel => 'Volume';
+
+  @override
+  String get ttsServicesFieldPitchLabel => 'Pitch';
+
+  @override
+  String get ttsServicesFieldLanguageBoostLabel => 'Language boost';
+
+  @override
+  String get ttsServicesFieldBitrateLabel => 'Bitrate';
+
+  @override
+  String get ttsServicesFieldChannelLabel => 'Channels';
+
+  @override
+  String get ttsServicesFieldSubtitlesLabel => 'Generate subtitles';
+
+  @override
+  String get ttsServicesFieldPronunciationDictionaryLabel =>
+      'Pronunciation dictionary (one entry per line)';
+
+  @override
+  String get ttsServicesFieldInstructionLabel => 'Style / voice description';
+
+  @override
+  String get ttsServicesFieldStreamingLabel => 'Streaming';
+
+  @override
+  String get ttsServicesFieldOptimizeTextPreviewLabel =>
+      'Optimize text preview';
+
+  @override
+  String get ttsServicesFieldReferenceAudioLabel =>
+      'Reference audio (WAV/MP3 data URI)';
+
+  @override
+  String get ttsServicesFieldChooseReferenceAudioButton =>
+      'Choose reference audio';
+
+  @override
+  String get ttsServicesFieldTemperatureLabel => 'Temperature';
+
+  @override
+  String get ttsServicesFieldTopPLabel => 'Top P';
+
+  @override
+  String get ttsServicesFieldLatencyLabel => 'Latency';
+
+  @override
+  String get ttsServicesEmotionAutoLabel => 'Auto match';
+
+  @override
   String get ttsServicesValidationApiKeyRequired => 'API Key is required';
+
+  @override
+  String get ttsServicesValidationReferenceIdRequired =>
+      'Voice/reference ID is required';
+
+  @override
+  String get ttsServicesValidationInstructionRequired =>
+      'A voice description is required';
+
+  @override
+  String ttsServicesValidationSampleRate(String format, String rates) {
+    return '$format requires $rates Hz.';
+  }
 
   @override
   String get ttsServicesViewDetailsButton => 'View details';
@@ -5119,6 +5265,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Bocha web search API. Accurate web results with optional summaries.';
 
   @override
+  String get searchServiceNameDoubao => 'Doubao';
+
+  @override
+  String get searchProviderDoubaoDescription =>
+      'Doubao web search API by Volcano Engine.';
+
+  @override
   String get searchServiceNameSerper => 'Serper';
 
   @override
@@ -5138,6 +5291,27 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get searchProviderGrokDescription =>
       'Grok search via xAI Responses API. Uses web and X search tools and returns cited sources.';
+
+  @override
+  String get searchServiceNameStepFun => 'StepFun';
+
+  @override
+  String get searchProviderStepFunDescription =>
+      'StepFun web search via POST /v1/search.';
+
+  @override
+  String get searchServiceNameFirecrawl => 'Firecrawl';
+
+  @override
+  String get searchProviderFirecrawlDescription =>
+      'Firecrawl Search API v2. Requires a Bearer API key. Scrape is not supported here.';
+
+  @override
+  String get searchServiceNameTinyFish => 'TinyFish';
+
+  @override
+  String get searchProviderTinyFishDescription =>
+      'TinyFish Search API with region/language filters. Requires an API key. Fetch/Scrape is not supported here.';
 
   @override
   String get searchServicesDialogCountryOptional => 'Country/region (optional)';
@@ -5362,6 +5536,34 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get assistantEditLocalToolCalculateSubtitle =>
       'Evaluate mathematical expressions, supports + - * / power sqrt sin cos etc.';
+
+  @override
+  String get assistantEditLocalToolScreenTimeTitle => 'Screen Time';
+
+  @override
+  String get assistantEditLocalToolScreenTimeSubtitle =>
+      'Query app screen usage on this device, requires the Usage access permission.';
+
+  @override
+  String get chatMessageWidgetScreenTimeTotal => 'Total screen time';
+
+  @override
+  String get chatMessageWidgetScreenTimePermissionRequired =>
+      'Usage access permission is not granted. Please enable it in system settings and try again.';
+
+  @override
+  String get assistantEditLocalToolCalendarQueryTitle => 'Query Calendar';
+
+  @override
+  String get assistantEditLocalToolCalendarQuerySubtitle =>
+      'Read calendar events on this device, requires the calendar permission.';
+
+  @override
+  String get assistantEditLocalToolCalendarCreateTitle => 'Create Event';
+
+  @override
+  String get assistantEditLocalToolCalendarCreateSubtitle =>
+      'Create calendar events on this device with your confirmation, requires the calendar permission.';
 
   @override
   String get assistantEditMemorySwitchDescription =>
@@ -5811,7 +6013,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get memorySettingsModelTip =>
-      'This model is called frequently in the background. Prefer a cheap, fast model.';
+      'After Auto-organize memory is enabled, this model is called frequently in the background. Prefer a cheap, fast model.';
 
   @override
   String get memorySettingsAboutTitle => 'About memory';

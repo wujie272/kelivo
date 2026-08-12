@@ -17,6 +17,7 @@ class Lucide {
   static const IconData Earth = lucide.LucideIcons.earth;
   static const IconData Plus = lucide.LucideIcons.plus;
   static const IconData X = lucide.LucideIcons.x;
+  static const IconData Ban = lucide.LucideIcons.ban;
   static const IconData Mic = lucide.LucideIcons.mic;
   static const IconData ArrowUp = lucide.LucideIcons.arrowUp;
   static const IconData ArrowLeft = lucide.LucideIcons.arrowLeft;
@@ -155,6 +156,9 @@ class Lucide {
   static const IconData bookDashed = lucide.LucideIcons.bookDashed;
   static const IconData toggleRight = lucide.LucideIcons.toggleRight;
   static const IconData Calendar = lucide.LucideIcons.calendar;
+   static const IconData CalendarPlus = lucide.LucideIcons.calendarPlus;
+   static const IconData Hourglass = lucide.LucideIcons.hourglass;
+   static const IconData Smartphone = lucide.LucideIcons.smartphone;
   static const IconData ImageOff = lucide.LucideIcons.imageOff;
   static const IconData RotateCcw = lucide.LucideIcons.rotateCcw;
   static const IconData FlipHorizontal2 = lucide.LucideIcons.flipHorizontal2;

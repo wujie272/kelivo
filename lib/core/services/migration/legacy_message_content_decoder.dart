@@ -1,7 +1,6 @@
-import 'dart:io';
-
 import '../../models/message_part.dart';
 import '../../utils/multimodal_input_utils.dart';
+import '../../../utils/sandbox_path_resolver.dart';
 
 class LegacyDecodeResult {
   final List<MessagePart> parts;
@@ -116,7 +115,7 @@ Future<LegacyDecodeResult> decodeLegacyContent(
       final mime = await inferAttachmentMime(uri: imageUri);
       parts.add(
         ImagePart(
-          uri: imageUri,
+          uri: SandboxPathResolver.canonicalize(imageUri),
           mime: mime,
           unavailable: missing,
         ),
@@ -144,7 +143,7 @@ Future<LegacyDecodeResult> decodeLegacyContent(
       );
       parts.add(
         FilePart(
-          uri: parsed.uri,
+          uri: SandboxPathResolver.canonicalize(parsed.uri),
           name: parsed.name,
           mime: mime,
           unavailable: missing,
@@ -248,7 +247,12 @@ List<String> stripLegacyContentTextSegments(String content) {
   }
 
   flushText();
-  if (segments.isEmpty) return const [''];
+  // Reaching here with no segments means every line was a convertible marker
+  // (empty content already returned [''] above). The decoder emits no TextPart
+  // for such attachment-only content and the migration service only
+  // substitutes TextPart('') when the part list is entirely empty, so the
+  // digest expectation must also be empty.
+  if (segments.isEmpty) return const <String>[];
   return List<String>.unmodifiable(segments);
 }
 
@@ -355,4 +359,8 @@ String? _matchExclusiveFileMarker(String line) {
 
 bool _isLocalPath(String uri) => !isRemoteOrDataUri(uri);
 
-bool _defaultFileExists(String path) => File(path).existsSync();
+bool _defaultFileExists(String path) {
+  // Do not use fix(): its generic `/images/`·basename probe can mark a
+  // missing external path available when a same-named managed file exists.
+  return SandboxPathResolver.localFileExists(path);
+}

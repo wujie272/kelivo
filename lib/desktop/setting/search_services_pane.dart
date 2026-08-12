@@ -599,9 +599,13 @@ class _BrandBadge extends StatelessWidget {
     if (s is JinaOptions) return 'jina';
     if (s is PerplexityOptions) return 'perplexity';
     if (s is BochaOptions) return 'bocha';
+    if (s is DoubaoOptions) return 'doubao';
     if (s is SerperOptions) return 'serper';
     if (s is QueritOptions) return 'querit';
     if (s is GrokOptions) return 'grok';
+    if (s is StepFunOptions) return 'stepfun';
+    if (s is FirecrawlOptions) return 'firecrawl';
+    if (s is TinyFishOptions) return 'tinyfish';
     return 'search';
   }
 
@@ -791,6 +795,11 @@ class _AddServiceDialogState extends State<_AddServiceDialog> {
     'systemPrompt': TextEditingController(
       text: GrokOptions.defaultSystemPrompt,
     ),
+    'category': TextEditingController(),
+    'country': TextEditingController(),
+    'location': TextEditingController(),
+    'includeDomains': TextEditingController(),
+    'excludeDomains': TextEditingController(),
   };
 
   @override
@@ -917,6 +926,7 @@ class _AddServiceDialogState extends State<_AddServiceDialog> {
       case 'ollama':
       case 'perplexity':
       case 'bocha':
+      case 'doubao':
         return [
           TextField(
             controller: _controllers['apiKey'],
@@ -1049,6 +1059,86 @@ class _AddServiceDialogState extends State<_AddServiceDialog> {
             obscureText: true,
           ),
         ];
+      case 'stepfun':
+        return [
+          TextField(
+            controller: _controllers['apiKey'],
+            decoration: deco(l10n.searchServicesDialogApiKey),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controllers['url'],
+            decoration: _deskInputDecoration(context).copyWith(
+              labelText: l10n.searchServicesFieldCustomUrlOptional,
+              hintText: StepFunOptions.defaultUrl,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controllers['category'],
+            decoration: deco('programming / research / gov / business'),
+          ),
+        ];
+      case 'firecrawl':
+        return [
+          TextField(
+            controller: _controllers['apiKey'],
+            decoration: deco(l10n.searchServicesDialogApiKey),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controllers['url'],
+            decoration: _deskInputDecoration(context).copyWith(
+              labelText: l10n.searchServicesFieldCustomUrlOptional,
+              hintText: FirecrawlOptions.defaultUrl,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controllers['country'],
+            decoration: deco('US'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controllers['location'],
+            decoration: deco('Location'),
+          ),
+        ];
+      case 'tinyfish':
+        return [
+          TextField(
+            controller: _controllers['apiKey'],
+            decoration: deco(l10n.searchServicesDialogApiKey),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controllers['url'],
+            decoration: _deskInputDecoration(context).copyWith(
+              labelText: l10n.searchServicesFieldCustomUrlOptional,
+              hintText: TinyFishOptions.defaultUrl,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controllers['location'],
+            decoration: deco('US'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controllers['language'],
+            decoration: deco('en'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controllers['includeDomains'],
+            decoration: deco('Include domains'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controllers['excludeDomains'],
+            decoration: deco('Exclude domains'),
+          ),
+        ];
       case 'bing_local':
       default:
         return [];
@@ -1101,6 +1191,8 @@ class _AddServiceDialogState extends State<_AddServiceDialog> {
         return PerplexityOptions(id: id, apiKey: _controllers['apiKey']!.text);
       case 'bocha':
         return BochaOptions(id: id, apiKey: _controllers['apiKey']!.text);
+      case 'doubao':
+        return DoubaoOptions(id: id, apiKey: _controllers['apiKey']!.text);
       case 'serper':
         final page = int.tryParse(_controllers['page']!.text.trim());
         return SerperOptions(
@@ -1129,6 +1221,31 @@ class _AddServiceDialogState extends State<_AddServiceDialog> {
           reasoningEffort: _controllers['reasoningEffort']!.text,
           customUrl: _controllers['customUrl']!.text.trim(),
           systemPrompt: _controllers['systemPrompt']!.text,
+        );
+      case 'stepfun':
+        return StepFunOptions(
+          id: id,
+          apiKey: _controllers['apiKey']!.text,
+          url: (_controllers['url']?.text ?? '').trim(),
+          category: (_controllers['category']?.text ?? '').trim(),
+        );
+      case 'firecrawl':
+        return FirecrawlOptions(
+          id: id,
+          apiKey: _controllers['apiKey']!.text,
+          url: (_controllers['url']?.text ?? '').trim(),
+          country: (_controllers['country']?.text ?? '').trim(),
+          location: (_controllers['location']?.text ?? '').trim(),
+        );
+      case 'tinyfish':
+        return TinyFishOptions(
+          id: id,
+          apiKey: _controllers['apiKey']!.text,
+          url: (_controllers['url']?.text ?? '').trim(),
+          location: (_controllers['location']?.text ?? '').trim(),
+          language: (_controllers['language']?.text ?? '').trim(),
+          includeDomains: (_controllers['includeDomains']?.text ?? '').trim(),
+          excludeDomains: (_controllers['excludeDomains']?.text ?? '').trim(),
         );
       case 'bing_local':
       default:
@@ -1192,6 +1309,8 @@ class _EditServiceDialogState extends State<_EditServiceDialog> {
       _controllers['apiKey'] = TextEditingController(text: s.apiKey);
     } else if (s is BochaOptions) {
       _controllers['apiKey'] = TextEditingController(text: s.apiKey);
+    } else if (s is DoubaoOptions) {
+      _controllers['apiKey'] = TextEditingController(text: s.apiKey);
     } else if (s is SerperOptions) {
       _controllers['apiKey'] = TextEditingController(text: s.apiKey);
       _controllers['gl'] = TextEditingController(text: s.gl);
@@ -1220,6 +1339,26 @@ class _EditServiceDialogState extends State<_EditServiceDialog> {
       _controllers['customUrl'] = TextEditingController(text: s.customUrl);
       _controllers['systemPrompt'] = TextEditingController(
         text: s.systemPrompt,
+      );
+    } else if (s is StepFunOptions) {
+      _controllers['apiKey'] = TextEditingController(text: s.apiKey);
+      _controllers['url'] = TextEditingController(text: s.url);
+      _controllers['category'] = TextEditingController(text: s.category);
+    } else if (s is FirecrawlOptions) {
+      _controllers['apiKey'] = TextEditingController(text: s.apiKey);
+      _controllers['url'] = TextEditingController(text: s.url);
+      _controllers['country'] = TextEditingController(text: s.country);
+      _controllers['location'] = TextEditingController(text: s.location);
+    } else if (s is TinyFishOptions) {
+      _controllers['apiKey'] = TextEditingController(text: s.apiKey);
+      _controllers['url'] = TextEditingController(text: s.url);
+      _controllers['location'] = TextEditingController(text: s.location);
+      _controllers['language'] = TextEditingController(text: s.language);
+      _controllers['includeDomains'] = TextEditingController(
+        text: s.includeDomains,
+      );
+      _controllers['excludeDomains'] = TextEditingController(
+        text: s.excludeDomains,
       );
     }
   }
@@ -1339,7 +1478,8 @@ class _EditServiceDialogState extends State<_EditServiceDialog> {
         s is JinaOptions ||
         s is OllamaOptions ||
         s is PerplexityOptions ||
-        s is BochaOptions) {
+        s is BochaOptions ||
+        s is DoubaoOptions) {
       return [
         TextField(
           controller: _controllers['apiKey'],
@@ -1485,6 +1625,83 @@ class _EditServiceDialogState extends State<_EditServiceDialog> {
           controller: _controllers['password'],
           decoration: deco(l10n.searchServicesAddDialogPasswordOptional),
           obscureText: true,
+        ),
+      ];
+    } else if (s is StepFunOptions) {
+      return [
+        TextField(
+          controller: _controllers['apiKey'],
+          decoration: deco(l10n.searchServicesDialogApiKey),
+        ),
+        const SizedBox(height: 12),
+        _multiKeyTile(),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _controllers['url'],
+          decoration: _deskInputDecoration(context).copyWith(
+            labelText: l10n.searchServicesFieldCustomUrlOptional,
+            hintText: StepFunOptions.defaultUrl,
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _controllers['category'],
+          decoration: deco('programming / research / gov / business'),
+        ),
+      ];
+    } else if (s is FirecrawlOptions) {
+      return [
+        TextField(
+          controller: _controllers['apiKey'],
+          decoration: deco(l10n.searchServicesDialogApiKey),
+        ),
+        const SizedBox(height: 12),
+        _multiKeyTile(),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _controllers['url'],
+          decoration: _deskInputDecoration(context).copyWith(
+            labelText: l10n.searchServicesFieldCustomUrlOptional,
+            hintText: FirecrawlOptions.defaultUrl,
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(controller: _controllers['country'], decoration: deco('US')),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _controllers['location'],
+          decoration: deco('Location'),
+        ),
+      ];
+    } else if (s is TinyFishOptions) {
+      return [
+        TextField(
+          controller: _controllers['apiKey'],
+          decoration: deco(l10n.searchServicesDialogApiKey),
+        ),
+        const SizedBox(height: 12),
+        _multiKeyTile(),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _controllers['url'],
+          decoration: _deskInputDecoration(context).copyWith(
+            labelText: l10n.searchServicesFieldCustomUrlOptional,
+            hintText: TinyFishOptions.defaultUrl,
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(controller: _controllers['location'], decoration: deco('US')),
+        const SizedBox(height: 12),
+        TextField(controller: _controllers['language'], decoration: deco('en')),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _controllers['includeDomains'],
+          decoration: deco('Include domains'),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _controllers['excludeDomains'],
+          decoration: deco('Exclude domains'),
         ),
       ];
     }
@@ -1696,6 +1913,46 @@ class _EditServiceDialogState extends State<_EditServiceDialog> {
         reasoningEffort: _controllers['reasoningEffort']!.text,
         customUrl: _controllers['customUrl']!.text.trim(),
         systemPrompt: _controllers['systemPrompt']!.text,
+        extraApiKeys: _extraApiKeys,
+      );
+    }
+    if (s is StepFunOptions) {
+      return StepFunOptions(
+        id: s.id,
+        apiKey: _controllers['apiKey']!.text,
+        url: (_controllers['url']?.text ?? '').trim(),
+        category: (_controllers['category']?.text ?? '').trim(),
+        extraApiKeys: _extraApiKeys,
+      );
+    }
+    if (s is FirecrawlOptions) {
+      return FirecrawlOptions(
+        id: s.id,
+        apiKey: _controllers['apiKey']!.text,
+        url: (_controllers['url']?.text ?? '').trim(),
+        sources: s.sources,
+        categories: s.categories,
+        country: (_controllers['country']?.text ?? '').trim(),
+        location: (_controllers['location']?.text ?? '').trim(),
+        extraApiKeys: _extraApiKeys,
+      );
+    }
+    if (s is TinyFishOptions) {
+      return TinyFishOptions(
+        id: s.id,
+        apiKey: _controllers['apiKey']!.text,
+        url: (_controllers['url']?.text ?? '').trim(),
+        location: (_controllers['location']?.text ?? '').trim(),
+        language: (_controllers['language']?.text ?? '').trim(),
+        includeDomains: (_controllers['includeDomains']?.text ?? '').trim(),
+        excludeDomains: (_controllers['excludeDomains']?.text ?? '').trim(),
+        extraApiKeys: _extraApiKeys,
+      );
+    }
+    if (s is DoubaoOptions) {
+      return DoubaoOptions(
+        id: s.id,
+        apiKey: _controllers['apiKey']!.text,
         extraApiKeys: _extraApiKeys,
       );
     }
@@ -1964,9 +2221,13 @@ class _ServiceTypeChipsState extends State<_ServiceTypeChips> {
     (type: 'ollama', brand: 'ollama'),
     (type: 'perplexity', brand: 'perplexity'),
     (type: 'bocha', brand: 'bocha'),
+    (type: 'doubao', brand: 'doubao'),
     (type: 'serper', brand: 'serper'),
     (type: 'querit', brand: 'querit'),
     (type: 'grok', brand: 'grok'),
+    (type: 'stepfun', brand: 'stepfun'),
+    (type: 'firecrawl', brand: 'firecrawl'),
+    (type: 'tinyfish', brand: 'tinyfish'),
   ];
   @override
   Widget build(BuildContext context) {
@@ -2045,12 +2306,20 @@ String _serviceTypeName(BuildContext context, String type) {
       return l10n.searchServiceNamePerplexity;
     case 'bocha':
       return l10n.searchServiceNameBocha;
+    case 'doubao':
+      return l10n.searchServiceNameDoubao;
     case 'serper':
       return l10n.searchServiceNameSerper;
     case 'querit':
       return l10n.searchServiceNameQuerit;
     case 'grok':
       return l10n.searchServiceNameGrok;
+    case 'stepfun':
+      return l10n.searchServiceNameStepFun;
+    case 'firecrawl':
+      return l10n.searchServiceNameFirecrawl;
+    case 'tinyfish':
+      return l10n.searchServiceNameTinyFish;
     default:
       return type;
   }

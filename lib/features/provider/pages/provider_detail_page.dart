@@ -28,6 +28,7 @@ import '../../../shared/widgets/ios_switch.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import 'multi_key_manager_page.dart';
 import 'provider_balance_page.dart';
+import 'provider_custom_request_page.dart';
 import 'provider_network_page.dart';
 import '../../../core/services/haptics.dart';
 import '../../provider/widgets/provider_balance_badge.dart';
@@ -138,6 +139,7 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
         'DeepSeek',
         'Tensdaq',
         'AIhubmix',
+        '随想AI中转站',
         'Aliyun',
         'Zhipu AI',
         'Claude',
@@ -265,7 +267,9 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
                           onPressed: () => Navigator.of(ctx).pop(true),
                           child: Text(
                             l10n.providerDetailPageDeleteButton,
-                            style: TextStyle(color: Theme.of(context).colorScheme.error),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
                           ),
                         ),
                       ],
@@ -959,6 +963,59 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
           ),
           const SizedBox(height: 12),
         ],
+        if (widget.keyName.toLowerCase() == '随想ai中转站') ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: cs.primary.withValues(alpha: 0.35)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '可靠高效的 API 中继服务，提供 Claude、Codex、Gemini 等中继服务。注重隐私·无数据倒卖·无模型掺水，充值额度 1:1，按量付费。多线路冗余、跨区域容灾、自动故障切换，长链路 SSE 不中断。',
+                  style: TextStyle(color: cs.onSurface.withValues(alpha: 0.8)),
+                ),
+                const SizedBox(height: 6),
+                Text.rich(
+                  TextSpan(
+                    text: '官网：',
+                    style: TextStyle(
+                      color: cs.onSurface.withValues(alpha: 0.8),
+                    ),
+                    children: [
+                      TextSpan(
+                        text: 'https://sui-xiang.com',
+                        style: TextStyle(
+                          color: cs.primary,
+                          fontWeight: AppFontWeights.emphasis,
+                        ),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () async {
+                            final uri = Uri.parse('https://sui-xiang.com');
+                            try {
+                              final ok = await launchUrl(
+                                uri,
+                                mode: LaunchMode.externalApplication,
+                              );
+                              if (!ok) {
+                                await launchUrl(uri);
+                              }
+                            } catch (_) {
+                              await launchUrl(uri);
+                            }
+                          },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         // 顶部管理分组标题（左侧缩进以对齐卡片内容）
         Padding(
           padding: const EdgeInsets.only(left: 12),
@@ -1153,6 +1210,50 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
                           Expanded(
                             child: Text(
                               l10n.providerDetailPageNetworkTab,
+                              style: TextStyle(fontSize: 15, color: c),
+                            ),
+                          ),
+                          Icon(Lucide.ChevronRight, size: 16, color: c),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+            _TactileRow(
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ProviderCustomRequestPage(
+                      providerKey: widget.keyName,
+                      providerDisplayName: widget.displayName,
+                    ),
+                  ),
+                );
+              },
+              builder: (pressed) {
+                final cs2 = Theme.of(context).colorScheme;
+                final base = cs2.onSurface;
+                final target = pressed
+                    ? (Color.lerp(base, cs2.surface, 0.55) ?? base)
+                    : base;
+                return TweenAnimationBuilder<Color?>(
+                  tween: ColorTween(end: target),
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, color, _) {
+                    final c = color ?? base;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              l10n.providerDetailPageCustomRequestTitle,
                               style: TextStyle(fontSize: 15, color: c),
                             ),
                           ),
@@ -3305,8 +3406,7 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
                             decoration: InputDecoration(
                               hintText: l10n.providerDetailPageFilterHint,
                               filled: true,
-                              fillColor:
-                                  ctx.appColors.surfaceFill,
+                              fillColor: ctx.appColors.surfaceFill,
                               prefixIcon: Icon(
                                 Lucide.Search,
                                 size: 20,
@@ -3495,8 +3595,9 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
                                           builder: (_) {
                                             return Container(
                                               decoration: BoxDecoration(
-                                                color:
-                                                    context.appColors.surfaceFill,
+                                                color: context
+                                                    .appColors
+                                                    .surfaceFill,
                                                 borderRadius:
                                                     BorderRadius.circular(12),
                                               ),

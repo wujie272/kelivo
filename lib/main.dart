@@ -106,6 +106,7 @@ Future<void> main() async {
         runApp(
           _RestoreFailureApp(
             diagnosticCode: restoreFailureDiagnosticCode(error),
+            appDataDirectory: appDataDirectory,
           ),
         );
         return;
@@ -203,6 +204,7 @@ Future<void> main() async {
           runApp(
             _RestoreFailureApp(
               diagnosticCode: restoreFailureDiagnosticCode(error),
+              appDataDirectory: appDataDirectory,
             ),
           );
           return;
@@ -321,9 +323,13 @@ Future<void> _initRestoreFailureWindow() async {
 }
 
 class _RestoreFailureApp extends StatelessWidget {
-  const _RestoreFailureApp({required this.diagnosticCode});
+  const _RestoreFailureApp({
+    required this.diagnosticCode,
+    this.appDataDirectory,
+  });
 
   final String diagnosticCode;
+  final Directory? appDataDirectory;
 
   @override
   Widget build(BuildContext context) {
@@ -340,6 +346,7 @@ class _RestoreFailureApp extends StatelessWidget {
           : RestoreFailureScreen(
               diagnosticCode: diagnosticCode,
               restart: PlatformUtils.restartApp,
+              appDataDirectory: appDataDirectory,
             ),
     );
   }
@@ -679,9 +686,11 @@ class MyApp extends StatelessWidget {
           // One-time app update check after first build
           if (settings.showAppUpdates && !_didCheckUpdates) {
             _didCheckUpdates = true;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
               try {
-                context.read<UpdateProvider>().checkForUpdates();
+                await settings.loaded;
+                if (!context.mounted || !settings.showAppUpdates) return;
+                await context.read<UpdateProvider>().checkForUpdates();
               } catch (_) {}
             });
           }

@@ -55,6 +55,7 @@ final class BusinessKeyRegistry {
     'search_enabled_v1',
     'search_auto_test_on_launch_v1',
     'tts_selected_v1',
+    'tts_selected_service_id_v1',
     'tts_auto_play_assistant_replies_v1',
     'tts_text_selection_mode_v1',
     'tts_speech_rate_v1',
@@ -81,6 +82,11 @@ final class BusinessKeyRegistry {
     'title_model_v1',
     'title_prompt_v1',
     'title_generation_thinking_enabled_v1',
+    'summary_generation_thinking_enabled_v1',
+    'suggestion_generation_thinking_enabled_v1',
+    'compress_generation_thinking_enabled_v1',
+    'translate_generation_thinking_enabled_v1',
+    'ocr_generation_thinking_enabled_v1',
     'translate_model_v1',
     'translate_prompt_v1',
     'translate_target_lang_v1',
@@ -537,7 +543,7 @@ final class BusinessSettingsRouter {
             'balanceEnabled',
             'claudePromptCachingEnabled',
           },
-          lists: const {'models', 'apiKeys'},
+          lists: const {'models', 'apiKeys', 'customHeaders', 'customBody'},
           maps: const {'modelOverrides', 'keyManagement'},
         );
         _validateProviderChildren(kind, payload);
@@ -912,6 +918,7 @@ final class BusinessSettingsRouter {
       case 'metaso':
       case 'ollama':
       case 'jina':
+      case 'doubao':
         _validateKnownFields(
           kind,
           payload,

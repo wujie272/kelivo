@@ -23,6 +23,7 @@ import '../../models/message_part.dart';
 import '../../models/conversation.dart';
 import '../chat/chat_service.dart';
 import '../migration/legacy_message_content_decoder.dart';
+import '../migration/legacy_record_sanitizer.dart';
 import '../../utils/multimodal_input_utils.dart';
 import '../../../utils/app_directories.dart';
 import '../../../utils/sandbox_path_resolver.dart';
@@ -46,12 +47,102 @@ typedef _VersionedBackupInfo = ({
   String normalizedManifestSha256,
 });
 
-
 /// Recompute [ImagePart]/[FilePart.unavailable] against the live filesystem.
 ///
-/// Remote/data URIs stay available. Local URIs use [SandboxPathResolver.fix]
-/// and [File.existsSync]. Intended for post-file-restore refresh of legacy
-/// chats.json imports that decoded before assets were copied.
+/// Remote/data URIs stay available. Local URIs use
+/// [SandboxPathResolver.localFileExists] (structured remap only; no generic
+/// images/upload basename probe).
+/// Intended for post-file-restore refresh of legacy chats.json imports that
+/// decoded before assets were copied.
+
+List<MessagePart> _normalizeAttachmentPartUris(List<MessagePart> parts) {
+  var changed = false;
+  final out = <MessagePart>[];
+  for (final part in parts) {
+    if (part is ImagePart) {
+      final uri = SandboxPathResolver.canonicalize(part.uri);
+      if (uri != part.uri) {
+        changed = true;
+        out.add(
+          ImagePart(
+            uri: uri,
+            mime: part.mime,
+            assetId: part.assetId,
+            unavailable: part.unavailable,
+          ),
+        );
+      } else {
+        out.add(part);
+      }
+    } else if (part is FilePart) {
+      final uri = SandboxPathResolver.canonicalize(part.uri);
+      if (uri != part.uri) {
+        changed = true;
+        out.add(
+          FilePart(
+            uri: uri,
+            name: part.name,
+            mime: part.mime,
+            assetId: part.assetId,
+            unavailable: part.unavailable,
+          ),
+        );
+      } else {
+        out.add(part);
+      }
+    } else {
+      out.add(part);
+    }
+  }
+  return changed ? out : parts;
+}
+
+List<MessagePart> _remapRestoredAttachmentPartUris(List<MessagePart> parts) {
+  var changed = false;
+  final out = <MessagePart>[];
+  for (final part in parts) {
+    if (part is ImagePart) {
+      final uri =
+          SandboxPathResolver.tryRemapRestoredManagedAbsolute(part.uri) ??
+          part.uri;
+      if (uri != part.uri) {
+        changed = true;
+        out.add(
+          ImagePart(
+            uri: uri,
+            mime: part.mime,
+            assetId: part.assetId,
+            unavailable: part.unavailable,
+          ),
+        );
+      } else {
+        out.add(part);
+      }
+    } else if (part is FilePart) {
+      final uri =
+          SandboxPathResolver.tryRemapRestoredManagedAbsolute(part.uri) ??
+          part.uri;
+      if (uri != part.uri) {
+        changed = true;
+        out.add(
+          FilePart(
+            uri: uri,
+            name: part.name,
+            mime: part.mime,
+            assetId: part.assetId,
+            unavailable: part.unavailable,
+          ),
+        );
+      } else {
+        out.add(part);
+      }
+    } else {
+      out.add(part);
+    }
+  }
+  return changed ? out : parts;
+}
+
 List<MessagePart> recomputeAttachmentAvailability(
   List<MessagePart> parts, {
   bool Function(String path)? fileExists,
@@ -96,8 +187,9 @@ bool _unavailableForUri(String uri, bool Function(String path) exists) {
 }
 
 bool _attachmentExistsOnDisk(String path) {
-  final fixed = SandboxPathResolver.fix(path);
-  return File(fixed).existsSync();
+  // Do not use fix(): its generic `/images/`·basename probe can mark a
+  // missing external path available when a same-named managed file exists.
+  return SandboxPathResolver.localFileExists(path);
 }
 
 class DataSync {
@@ -389,20 +481,55 @@ class DataSync {
     } catch (_) {}
   }
 
+  /// Parses the creation time out of a `kelivo_backup_<iso-with-dashes>` name
+  /// (see [prepareBackupFile], which replaces ':' with '-'). Returns null for
+  /// names that do not carry a timestamp.
+  static DateTime? _backupTempTimestampFromName(String name) {
+    const prefix = 'kelivo_backup_';
+    if (!name.startsWith(prefix)) return null;
+    var core = name.substring(prefix.length);
+    if (core.endsWith('.zip')) {
+      core = core.substring(0, core.length - 4);
+    }
+    final match = RegExp(
+      r'^(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})(.*)$',
+    ).firstMatch(core);
+    if (match == null) return null;
+    return DateTime.tryParse(
+      '${match[1]}T${match[2]}:${match[3]}:${match[4]}${match[5]}',
+    );
+  }
+
   static Future<void> _cleanupPreviousBackupTempFiles(Directory tmp) async {
     try {
       if (!await tmp.exists()) return;
+      // Only reclaim entries that are clearly abandoned. WebDAV, S3 and local
+      // export are independent providers with no shared busy flag, so an
+      // age-blind sweep here would delete the working directory of a backup
+      // that another provider is still packing or uploading.
+      final cutoff = DateTime.now().subtract(const Duration(hours: 6));
+      Future<bool> isStale(FileSystemEntity entity, String name) async {
+        final fromName = _backupTempTimestampFromName(name);
+        if (fromName != null) return fromName.isBefore(cutoff);
+        try {
+          return (await entity.stat()).modified.isBefore(cutoff);
+        } catch (_) {
+          // Unknown age: keep it rather than risk racing a live backup.
+          return false;
+        }
+      }
+
       await for (final ent in tmp.list(followLinks: false)) {
         final name = p.basename(ent.path);
         if (ent is Directory && name.startsWith('kelivo_backup_')) {
-          await _deleteDirectoryQuietly(ent);
+          if (await isStale(ent, name)) await _deleteDirectoryQuietly(ent);
         } else if (ent is File &&
             ((name.startsWith('kelivo_backup_') && name.endsWith('.zip')) ||
                 name == '_bk_settings.json' ||
                 name == '_bk_chats.json' ||
                 name == '_bk_manifest.json' ||
                 name == '_bk_kelivo.db')) {
-          await _deleteFileQuietly(ent);
+          if (await isStale(ent, name)) await _deleteFileQuietly(ent);
         }
       }
     } catch (_) {}
@@ -788,11 +915,19 @@ class DataSync {
         ..._authHeaders(cfg),
         ..._extraHeaders(cfg),
       });
-      // Pipe the file stream into the request body.
-      file.openRead().listen(
-        req.sink.add,
-        onDone: req.sink.close,
-        onError: req.sink.addError,
+      // Pipe the file stream into the request body. addStream honors the
+      // sink's pause signal, so a slow network throttles disk reads instead of
+      // buffering the whole zip in RAM (which OOM-killed large mobile uploads).
+      unawaited(
+        req.sink
+            .addStream(file.openRead())
+            .then(
+              (_) => req.sink.close(),
+              onError: (Object error) {
+                req.sink.addError(error);
+                req.sink.close();
+              },
+            ),
       );
       final client = http.Client();
       try {
@@ -1392,6 +1527,11 @@ class DataSync {
           message = message.copyWith(parts: decoded.parts);
         }
       }
+      // Import boundary: persist managed local attachments as kelivo-file URIs.
+      final normalized = _normalizeAttachmentPartUris(message.parts);
+      if (!identical(normalized, message.parts)) {
+        message = message.copyWith(parts: normalized);
+      }
       messages.add(message);
     }
     if (converted > 0 || malformed > 0 || missingFiles > 0) {
@@ -1426,7 +1566,9 @@ class DataSync {
   /// messageIds order is authoritative, dangling references are pruned
   /// (SQLite derives order from message_order, so pruning matches the old
   /// runtime), duplicate references keep their first occurrence, and
-  /// unreferenced messages were never visible so they are skipped.
+  /// unreferenced messages were never visible so they are skipped. It also
+  /// converts the raw message index and version ordinal used by 1.1.17 into
+  /// the logical slot index and concrete message version used by SQLite.
   static _ParsedChatBackup _sanitizeLegacyChatBackup(_ParsedChatBackup parsed) {
     final conversations = <Conversation>[];
     final conversationIds = <String>{};
@@ -1457,6 +1599,7 @@ class DataSync {
     var rehomedMessages = 0;
     var duplicateMcpServerIds = 0;
     var versionConflicts = 0;
+    var dirtyFieldRepairs = 0;
     for (final conversation in conversations) {
       final mcpServerIds = <String>[];
       final seenMcpServerIds = <String>{};
@@ -1474,13 +1617,23 @@ class DataSync {
       // the Hive migration does so INSERT OR REPLACE cannot swallow rows.
       final seenGroupVersions = <String>{};
       final maxGroupVersions = <String, int>{};
+      final legacyGroupIds = <String?>[];
+      final versionsBySelectedGroup = <String, List<ChatMessage>>{
+        for (final groupId in conversation.versionSelections.keys)
+          groupId: <ChatMessage>[],
+      };
+      final repairedVersionsByMessageId = <String, int>{};
       for (final messageId in conversation.messageIds) {
         var message = messagesById[messageId];
         if (message == null) {
           danglingReferences++;
           continue;
         }
-        if (!referencedMessageIds.add(messageId)) {
+        final groupId = message.groupId ?? message.id;
+        versionsBySelectedGroup[groupId]?.add(message);
+        final referenceKept = referencedMessageIds.add(messageId);
+        legacyGroupIds.add(referenceKept ? groupId : null);
+        if (!referenceKept) {
           duplicateReferences++;
           continue;
         }
@@ -1489,28 +1642,70 @@ class DataSync {
           rehomedMessages++;
           message = message.copyWith(conversationId: conversation.id);
         }
-        final groupId = message.groupId;
-        if (groupId != null) {
+        // Field-level repair (empty role, negative tokens/duration,
+        // out-of-range version, inverted reasoning timestamps) shares logic
+        // with the Hive migration; it must run before the version-conflict
+        // repair below because clamping version can introduce collisions
+        // that repair resolves.
+        final fieldSanitized = sanitizeLegacyMessageFields(message);
+        if (!identical(fieldSanitized, message)) {
+          dirtyFieldRepairs++;
+          message = fieldSanitized;
+        }
+        final explicitGroupId = message.groupId;
+        if (explicitGroupId != null) {
           var version = message.version;
-          if (!seenGroupVersions.add('$groupId $version')) {
-            version = (maxGroupVersions[groupId] ?? version) + 1;
+          if (!seenGroupVersions.add('$explicitGroupId $version')) {
+            version = (maxGroupVersions[explicitGroupId] ?? version) + 1;
             versionConflicts++;
             message = message.copyWith(version: version);
-            seenGroupVersions.add('$groupId $version');
+            repairedVersionsByMessageId[message.id] = version;
+            seenGroupVersions.add('$explicitGroupId $version');
           }
-          final knownMax = maxGroupVersions[groupId];
+          final knownMax = maxGroupVersions[explicitGroupId];
           if (knownMax == null || version > knownMax) {
-            maxGroupVersions[groupId] = version;
+            maxGroupVersions[explicitGroupId] = version;
           }
         }
         sanitizedMessages.add(message);
       }
-      sanitizedConversations.add(
-        conversation.copyWith(
-          messageIds: keptMessageIds,
-          mcpServerIds: mcpServerIds,
-        ),
+
+      var truncateIndex = conversation.truncateIndex;
+      if (truncateIndex >= 0 && truncateIndex <= legacyGroupIds.length) {
+        truncateIndex = legacyGroupIds
+            .take(truncateIndex)
+            .whereType<String>()
+            .toSet()
+            .length;
+      }
+      final versionSelections = Map<String, int>.from(
+        conversation.versionSelections,
       );
+      for (final entry in conversation.versionSelections.entries) {
+        final versions = versionsBySelectedGroup[entry.key]!
+          ..sort((left, right) => left.version.compareTo(right.version));
+        if (versions.isEmpty) continue;
+        final ordinal = entry.value;
+        final selected = ordinal >= 0 && ordinal < versions.length
+            ? versions[ordinal]
+            : versions.last;
+        versionSelections[entry.key] =
+            repairedVersionsByMessageId[selected.id] ?? selected.version;
+      }
+      // Counter clamping shares logic with the Hive migration so a legacy
+      // backup carrying out-of-range values (e.g. negative truncateIndex)
+      // cannot trip the conversation_rows CHECK constraints on restore.
+      final rebuilt = conversation.copyWith(
+        messageIds: keptMessageIds,
+        mcpServerIds: mcpServerIds,
+        truncateIndex: truncateIndex,
+        versionSelections: versionSelections,
+      );
+      final sanitizedConversation = sanitizeLegacyConversationFields(rebuilt);
+      if (!identical(sanitizedConversation, rebuilt)) {
+        dirtyFieldRepairs++;
+      }
+      sanitizedConversations.add(sanitizedConversation);
     }
     final unreferencedMessages =
         messagesById.length - referencedMessageIds.length;
@@ -1532,7 +1727,6 @@ class DataSync {
         danglingArtifacts++;
       }
     }
-
     final pruned =
         duplicateConversations +
         duplicateMessages +
@@ -1541,6 +1735,7 @@ class DataSync {
         rehomedMessages +
         duplicateMcpServerIds +
         versionConflicts +
+        dirtyFieldRepairs +
         unreferencedMessages +
         danglingArtifacts;
     if (pruned > 0) {
@@ -1553,6 +1748,7 @@ class DataSync {
         'rehomedMessages=$rehomedMessages '
         'duplicateMcpServerIds=$duplicateMcpServerIds '
         'versionConflicts=$versionConflicts '
+        'dirtyFieldRepairs=$dirtyFieldRepairs '
         'unreferencedMessages=$unreferencedMessages '
         'danglingArtifacts=$danglingArtifacts',
       );
@@ -1825,6 +2021,14 @@ class DataSync {
           _lastMergeReport = await chatService.mergeDatabaseSnapshot(
             File(p.join(extractDir.path, _databaseEntryName)),
           );
+          // Chats-only: never leave local attachments marked available when
+          // files were not restored (path collision on target is insufficient).
+          if (!restoreFiles && _lastMergeReport != null) {
+            await chatService.recomputeImportedAttachmentAvailability(
+              conversationIds: _lastMergeReport!.importedConversationIds,
+              filesRestored: false,
+            );
+          }
         }
         pendingBusinessRestore = () => businessRestore.merge(
           settings,
@@ -1992,12 +2196,32 @@ class DataSync {
           await _restoreAssetDirectoriesAdditive(restorePayloadDirectory);
         }
       }
-      // Legacy chats.json decodes before assets exist; refresh availability
-      // once upload/images are on disk so local parts are not stuck unavailable.
+      // Legacy chats.json decodes before assets exist. After files land,
+      // directed-remap old absolute roots onto restored managed relatives,
+      // then refresh availability (no global generic canonicalize fallback).
       if (restoreChats && cfg.includeFiles) {
+        if (SandboxPathResolver.docsDir == null) {
+          await SandboxPathResolver.init();
+        }
         final refreshed = <ChatMessage>[];
         for (final message in messages) {
-          final nextParts = recomputeAttachmentAvailability(message.parts);
+          final remapped = _remapRestoredAttachmentPartUris(message.parts);
+          final nextParts = recomputeAttachmentAvailability(remapped);
+          refreshed.add(
+            identical(nextParts, message.parts)
+                ? message
+                : message.copyWith(parts: nextParts),
+          );
+        }
+        messages = refreshed;
+      } else if (restoreChats && !cfg.includeFiles) {
+        // Chats-only legacy import: local attachments unavailable by default.
+        final refreshed = <ChatMessage>[];
+        for (final message in messages) {
+          final nextParts = recomputeAttachmentAvailability(
+            message.parts,
+            fileExists: (_) => false,
+          );
           refreshed.add(
             identical(nextParts, message.parts)
                 ? message

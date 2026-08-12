@@ -19,6 +19,9 @@ import 'package:Kelivo/core/database/chat_database_repository.dart';
 import 'package:Kelivo/core/models/backup.dart';
 import 'package:Kelivo/core/models/chat_message.dart';
 import 'package:Kelivo/core/models/conversation.dart';
+import 'package:Kelivo/core/models/message_part.dart';
+import 'package:Kelivo/utils/kelivo_file_uri.dart';
+import 'package:Kelivo/utils/sandbox_path_resolver.dart';
 import 'package:Kelivo/core/providers/backup_provider.dart';
 import 'package:Kelivo/core/services/backup/data_sync.dart';
 import 'package:Kelivo/core/services/backup/restore_receipt.dart';
@@ -370,11 +373,27 @@ void main() {
         await fontFile.writeAsBytes(List<int>.filled(256, 9));
 
         final tmpDir = Directory('${root.path}/tmp');
-        final staleWorkDir = Directory('${tmpDir.path}/kelivo_backup_stale');
+        // Abandoned entries (older than the 6h reclaim threshold) carry their
+        // age in the name, matching prepareBackupFile's naming.
+        final staleWorkDir = Directory(
+          '${tmpDir.path}/kelivo_backup_2000-01-01T00-00-00.000000',
+        );
         await staleWorkDir.create(recursive: true);
         await File('${staleWorkDir.path}/orphan.zip').writeAsString('old');
-        await File('${tmpDir.path}/kelivo_backup_old.zip').writeAsString('old');
-        await File('${tmpDir.path}/_bk_chats.json').writeAsString('{}');
+        final staleZip = File(
+          '${tmpDir.path}/kelivo_backup_2000-01-01T00-00-01.000000.zip',
+        );
+        await staleZip.writeAsString('old');
+        final staleLegacy = File('${tmpDir.path}/_bk_chats.json');
+        await staleLegacy.writeAsString('{}');
+        await staleLegacy.setLastModified(DateTime(2000));
+        // A fresh leftover looks like a backup another provider is running
+        // right now and must survive the sweep.
+        final freshWorkDir = Directory(
+          '${tmpDir.path}/kelivo_backup_'
+          '${DateTime.now().toIso8601String().replaceAll(':', '-')}',
+        );
+        await freshWorkDir.create(recursive: true);
 
         final sync = DataSync(
           businessRepository: businessRepository,
@@ -385,11 +404,10 @@ void main() {
         );
 
         expect(await staleWorkDir.exists(), isFalse);
-        expect(
-          await File('${tmpDir.path}/kelivo_backup_old.zip').exists(),
-          isFalse,
-        );
-        expect(await File('${tmpDir.path}/_bk_chats.json').exists(), isFalse);
+        expect(await staleZip.exists(), isFalse);
+        expect(await staleLegacy.exists(), isFalse);
+        expect(await freshWorkDir.exists(), isTrue);
+        await freshWorkDir.delete(recursive: true);
 
         final input = InputFileStream(backupFile.path);
         Archive? archive;
@@ -2914,6 +2932,267 @@ void main() {
       },
     );
 
+    test(
+      'remaps a legacy raw truncate index to logical message slots',
+      () async {
+        final chatsFile = File('${root.path}/legacy_truncate_index.json');
+        await chatsFile.writeAsString(
+          jsonEncode({
+            'conversations': [
+              Conversation(
+                id: 'conversation',
+                title: 'Conversation',
+                messageIds: const ['question', 'answer-v0', 'answer-v1'],
+                truncateIndex: 3,
+              ).toJson(),
+              Conversation(
+                id: 'missing-before-kept',
+                title: 'Missing before kept',
+                messageIds: const ['missing', 'kept'],
+                truncateIndex: 1,
+              ).toJson(),
+              Conversation(
+                id: 'duplicate-before-truncate',
+                title: 'Duplicate before truncate',
+                messageIds: const ['truncate-a', 'truncate-a', 'truncate-b'],
+                truncateIndex: 3,
+              ).toJson(),
+              Conversation(
+                id: 'shared-owner',
+                title: 'Shared owner',
+                messageIds: const ['shared'],
+              ).toJson(),
+              Conversation(
+                id: 'cross-reuse',
+                title: 'Cross reuse',
+                messageIds: const ['shared', 'cross-h', 'later-g'],
+                truncateIndex: 1,
+              ).toJson(),
+            ],
+            'messages': [
+              ChatMessage(
+                id: 'question',
+                role: 'user',
+                content: 'question',
+                conversationId: 'conversation',
+              ).toJson(),
+              ChatMessage(
+                id: 'answer-v0',
+                role: 'assistant',
+                content: 'answer v0',
+                conversationId: 'conversation',
+                groupId: 'answer',
+                version: 0,
+              ).toJson(),
+              ChatMessage(
+                id: 'answer-v1',
+                role: 'assistant',
+                content: 'answer v1',
+                conversationId: 'conversation',
+                groupId: 'answer',
+                version: 1,
+              ).toJson(),
+              ChatMessage(
+                id: 'kept',
+                role: 'user',
+                content: 'kept question',
+                conversationId: 'missing-before-kept',
+              ).toJson(),
+              ChatMessage(
+                id: 'truncate-a',
+                role: 'user',
+                content: 'truncate a',
+                conversationId: 'duplicate-before-truncate',
+              ).toJson(),
+              ChatMessage(
+                id: 'truncate-b',
+                role: 'assistant',
+                content: 'truncate b',
+                conversationId: 'duplicate-before-truncate',
+              ).toJson(),
+              ChatMessage(
+                id: 'shared',
+                role: 'user',
+                content: 'shared',
+                conversationId: 'shared-owner',
+                groupId: 'g',
+              ).toJson(),
+              ChatMessage(
+                id: 'cross-h',
+                role: 'user',
+                content: 'cross h',
+                conversationId: 'cross-reuse',
+                groupId: 'h',
+              ).toJson(),
+              ChatMessage(
+                id: 'later-g',
+                role: 'assistant',
+                content: 'later g',
+                conversationId: 'cross-reuse',
+                groupId: 'g',
+              ).toJson(),
+            ],
+          }),
+        );
+        final zipFile = File('${root.path}/legacy_truncate_index.zip');
+        final encoder = ZipFileEncoder();
+        encoder.create(zipFile.path);
+        encoder.addFileSync(validSettingsFile, 'settings.json');
+        encoder.addFileSync(chatsFile, 'chats.json');
+        encoder.closeSync();
+        final chatService = ChatService();
+        await chatService.init();
+        addTearDown(chatService.close);
+
+        await DataSync(
+          businessRepository: businessRepository,
+          chatService: chatService,
+        ).restoreFromLocalFile(
+          zipFile,
+          const WebDavConfig(includeChats: true, includeFiles: false),
+        );
+
+        final restored = chatService.getConversation('conversation')!;
+        expect(restored.truncateIndex, 2);
+        expect(
+          await chatService.loadSelectedContextMessages(
+            restored.id,
+            truncateIndex: restored.truncateIndex,
+            limit: 10,
+          ),
+          isEmpty,
+        );
+        final missingBeforeKept = chatService.getConversation(
+          'missing-before-kept',
+        )!;
+        expect(missingBeforeKept.truncateIndex, 1);
+        expect(
+          await chatService.loadSelectedContextMessages(
+            missingBeforeKept.id,
+            truncateIndex: missingBeforeKept.truncateIndex,
+            limit: 10,
+          ),
+          isEmpty,
+        );
+        final duplicateBeforeTruncate = chatService.getConversation(
+          'duplicate-before-truncate',
+        )!;
+        expect(duplicateBeforeTruncate.truncateIndex, 2);
+        expect(
+          await chatService.loadSelectedContextMessages(
+            duplicateBeforeTruncate.id,
+            truncateIndex: duplicateBeforeTruncate.truncateIndex,
+            limit: 10,
+          ),
+          isEmpty,
+        );
+        final crossReuse = chatService.getConversation('cross-reuse')!;
+        expect(crossReuse.truncateIndex, 0);
+        expect(
+          (await chatService.loadSelectedContextMessages(
+            crossReuse.id,
+            truncateIndex: crossReuse.truncateIndex,
+            limit: 10,
+          )).map((message) => message.id),
+          ['cross-h', 'later-g'],
+        );
+      },
+    );
+
+    test(
+      'remaps a legacy version ordinal to the selected message version',
+      () async {
+        final chatsFile = File('${root.path}/legacy_version_selection.json');
+        await chatsFile.writeAsString(
+          jsonEncode({
+            'conversations': [
+              Conversation(
+                id: 'conversation',
+                title: 'Conversation',
+                messageIds: const ['answer-v1', 'answer-v2'],
+                versionSelections: const {'answer': 1},
+              ).toJson(),
+              Conversation(
+                id: 'duplicate-reference',
+                title: 'Duplicate reference',
+                messageIds: const ['duplicate-a', 'duplicate-a', 'duplicate-b'],
+                versionSelections: const {'duplicate-answer': 1},
+              ).toJson(),
+            ],
+            'messages': [
+              ChatMessage(
+                id: 'answer-v1',
+                role: 'assistant',
+                content: 'answer v1',
+                conversationId: 'conversation',
+                groupId: 'answer',
+                version: 1,
+              ).toJson(),
+              ChatMessage(
+                id: 'answer-v2',
+                role: 'assistant',
+                content: 'answer v2',
+                conversationId: 'conversation',
+                groupId: 'answer',
+                version: 2,
+              ).toJson(),
+              ChatMessage(
+                id: 'duplicate-a',
+                role: 'assistant',
+                content: 'duplicate answer a',
+                conversationId: 'duplicate-reference',
+                groupId: 'duplicate-answer',
+                version: 1,
+              ).toJson(),
+              ChatMessage(
+                id: 'duplicate-b',
+                role: 'assistant',
+                content: 'duplicate answer b',
+                conversationId: 'duplicate-reference',
+                groupId: 'duplicate-answer',
+                version: 2,
+              ).toJson(),
+            ],
+          }),
+        );
+        final zipFile = File('${root.path}/legacy_version_selection.zip');
+        final encoder = ZipFileEncoder();
+        encoder.create(zipFile.path);
+        encoder.addFileSync(validSettingsFile, 'settings.json');
+        encoder.addFileSync(chatsFile, 'chats.json');
+        encoder.closeSync();
+        final chatService = ChatService();
+        await chatService.init();
+        addTearDown(chatService.close);
+
+        await DataSync(
+          businessRepository: businessRepository,
+          chatService: chatService,
+        ).restoreFromLocalFile(
+          zipFile,
+          const WebDavConfig(includeChats: true, includeFiles: false),
+        );
+
+        final restored = chatService.getConversation('conversation')!;
+        expect(restored.versionSelections, const {'answer': 2});
+        final timeline = await chatService.loadActiveTimelineMessages(
+          restored.id,
+        );
+        expect(timeline.single.id, 'answer-v2');
+        expect(timeline.single.content, 'answer v2');
+        final duplicateReference = chatService.getConversation(
+          'duplicate-reference',
+        )!;
+        expect(duplicateReference.versionSelections, const {
+          'duplicate-answer': 1,
+        });
+        final duplicateTimeline = await chatService.loadActiveTimelineMessages(
+          duplicateReference.id,
+        );
+        expect(duplicateTimeline.single.id, 'duplicate-a');
+      },
+    );
+
     test('reassigns duplicate (groupId, version) pairs a 1.1.17 runtime '
         'tolerated instead of rejecting the backup', () async {
       final chatsFile = File('${root.path}/duplicate_group_versions.json');
@@ -3111,5 +3390,98 @@ void main() {
         expect(await tmpDir.list().toList(), isEmpty);
       },
     );
+  });
+
+  group('kelivo-file portable attachments', () {
+    test('resolve after root change without rewriting persisted URIs', () async {
+      final rootA = await Directory.systemTemp.createTemp(
+        'kelivo_file_root_a_',
+      );
+      final rootB = await Directory.systemTemp.createTemp(
+        'kelivo_file_root_b_',
+      );
+      addTearDown(() async {
+        SandboxPathResolver.debugSetDirs(docsDir: null, supportDir: null);
+        if (await rootA.exists()) await rootA.delete(recursive: true);
+        if (await rootB.exists()) await rootB.delete(recursive: true);
+      });
+
+      SandboxPathResolver.debugSetDirs(docsDir: rootA.path);
+      final dbFile = File('${rootA.path}/kelivo.db');
+      final repository = ChatDatabaseRepository.open(file: dbFile);
+      await repository.ensureReady();
+
+      final uploadA = Directory('${rootA.path}/upload')
+        ..createSync(recursive: true);
+      final bytes = const <int>[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+      File('${uploadA.path}/pic.png').writeAsBytesSync(bytes);
+
+      const uri = 'kelivo-file:///upload/pic.png';
+      await repository.putMigrationBatch(
+        conversations: [
+          Conversation(
+            id: 'c-portable',
+            title: 'Portable',
+            messageIds: const ['m-portable'],
+          ),
+        ],
+        messages: [
+          (
+            message: ChatMessage(
+              id: 'm-portable',
+              conversationId: 'c-portable',
+              role: 'user',
+              content: 'portable',
+              parts: const [ImagePart(uri: uri)],
+            ),
+            messageOrder: 0,
+          ),
+        ],
+        toolEventsByMessageId: const {},
+        geminiSignaturesByMessageId: const {},
+      );
+      await repository.close();
+
+      // Simulate backup restore onto a different container root: copy DB+file,
+      // switch docsDir, and do NOT rewrite message URIs.
+      final dbB = File('${rootB.path}/kelivo.db');
+      await dbFile.copy(dbB.path);
+      final uploadB = Directory('${rootB.path}/upload')
+        ..createSync(recursive: true);
+      File('${uploadB.path}/pic.png').writeAsBytesSync(bytes);
+
+      SandboxPathResolver.debugSetDirs(docsDir: rootB.path);
+      final restoredRepo = ChatDatabaseRepository.open(file: dbB);
+      addTearDown(restoredRepo.close);
+      await restoredRepo.ensureReady();
+
+      final before = (await restoredRepo.getMessagesRange(
+        'c-portable',
+        start: 0,
+        limit: 1,
+      )).single;
+      expect(before.parts.whereType<ImagePart>().single.uri, uri);
+
+      final resolved = SandboxPathResolver.fix(uri);
+      expect(resolved, '${rootB.path}/upload/pic.png');
+      expect(File(resolved).existsSync(), isTrue);
+
+      // Path-migration pass with the production rewriteUri must leave URI intact.
+      final result = await restoredRepo.migrateSandboxPaths(
+        targetVersion: 1,
+        targetRoot: rootB.path,
+        rewriteUri: (value) => KelivoFileUri.isKelivoFileUri(value)
+            ? value
+            : SandboxPathResolver.fix(value),
+      );
+      expect(result.ran, isTrue);
+      final after = (await restoredRepo.getMessagesRange(
+        'c-portable',
+        start: 0,
+        limit: 1,
+      )).single;
+      expect(after.parts.whereType<ImagePart>().single.uri, uri);
+      expect(after.parts.whereType<ImagePart>().single.unavailable, isFalse);
+    });
   });
 }

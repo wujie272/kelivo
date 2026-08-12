@@ -1474,6 +1474,28 @@ void main() {
       },
     );
 
+    test('mutation refresh keeps a full tail window at the tail', () async {
+      messages = List<ChatMessage>.generate(1000, _message);
+      conversation = Conversation(
+        id: 'conversation-1',
+        title: 'Long chat',
+        messageIds: messages.map((message) => message.id).toList(),
+      );
+      chatService = _FakeLazyChatService(messages);
+      controller.dispose();
+      controller = ChatController(chatService: chatService);
+      await controller.setCurrentConversationAndLoad(conversation);
+      await controller.loadEndWindow();
+      messages.removeLast();
+
+      await controller.refreshTimelineAfterMutation(
+        removedRevisionIds: const {'message-999'},
+      );
+
+      expect(controller.messages.last.id, 'message-998');
+      expect(controller.hasMoreAfter, isFalse);
+    });
+
     test('temporary sends append directly to the linear window', () async {
       messages = <ChatMessage>[];
       conversation = Conversation(
@@ -1556,6 +1578,139 @@ void main() {
         expect(controller.loadedStartIndex, 0);
         expect(controller.totalMessageCount, 0);
         expect(controller.hasMoreBefore, isFalse);
+      },
+    );
+
+    test(
+      'allCollapsedMessagesForCurrentConversation uses loaded window only',
+      () async {
+        await controller.setCurrentConversationAndLoad(conversation);
+        final rangeCallsBefore = chatService.rangeLoadCalls;
+
+        final collapsed =
+            controller.allCollapsedMessagesForCurrentConversation();
+
+        expect(collapsed, controller.collapsedMessages);
+        expect(collapsed.length, controller.messages.length);
+        // Must not walk the full conversation via getMessagesRange.
+        expect(chatService.rangeLoadCalls, rangeCallsBefore);
+        expect(chatService.fullLoadCalls, 0);
+      },
+    );
+
+    test(
+      'fetch/open visible-group preload does not await full message order',
+      () async {
+        // Issue 2: first window + directed group preload must complete even
+        // when a full-order backfill would be blocked. The fake never exposes
+        // getMessageIds; hanging here would mean the controller still awaits
+        // a full-order path on open.
+        final user = _versionedMessage(
+          id: 'user-1',
+          role: 'user',
+          groupId: 'user-1',
+          version: 0,
+        );
+        final v0 = _versionedMessage(
+          id: 'assistant-v0',
+          role: 'assistant',
+          groupId: 'assistant',
+          version: 0,
+        );
+        final v1 = _versionedMessage(
+          id: 'assistant-v1',
+          role: 'assistant',
+          groupId: 'assistant',
+          version: 1,
+        );
+        messages = [user, v0, v1];
+        conversation = Conversation(
+          id: 'conversation-1',
+          title: 'Multi-version gated order',
+          messageIds: messages.map((m) => m.id).toList(),
+        );
+        chatService = _FakeLazyChatService(messages)
+          ..versionSelections = const {'assistant': 1}
+          ..requireGroupLoad = true
+          ..groupLoadGate = Completer<void>();
+        controller.dispose();
+        controller = ChatController(chatService: chatService);
+
+        final fetchFuture = controller.fetchConversationWindow(conversation);
+        // Preload is in-flight on the directed group path only.
+        await Future<void>.delayed(Duration.zero);
+        expect(chatService.groupLoadRequests, isNotEmpty);
+        expect(chatService.fullLoadCalls, 0);
+        expect(chatService.timelinePageCalls, 1);
+
+        chatService.groupLoadGate!.complete();
+        final fetched = await fetchFuture.timeout(const Duration(seconds: 2));
+        controller.commitConversationWindow(fetched);
+
+        expect(controller.collapsedMessages.map((m) => m.id), [
+          'user-1',
+          'assistant-v1',
+        ]);
+        expect(chatService.fullLoadCalls, 0);
+        expect(
+          chatService.groupLoadRequests.any((ids) => ids.contains('assistant')),
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'multi-version open preloads groups and projects the selected version',
+      () async {
+        final user = _versionedMessage(
+          id: 'user-1',
+          role: 'user',
+          groupId: 'user-1',
+          version: 0,
+        );
+        final v0 = _versionedMessage(
+          id: 'assistant-v0',
+          role: 'assistant',
+          groupId: 'assistant',
+          version: 0,
+        );
+        final v1 = _versionedMessage(
+          id: 'assistant-v1',
+          role: 'assistant',
+          groupId: 'assistant',
+          version: 1,
+        );
+        messages = [user, v0, v1];
+        conversation = Conversation(
+          id: 'conversation-1',
+          title: 'Multi-version',
+          messageIds: messages.map((m) => m.id).toList(),
+        );
+        chatService = _FakeLazyChatService(messages)
+          ..versionSelections = const {'assistant': 1};
+        controller.dispose();
+        controller = ChatController(chatService: chatService);
+
+        await controller.setCurrentConversationAndLoad(conversation);
+
+        expect(controller.collapsedMessages.map((m) => m.id), [
+          'user-1',
+          'assistant-v1',
+        ]);
+        expect(chatService.groupLoadRequests, isNotEmpty);
+        expect(
+          chatService.groupLoadRequests.any(
+            (ids) => ids.contains('assistant'),
+          ),
+          isTrue,
+        );
+        expect(chatService.fullLoadCalls, 0);
+        expect(
+          controller.allCollapsedMessagesForCurrentConversation().map(
+            (m) => m.id,
+          ),
+          ['user-1', 'assistant-v1'],
+        );
       },
     );
   });

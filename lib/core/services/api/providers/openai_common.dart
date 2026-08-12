@@ -21,18 +21,31 @@ Uri _openAICompatibleUrl(ProviderConfig config) {
 }
 
 Future<String> _saveResponsesImageGenerationMarkdown(
-  String imageBase64, {
+  String imageData, {
   String? outputFormat,
 }) async {
   final normalizedFormat = (outputFormat ?? '').trim().toLowerCase();
-  final mime = switch (normalizedFormat) {
+  var mime = switch (normalizedFormat) {
     'jpeg' || 'jpg' => 'image/jpeg',
     'webp' => 'image/webp',
     _ => 'image/png',
   };
+  var imageBase64 = imageData.trim();
+  if (imageBase64.startsWith('data:')) {
+    final commaIndex = imageBase64.indexOf(',');
+    if (commaIndex < 0) return '';
+    mime = _mimeFromDataUrl(imageBase64);
+    imageBase64 = imageBase64.substring(commaIndex + 1);
+  }
   final savedPath = await AppDirectories.saveBase64Image(mime, imageBase64);
   if (savedPath == null || savedPath.isEmpty) return '';
-  return '\n![image]($savedPath)\n';
+  final uri = SandboxPathResolver.canonicalize(savedPath);
+  return '\n![image]($uri)\n';
+}
+
+bool _isResponsesImageGenerationType(dynamic type) {
+  return type == 'image_generation_call' ||
+      type == 'openrouter:image_generation';
 }
 
 void _applyCompatibleBuiltInSearch(
@@ -71,22 +84,56 @@ void _applyCompatibleBuiltInSearch(
   }
 
   if (config.useResponseApi == true) return;
-  if (!BuiltInToolsHelper.isDashScopeProvider(config)) return;
-  if (!BuiltInToolsHelper.isDashScopeChatBuiltInSearchSupportedModel(
-    upstreamModelId,
-  )) {
+
+  if (BuiltInToolsHelper.isDashScopeProvider(config)) {
+    if (!BuiltInToolsHelper.isDashScopeChatBuiltInSearchSupportedModel(
+      upstreamModelId,
+    )) {
+      return;
+    }
+    body['enable_search'] = true;
+    final options = BuiltInToolsHelper.dashScopeSearchOptionsFromOverride(
+      config.modelOverrides[modelId],
+    );
+    if (options.isNotEmpty) {
+      body['search_options'] = options;
+    } else {
+      body.remove('search_options');
+    }
     return;
   }
 
-  body['enable_search'] = true;
-  final options = BuiltInToolsHelper.dashScopeSearchOptionsFromOverride(
-    config.modelOverrides[modelId],
-  );
-  if (options.isNotEmpty) {
-    body['search_options'] = options;
-  } else {
-    body.remove('search_options');
+  // MiMo: native chat Completions `web_search` tool (+ optional web_search_usage).
+  if (BuiltInToolsHelper.isMimoProvider(config) &&
+      BuiltInToolsHelper.isMimoBuiltInSearchSupportedModel(upstreamModelId)) {
+    _appendChatTool(body, {'type': 'web_search'});
+    return;
   }
+
+  // GLM / Zhipu: native chat web_search tool structure.
+  if (BuiltInToolsHelper.isZhipuProvider(config) &&
+      BuiltInToolsHelper.isGlmBuiltInSearchSupportedModel(upstreamModelId)) {
+    _appendChatTool(body, {
+      'type': 'web_search',
+      'web_search': {'enable': true, 'search_result': true},
+    });
+    return;
+  }
+}
+
+void _appendChatTool(Map<String, dynamic> body, Map<String, dynamic> tool) {
+  final tools = <Map<String, dynamic>>[];
+  final existing = body['tools'];
+  if (existing is List) {
+    for (final t in existing) {
+      if (t is Map) tools.add(t.cast<String, dynamic>());
+    }
+  }
+  final type = (tool['type'] ?? '').toString();
+  final exists = tools.any((t) => (t['type'] ?? '').toString() == type);
+  if (!exists) tools.add(tool);
+  body['tools'] = tools;
+  body['tool_choice'] ??= 'auto';
 }
 
 void _applyCompatibleResponsesReasoning(
@@ -98,6 +145,34 @@ void _applyCompatibleResponsesReasoning(
   int? thinkingBudget,
 }) {
   if (config.useResponseApi != true) return;
+
+  if (BuiltInToolsHelper.isMimoProvider(config)) {
+    body.remove('reasoning');
+    if (!isReasoning) return;
+
+    final effort = _isOff(thinkingBudget)
+        ? 'none'
+        : _openAIEffortForBudget(thinkingBudget, upstreamModelId);
+    if (effort != 'auto') {
+      body['reasoning'] = {'effort': effort};
+    }
+    return;
+  }
+
+  final host = Uri.tryParse(config.baseUrl)?.host.toLowerCase() ?? '';
+  final isDeepSeek =
+      host.contains('deepseek') ||
+      config.id.toLowerCase().contains('deepseek') ||
+      upstreamModelId.toLowerCase().contains('deepseek');
+  if (isDeepSeek) {
+    if (!isReasoning) {
+      body.remove('reasoning');
+    } else if (_isOff(thinkingBudget)) {
+      body['reasoning'] = {'effort': 'none'};
+    }
+    return;
+  }
+
   if (!BuiltInToolsHelper.isDashScopeProvider(config)) return;
 
   body.remove('reasoning');
@@ -122,10 +197,18 @@ bool _isKimiK25Model(String upstreamModelId) {
 
 bool _isKimiK3Model(String upstreamModelId) {
   return RegExp(
-    r'(^|[/_:@])kimi-k3(?:$|[-.])',
+    r'(^|[/_:@])kimi-k3(?:$|[-.:])',
     caseSensitive: false,
   ).hasMatch(upstreamModelId.trim());
 }
+
+bool _isKimiPreservedThinkingModel(String upstreamModelId) {
+  final normalized = upstreamModelId.trim().toLowerCase();
+  return _isKimiK3Model(normalized) ||
+      RegExp(r'(^|[/_:@])kimi-k2\.7-code(?:$|[-.:])').hasMatch(normalized);
+}
+
+enum _ReasoningContentReplayPolicy { none, toolTurns, all }
 
 bool _isRemoteHttpUrl(String source) {
   final normalized = source.trim().toLowerCase();
@@ -464,17 +547,46 @@ int _readOpenAIUsageInt(dynamic value) {
 TokenUsage? _mergeOpenAICompatibleUsage(TokenUsage? current, dynamic rawUsage) {
   if (rawUsage is! Map) return current;
 
-  final details = rawUsage['prompt_tokens_details'];
+  final details =
+      rawUsage['prompt_tokens_details'] ?? rawUsage['input_tokens_details'];
   final cachedTokens = details is Map
       ? _readOpenAIUsageInt(details['cached_tokens'])
       : 0;
   return (current ?? const TokenUsage()).merge(
     TokenUsage(
-      promptTokens: _readOpenAIUsageInt(rawUsage['prompt_tokens']),
-      completionTokens: _readOpenAIUsageInt(rawUsage['completion_tokens']),
+      promptTokens: _readOpenAIUsageInt(
+        rawUsage['prompt_tokens'] ?? rawUsage['input_tokens'],
+      ),
+      completionTokens: _readOpenAIUsageInt(
+        rawUsage['completion_tokens'] ?? rawUsage['output_tokens'],
+      ),
       cachedTokens: cachedTokens,
     ),
   );
+}
+
+String _responsesReasoningText(dynamic rawOutput) {
+  if (rawOutput is! List) return '';
+
+  final buffer = StringBuffer();
+  for (final item in rawOutput) {
+    if (item is! Map || item['type'] != 'reasoning') continue;
+    final content = item['content'];
+    if (content is String) {
+      buffer.write(content);
+      continue;
+    }
+    if (content is! List) continue;
+    for (final part in content) {
+      if (part is String) {
+        buffer.write(part);
+      } else if (part is Map &&
+          (part['type'] == 'reasoning_text' || part['type'] == 'text')) {
+        buffer.write((part['text'] ?? part['content'] ?? '').toString());
+      }
+    }
+  }
+  return buffer.toString();
 }
 
 Future<List<Map<String, dynamic>>> _buildOpenAIChatCompletionMessages(
@@ -482,6 +594,7 @@ Future<List<Map<String, dynamic>>> _buildOpenAIChatCompletionMessages(
   List<String>? userMediaPaths,
   required bool canImageInput,
   required bool allowRemoteImages,
+  required _ReasoningContentReplayPolicy reasoningContentReplayPolicy,
   bool stripUnsignedReasoningContent = false,
 }) async {
   final out = <Map<String, dynamic>>[];
@@ -498,6 +611,21 @@ Future<List<Map<String, dynamic>>> _buildOpenAIChatCompletionMessages(
   }
   final pendingAssistantMediaUrls = <String>[];
   final pendingAssistantVideoUrls = <String>{};
+  final toolTurnIds = <int>{};
+  final messageTurnIds = <int>[];
+  var currentTurnId = -1;
+  for (final message in messages) {
+    final messageRole = (message['role'] ?? 'user').toString();
+    if (messageRole == 'user') currentTurnId++;
+    messageTurnIds.add(currentTurnId);
+    final messageToolCalls = message['tool_calls'];
+    if (messageRole == 'tool' ||
+        (messageRole == 'assistant' &&
+            messageToolCalls is List &&
+            messageToolCalls.isNotEmpty)) {
+      toolTurnIds.add(currentTurnId);
+    }
+  }
   for (int i = 0; i < messages.length; i++) {
     final m = messages[i];
     final originalContent = m['content'];
@@ -514,15 +642,19 @@ Future<List<Map<String, dynamic>>> _buildOpenAIChatCompletionMessages(
     outMsg.remove(multimodalInternalRevisionIdKey);
     outMsg['role'] = role;
 
-    // Claude models behind OpenAI-compatible proxies rebuild Anthropic
-    // thinking blocks from `reasoning_content`; without a matching signature
-    // (carried by `reasoning_details`) the upstream rejects the request with
-    // "thinking.signature: Field required". Drop the unsigned echo — Anthropic
-    // accepts history without thinking blocks, but not with invalid ones.
-    if (stripUnsignedReasoningContent && role == 'assistant') {
+    if (isAssistant) {
       final details = outMsg['reasoning_details'];
-      final hasSignedDetails = details is List && details.isNotEmpty;
-      if (!hasSignedDetails) {
+      final hasSignedClaudeReasoning =
+          stripUnsignedReasoningContent &&
+          details is List &&
+          details.isNotEmpty;
+      final keepReasoningContent =
+          hasSignedClaudeReasoning ||
+          reasoningContentReplayPolicy == _ReasoningContentReplayPolicy.all ||
+          (reasoningContentReplayPolicy ==
+                  _ReasoningContentReplayPolicy.toolTurns &&
+              toolTurnIds.contains(messageTurnIds[i]));
+      if (!keepReasoningContent) {
         outMsg.remove('reasoning_content');
         outMsg.remove('reasoning');
       }
@@ -540,8 +672,7 @@ Future<List<Map<String, dynamic>>> _buildOpenAIChatCompletionMessages(
         role == 'user' &&
         i == lastUserIndex &&
         pendingAssistantMediaUrls.isNotEmpty;
-    final hasInternalMedia =
-        canImageInput && internalMediaRefs.isNotEmpty;
+    final hasInternalMedia = canImageInput && internalMediaRefs.isNotEmpty;
 
     if (originalContent is List) {
       dynamic content = canImageInput
@@ -555,7 +686,8 @@ Future<List<Map<String, dynamic>>> _buildOpenAIChatCompletionMessages(
       // userImagePaths attachment. Merge those onto the last user turn, and
       // still stash assistant media — including image_url/video_url already
       // embedded in the List with no structured sidecar refs.
-      final listHasEmbeddedMedia = canImageInput &&
+      final listHasEmbeddedMedia =
+          canImageInput &&
           content is List &&
           content.any((part) {
             if (part is! Map) return false;
@@ -1073,6 +1205,16 @@ class _OpenAIProviderInfo {
 
   bool get needsReasoningEcho =>
       isDeepSeek || isMimo || isZhipu || isKimiThinkingModel;
+  _ReasoningContentReplayPolicy get reasoningContentReplayPolicy {
+    if (_isKimiPreservedThinkingModel(upstreamModelId)) {
+      return _ReasoningContentReplayPolicy.all;
+    }
+    if (needsReasoningEcho) {
+      return _ReasoningContentReplayPolicy.toolTurns;
+    }
+    return _ReasoningContentReplayPolicy.none;
+  }
+
   String get completionTokensKey =>
       (isAzureOpenAI || isMimo) ? 'max_completion_tokens' : 'max_tokens';
 }
@@ -1211,6 +1353,51 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
     if (maxTokens != null) map[info.completionTokensKey] = maxTokens;
   }
 
+  // Kimi K3 Formula web-search: fetch tool decls, then fiber-execute calls.
+  // Only names actually inserted after duplicate resolution are dispatched.
+  final formulaToolNames = <String>{};
+  List<Map<String, dynamic>> kimiFormulaTools = const <Map<String, dynamic>>[];
+  final builtInSearchEnabled = _builtInTools(
+    config,
+    modelId,
+  ).contains(BuiltInToolNames.search);
+  if (config.useResponseApi != true &&
+      BuiltInToolsHelper.isMoonshotProvider(config) &&
+      BuiltInToolsHelper.isKimiK3Model(upstreamModelId) &&
+      builtInSearchEnabled) {
+    try {
+      kimiFormulaTools = await KimiFormulaSearch.fetchTools(
+        client: client,
+        config: config,
+      );
+    } catch (_) {
+      kimiFormulaTools = const <Map<String, dynamic>>[];
+    }
+  }
+  Future<String> resolveToolCall(
+    String name,
+    Map<String, dynamic> args, {
+    String? toolCallId,
+  }) async {
+    if (formulaToolNames.contains(name)) {
+      return KimiFormulaSearch.executeFiber(
+        client: client,
+        config: config,
+        name: name,
+        arguments: jsonEncode(args),
+      );
+    }
+    if (onToolCall != null) {
+      return onToolCall(name, args, toolCallId: toolCallId);
+    }
+    throw Exception('No tool handler for $name');
+  }
+
+  final ToolCallHandler? effectiveOnToolCall =
+      (onToolCall != null || kimiFormulaTools.isNotEmpty)
+      ? resolveToolCall
+      : null;
+
   Map<String, dynamic> body;
   // Keep initial Responses request context so we can perform follow-up requests when tools are called
   List<Map<String, dynamic>> responsesInitialInput =
@@ -1260,12 +1447,18 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
           id,
         );
       }
+      if (BuiltInToolsHelper.isArkProvider(config)) {
+        return BuiltInToolsHelper.isDoubaoResponsesBuiltInSearchSupportedModel(
+          id,
+        );
+      }
       return false;
     }
 
     if (isResponsesWebSearchSupported(upstreamModelId)) {
       if (builtIns.contains(BuiltInToolNames.search)) {
-        if (BuiltInToolsHelper.isDashScopeProvider(config)) {
+        if (BuiltInToolsHelper.isDashScopeProvider(config) ||
+            BuiltInToolsHelper.isArkProvider(config)) {
           addResponsesBuiltInTool({'type': 'web_search'});
         } else {
           // Optional per-model configuration under modelOverrides[modelId]['webSearch']
@@ -1383,8 +1576,7 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
         m[multimodalInternalMediaPathsKey],
       );
       // Consume injected media refs for user and assistant history turns.
-      final hasInternalMedia =
-          canImageInput && internalMediaRefs.isNotEmpty;
+      final hasInternalMedia = canImageInput && internalMediaRefs.isNotEmpty;
       final hasAttachedImages =
           canImageInput &&
           (m['role'] == 'user') &&
@@ -1539,10 +1731,7 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                 part,
           ];
           if (assistantContent.isEmpty) {
-            assistantContent.add({
-              'type': 'output_text',
-              'text': parsed.text,
-            });
+            assistantContent.add({'type': 'output_text', 'text': parsed.text});
           }
           input.add({
             'type': 'message',
@@ -1639,6 +1828,7 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
       userMediaPaths: userImagePaths,
       canImageInput: canImageInput,
       allowRemoteImages: allowRemoteImages,
+      reasoningContentReplayPolicy: info.reasoningContentReplayPolicy,
       stripUnsignedReasoningContent: isClaudeUpstream,
     );
     body = {
@@ -1675,16 +1865,16 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
   }
 
   final request = http.Request('POST', url);
-  final headers = <String, String>{
-    'Authorization': 'Bearer ${_apiKeyForRequest(config, modelId)}',
-    'Content-Type': 'application/json',
-    'Accept': stream ? 'text/event-stream' : 'application/json',
-  };
-  // Merge custom headers (override takes precedence)
-  headers.addAll(_customHeaders(config, modelId));
-  if (extraHeaders != null && extraHeaders.isNotEmpty) {
-    headers.addAll(extraHeaders);
-  }
+  final headers = _customHeaders(
+    config,
+    modelId,
+    baseHeaders: <String, String>{
+      'Authorization': 'Bearer ${_apiKeyForRequest(config, modelId)}',
+      'Content-Type': 'application/json',
+      'Accept': stream ? 'text/event-stream' : 'application/json',
+    },
+    assistantHeaders: extraHeaders,
+  );
   request.headers.addAll(headers);
   _maybeAddStreamingUsageOptions(
     body,
@@ -1698,6 +1888,11 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
     modelId: modelId,
     upstreamModelId: upstreamModelId,
   );
+  if (config.useResponseApi != true) {
+    formulaToolNames.addAll(
+      KimiFormulaSearch.mergeTools(body, kimiFormulaTools),
+    );
+  }
   _applyOpenRouterClaudePromptCaching(
     body,
     config: config,
@@ -1705,14 +1900,9 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
   );
 
   // Merge custom body keys (override takes precedence)
-  final extraBodyCfg = _customBody(config, modelId);
+  final extraBodyCfg = _customBody(config, modelId, assistantBody: extraBody);
   if (extraBodyCfg.isNotEmpty) {
     body.addAll(extraBodyCfg);
-  }
-  if (extraBody != null && extraBody.isNotEmpty) {
-    extraBody.forEach((k, v) {
-      body[k] = (v is String) ? _parseOverrideValue(v) : v;
-    });
   }
   _sanitizeOpenAIGpt5SamplingParams(
     body,
@@ -1742,6 +1932,8 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
       // Responses API non-stream
       if (config.useResponseApi == true) {
         String outText = '';
+        final rawOutput = obj['output'] ?? obj['response']?['output'];
+        final reasoningText = _responsesReasoningText(rawOutput);
         try {
           outText = (obj['output_text'] ?? '').toString();
         } catch (_) {}
@@ -1750,65 +1942,53 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
             outText = (obj['response']?['output_text'] ?? '').toString();
           } catch (_) {}
         }
-        if (outText.isEmpty) {
-          try {
-            final out = obj['output'] as List?;
-            if (out != null) {
-              final buf = StringBuffer();
-              for (final it in out) {
-                if (it is Map && it['type'] == 'output_text') {
-                  final c = (it['content'] ?? '').toString();
-                  if (c.isNotEmpty) buf.write(c);
-                } else if (it is Map && it['type'] == 'message') {
-                  final content = it['content'] as List?;
-                  if (content != null) {
-                    for (final part in content) {
-                      if (part is Map &&
-                          (part['type'] == 'output_text' ||
-                              part['type'] == 'text')) {
-                        final t = (part['text'] ?? part['content'] ?? '')
-                            .toString();
-                        if (t.isNotEmpty) buf.write(t);
-                      }
+        final shouldReadOutputText = outText.isEmpty;
+        try {
+          final out = rawOutput as List?;
+          if (out != null) {
+            final buf = StringBuffer(outText);
+            for (final it in out) {
+              if (it is! Map) continue;
+              if (_isResponsesImageGenerationType(it['type'])) {
+                final b64 = (it['result'] ?? '').toString();
+                if (b64.isNotEmpty) {
+                  final mdImg = await _saveResponsesImageGenerationMarkdown(
+                    b64,
+                    outputFormat: (it['output_format'] ?? '').toString(),
+                  );
+                  if (mdImg.isNotEmpty) buf.write(mdImg);
+                }
+                continue;
+              }
+              if (!shouldReadOutputText) continue;
+              if (it['type'] == 'output_text') {
+                final c = (it['content'] ?? '').toString();
+                if (c.isNotEmpty) buf.write(c);
+              } else if (it['type'] == 'message') {
+                final content = it['content'] as List?;
+                if (content != null) {
+                  for (final part in content) {
+                    if (part is Map &&
+                        (part['type'] == 'output_text' ||
+                            part['type'] == 'text')) {
+                      final t = (part['text'] ?? part['content'] ?? '')
+                          .toString();
+                      if (t.isNotEmpty) buf.write(t);
                     }
-                  }
-                } else if (it is Map && it['type'] == 'image_generation_call') {
-                  final b64 = (it['result'] ?? '').toString();
-                  if (b64.isNotEmpty) {
-                    final mdImg = await _saveResponsesImageGenerationMarkdown(
-                      b64,
-                      outputFormat: (it['output_format'] ?? '').toString(),
-                    );
-                    if (mdImg.isNotEmpty) buf.write(mdImg);
                   }
                 }
               }
-              outText = buf.toString();
             }
-          } catch (_) {}
-        }
-        TokenUsage? usage;
-        try {
-          final u = (obj['usage'] ?? obj['response']?['usage']) as Map?;
-          if (u != null) {
-            final prompt =
-                (u['prompt_tokens'] ?? u['input_tokens'] ?? 0) as int? ?? 0;
-            final completion =
-                (u['completion_tokens'] ?? u['output_tokens'] ?? 0) as int? ??
-                0;
-            final cached =
-                (u['prompt_tokens_details']?['cached_tokens'] ?? 0) as int? ??
-                0;
-            usage = TokenUsage(
-              promptTokens: prompt,
-              completionTokens: completion,
-              cachedTokens: cached,
-              totalTokens: prompt + completion,
-            );
+            outText = buf.toString();
           }
         } catch (_) {}
+        final usage = _mergeOpenAICompatibleUsage(
+          null,
+          obj['usage'] ?? obj['response']?['usage'],
+        );
         yield ChatStreamChunk(
           content: outText,
+          reasoning: reasoningText.isEmpty ? null : reasoningText,
           isDone: true,
           totalTokens: usage?.totalTokens ?? 0,
           usage: usage,
@@ -1865,7 +2045,7 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
             (msg['reasoning_content'] ?? msg['reasoning'])?.toString() ?? '';
         final reasoningDetailsForTools = msg['reasoning_details'];
         final tcs = (msg['tool_calls'] as List?) ?? const <dynamic>[];
-        if (tcs.isNotEmpty && onToolCall != null) {
+        if (tcs.isNotEmpty && effectiveOnToolCall != null) {
           final calls = <Map<String, dynamic>>[];
           final callInfos = <ToolCallInfo>[];
           for (int i = 0; i < tcs.length; i++) {
@@ -1901,7 +2081,11 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
           final results = <Map<String, dynamic>>[];
           final resultsInfo = <ToolResultInfo>[];
           for (final c in callInfos) {
-            final res = await onToolCall(c.name, c.arguments, toolCallId: c.id);
+            final res = await effectiveOnToolCall(
+              c.name,
+              c.arguments,
+              toolCallId: c.id,
+            );
             results.add({'tool_call_id': c.id, 'content': res});
             resultsInfo.add(
               ToolResultInfo(
@@ -1923,15 +2107,16 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
           }
           // Follow-up request
           final req = http.Request('POST', url);
-          final headers2 = <String, String>{
-            'Authorization': 'Bearer ${_apiKeyForRequest(config, modelId)}',
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          };
-          headers2.addAll(_customHeaders(config, modelId));
-          if (extraHeaders != null && extraHeaders.isNotEmpty) {
-            headers2.addAll(extraHeaders);
-          }
+          final headers2 = _customHeaders(
+            config,
+            modelId,
+            baseHeaders: <String, String>{
+              'Authorization': 'Bearer ${_apiKeyForRequest(config, modelId)}',
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            assistantHeaders: extraHeaders,
+          );
           req.headers.addAll(headers2);
           final next = <Map<String, dynamic>>[];
           for (final m in messages) {
@@ -1966,6 +2151,7 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
             userMediaPaths: userImagePaths,
             canImageInput: canImageInput,
             allowRemoteImages: allowRemoteImages,
+            reasoningContentReplayPolicy: info.reasoningContentReplayPolicy,
             stripUnsignedReasoningContent: isClaudeUpstream,
           );
           reqBody.remove('stream');
@@ -2073,7 +2259,7 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
       if (data == '[DONE]') {
         // If model streamed tool_calls but didn't include finish_reason on prior chunks,
         // execute tool flow now and start follow-up request.
-        if (onToolCall != null && toolAcc.isNotEmpty) {
+        if (effectiveOnToolCall != null && toolAcc.isNotEmpty) {
           final calls = <Map<String, dynamic>>[];
           final callInfos = <ToolCallInfo>[];
           final toolMsgs = <Map<String, dynamic>>[];
@@ -2116,7 +2302,7 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
             final name = m['__name'] as String;
             final id = m['__id'] as String;
             final args = (m['__args'] as Map<String, dynamic>);
-            final res = await onToolCall(name, args, toolCallId: id);
+            final res = await effectiveOnToolCall(name, args, toolCallId: id);
             results.add({'tool_call_id': id, 'content': res});
             resultsInfo.add(
               ToolResultInfo(id: id, name: name, arguments: args, content: res),
@@ -2165,24 +2351,24 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
           var currentMessages = mm2;
           while (true) {
             final Map<String, dynamic> body2 = {
-                    'model': upstreamModelId,
-                    'messages': await _buildOpenAIChatCompletionMessages(
-                      currentMessages,
-                      userMediaPaths: userImagePaths,
-                      canImageInput: canImageInput,
-                      allowRemoteImages: allowRemoteImages,
-                      stripUnsignedReasoningContent: isClaudeUpstream,
-                    ),
-                    'stream': true,
-                    if (temperature != null) 'temperature': temperature,
-                    if (topP != null) 'top_p': topP,
-                    if (isReasoning && effort != 'off' && effort != 'auto')
-                      'reasoning_effort': effort,
-                    if (tools != null && tools.isNotEmpty)
-                      'tools': _cleanToolsForCompatibility(tools),
-                    if (tools != null && tools.isNotEmpty)
-                      'tool_choice': 'auto',
-                  };
+              'model': upstreamModelId,
+              'messages': await _buildOpenAIChatCompletionMessages(
+                currentMessages,
+                userMediaPaths: userImagePaths,
+                canImageInput: canImageInput,
+                allowRemoteImages: allowRemoteImages,
+                reasoningContentReplayPolicy: info.reasoningContentReplayPolicy,
+                stripUnsignedReasoningContent: isClaudeUpstream,
+              ),
+              'stream': true,
+              if (temperature != null) 'temperature': temperature,
+              if (topP != null) 'top_p': topP,
+              if (isReasoning && effort != 'off' && effort != 'auto')
+                'reasoning_effort': effort,
+              if (tools != null && tools.isNotEmpty)
+                'tools': _cleanToolsForCompatibility(tools),
+              if (tools != null && tools.isNotEmpty) 'tool_choice': 'auto',
+            };
             setMaxTokens(body2);
 
             _applyVendorReasoningKnobs(
@@ -2210,11 +2396,6 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
             if (extraBodyCfg.isNotEmpty) {
               body2.addAll(extraBodyCfg);
             }
-            if (extraBody != null && extraBody.isNotEmpty) {
-              extraBody.forEach((k, v) {
-                body2[k] = (v is String) ? _parseOverrideValue(v) : v;
-              });
-            }
 
             _sanitizeOpenAIGpt5SamplingParams(
               body2,
@@ -2230,16 +2411,16 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
             );
 
             final req2 = http.Request('POST', url);
-            final headers2 = <String, String>{
-              'Authorization': 'Bearer ${_apiKeyForRequest(config, modelId)}',
-              'Content-Type': 'application/json',
-              'Accept': 'text/event-stream',
-            };
-            // Apply custom headers
-            headers2.addAll(_customHeaders(config, modelId));
-            if (extraHeaders != null && extraHeaders.isNotEmpty) {
-              headers2.addAll(extraHeaders);
-            }
+            final headers2 = _customHeaders(
+              config,
+              modelId,
+              baseHeaders: <String, String>{
+                'Authorization': 'Bearer ${_apiKeyForRequest(config, modelId)}',
+                'Content-Type': 'application/json',
+                'Accept': 'text/event-stream',
+              },
+              assistantHeaders: extraHeaders,
+            );
             req2.headers.addAll(headers2);
             req2.body = jsonEncode(body2);
             final resp2 = await client.send(req2);
@@ -2483,7 +2664,11 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                 final name = m['__name'] as String;
                 final id = m['__id'] as String;
                 final args = (m['__args'] as Map<String, dynamic>);
-                final res = await onToolCall(name, args, toolCallId: id);
+                final res = await effectiveOnToolCall(
+                  name,
+                  args,
+                  toolCallId: id,
+                );
                 results2.add({'tool_call_id': id, 'content': res});
                 resultsInfo2.add(
                   ToolResultInfo(
@@ -2590,7 +2775,7 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                   'args': '',
                 };
               } else if (item is Map &&
-                  (item['type'] ?? '') == 'image_generation_call') {
+                  _isResponsesImageGenerationType(item['type'])) {
                 responsesImagesByIndex.putIfAbsent(
                   idx,
                   () => const _ResponsesImageGenerationResult(),
@@ -2636,7 +2821,7 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                 );
                 if (args.isNotEmpty) entry['args'] = args;
               } else if (item is Map &&
-                  (item['type'] ?? '') == 'image_generation_call') {
+                  _isResponsesImageGenerationType(item['type'])) {
                 final b64 = (item['result'] ?? '').toString();
                 if (b64.isNotEmpty) {
                   responsesImagesByIndex[idx] = _ResponsesImageGenerationResult(
@@ -2671,12 +2856,8 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
           } else if (type == 'response.completed') {
             final u = json['response']?['usage'];
             if (u != null) {
-              final inTok = (u['input_tokens'] ?? 0) as int;
-              final outTok = (u['output_tokens'] ?? 0) as int;
-              usage = (usage ?? const TokenUsage()).merge(
-                TokenUsage(promptTokens: inTok, completionTokens: outTok),
-              );
-              totalTokens = usage.totalTokens;
+              usage = _mergeOpenAICompatibleUsage(usage, u);
+              totalTokens = usage?.totalTokens ?? totalTokens;
             }
             // Extract web search citations from final output (Responses API)
             try {
@@ -2723,9 +2904,9 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                         }
                       }
                     }
-                  } else if (it['type'] == 'image_generation_call') {
+                  } else if (_isResponsesImageGenerationType(it['type'])) {
                     // Handle image generation output from OpenAI Responses API
-                    // it['result'] is directly the base64 image data
+                    // it['result'] contains base64 image data or a data URL.
                     final b64 = (it['result'] ?? '').toString();
                     if (b64.isNotEmpty) {
                       completedImageIndexes.add(outputIndex);
@@ -2788,7 +2969,7 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
             // Responses tool calling follow-up handling
             final bool hasRespCalls =
                 respToolCallsByIndex.isNotEmpty || toolAccResp.isNotEmpty;
-            if (onToolCall != null && hasRespCalls) {
+            if (effectiveOnToolCall != null && hasRespCalls) {
               // Prefer the indexed calls (with call_id); fallback to toolAccResp
               final callInfos = <ToolCallInfo>[];
               final msgs = <Map<String, dynamic>>[]; // for executing tools
@@ -2859,7 +3040,11 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                 final nm = m['__name'] as String;
                 final id2 = m['__id'] as String;
                 final args = (m['__args'] as Map<String, dynamic>);
-                final res = await onToolCall(nm, args, toolCallId: id2);
+                final res = await effectiveOnToolCall(
+                  nm,
+                  args,
+                  toolCallId: id2,
+                );
                 resultsInfo.add(
                   ToolResultInfo(
                     id: id2,
@@ -2932,13 +3117,12 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                 );
 
                 // Apply overrides
-                final extraCfg = _customBody(config, modelId);
+                final extraCfg = _customBody(
+                  config,
+                  modelId,
+                  assistantBody: extraBody,
+                );
                 if (extraCfg.isNotEmpty) body2.addAll(extraCfg);
-                if (extraBody != null && extraBody.isNotEmpty) {
-                  extraBody.forEach((k, v) {
-                    body2[k] = (v is String) ? _parseOverrideValue(v) : v;
-                  });
-                }
                 // Ensure tools are flattened
                 try {
                   if (body2['tools'] is List) {
@@ -2959,16 +3143,17 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                 );
 
                 final req2 = http.Request('POST', url);
-                final headers2 = <String, String>{
-                  'Authorization':
-                      'Bearer ${_apiKeyForRequest(config, modelId)}',
-                  'Content-Type': 'application/json',
-                  'Accept': 'text/event-stream',
-                };
-                headers2.addAll(_customHeaders(config, modelId));
-                if (extraHeaders != null && extraHeaders.isNotEmpty) {
-                  headers2.addAll(extraHeaders);
-                }
+                final headers2 = _customHeaders(
+                  config,
+                  modelId,
+                  baseHeaders: <String, String>{
+                    'Authorization':
+                        'Bearer ${_apiKeyForRequest(config, modelId)}',
+                    'Content-Type': 'application/json',
+                    'Accept': 'text/event-stream',
+                  },
+                  assistantHeaders: extraHeaders,
+                );
                 req2.headers.addAll(headers2);
                 req2.body = jsonEncode(body2);
                 final http.StreamedResponse resp2;
@@ -3063,15 +3248,8 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                         // usage
                         final u2 = o['response']?['usage'];
                         if (u2 != null) {
-                          final inTok = (u2['input_tokens'] ?? 0) as int;
-                          final outTok = (u2['output_tokens'] ?? 0) as int;
-                          usage = (usage ?? const TokenUsage()).merge(
-                            TokenUsage(
-                              promptTokens: inTok,
-                              completionTokens: outTok,
-                            ),
-                          );
-                          totalTokens = usage.totalTokens;
+                          usage = _mergeOpenAICompatibleUsage(usage, u2);
+                          totalTokens = usage?.totalTokens ?? totalTokens;
                         }
                         // capture output items
                         final out2 = o['response']?['output'];
@@ -3162,7 +3340,11 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                   final nm = m['__name'] as String;
                   final id2 = m['__id'] as String;
                   final args2 = (m['__args'] as Map<String, dynamic>);
-                  final res2 = await onToolCall(nm, args2, toolCallId: id2);
+                  final res2 = await effectiveOnToolCall(
+                    nm,
+                    args2,
+                    toolCallId: id2,
+                  );
                   resultsInfo2.add(
                     ToolResultInfo(
                       id: id2,
@@ -3226,12 +3408,8 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
               approxCompletionChars += content.length;
               final u = json['usage'];
               if (u != null) {
-                final inTok = (u['input_tokens'] ?? 0) as int;
-                final outTok = (u['output_tokens'] ?? 0) as int;
-                usage = (usage ?? const TokenUsage()).merge(
-                  TokenUsage(promptTokens: inTok, completionTokens: outTok),
-                );
-                totalTokens = usage.totalTokens;
+                usage = _mergeOpenAICompatibleUsage(usage, u);
+                totalTokens = usage?.totalTokens ?? totalTokens;
               }
             }
           }
@@ -3473,7 +3651,7 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
         if (config.useResponseApi != true &&
             finishReason == 'tool_calls' &&
             toolAcc.isNotEmpty &&
-            onToolCall != null) {
+            effectiveOnToolCall != null) {
           // print('[ChatApi/XinLiu] Executing tools immediately (finishReason=tool_calls, toolAcc.size=${toolAcc.length})');
           // Some providers (like XinLiu) return tool_calls with finish_reason='tool_calls' but no [DONE]
           // Execute tools immediately in this case
@@ -3517,7 +3695,7 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
             final name = m['__name'] as String;
             final id = m['__id'] as String;
             final args = (m['__args'] as Map<String, dynamic>);
-            final res = await onToolCall(name, args, toolCallId: id);
+            final res = await effectiveOnToolCall(name, args, toolCallId: id);
             results.add({'tool_call_id': id, 'content': res});
             resultsInfo.add(
               ToolResultInfo(id: id, name: name, arguments: args, content: res),
@@ -3564,24 +3742,24 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
           var currentMessages = mm2;
           while (true) {
             final Map<String, dynamic> body2 = {
-                    'model': upstreamModelId,
-                    'messages': await _buildOpenAIChatCompletionMessages(
-                      currentMessages,
-                      userMediaPaths: userImagePaths,
-                      canImageInput: canImageInput,
-                      allowRemoteImages: allowRemoteImages,
-                      stripUnsignedReasoningContent: isClaudeUpstream,
-                    ),
-                    'stream': true,
-                    if (temperature != null) 'temperature': temperature,
-                    if (topP != null) 'top_p': topP,
-                    if (isReasoning && effort != 'off' && effort != 'auto')
-                      'reasoning_effort': effort,
-                    if (tools != null && tools.isNotEmpty)
-                      'tools': _cleanToolsForCompatibility(tools),
-                    if (tools != null && tools.isNotEmpty)
-                      'tool_choice': 'auto',
-                  };
+              'model': upstreamModelId,
+              'messages': await _buildOpenAIChatCompletionMessages(
+                currentMessages,
+                userMediaPaths: userImagePaths,
+                canImageInput: canImageInput,
+                allowRemoteImages: allowRemoteImages,
+                reasoningContentReplayPolicy: info.reasoningContentReplayPolicy,
+                stripUnsignedReasoningContent: isClaudeUpstream,
+              ),
+              'stream': true,
+              if (temperature != null) 'temperature': temperature,
+              if (topP != null) 'top_p': topP,
+              if (isReasoning && effort != 'off' && effort != 'auto')
+                'reasoning_effort': effort,
+              if (tools != null && tools.isNotEmpty)
+                'tools': _cleanToolsForCompatibility(tools),
+              if (tools != null && tools.isNotEmpty) 'tool_choice': 'auto',
+            };
             setMaxTokens(body2);
             _applyVendorReasoningKnobs(
               body2,
@@ -3604,11 +3782,6 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
             if (extraBodyCfg.isNotEmpty) {
               body2.addAll(extraBodyCfg);
             }
-            if (extraBody != null && extraBody.isNotEmpty) {
-              extraBody.forEach((k, v) {
-                body2[k] = (v is String) ? _parseOverrideValue(v) : v;
-              });
-            }
             _sanitizeOpenAIGpt5SamplingParams(
               body2,
               upstreamModelId,
@@ -3622,15 +3795,16 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
               thinkingBudget: thinkingBudget,
             );
             final req2 = http.Request('POST', url);
-            final headers2 = <String, String>{
-              'Authorization': 'Bearer ${_apiKeyForRequest(config, modelId)}',
-              'Content-Type': 'application/json',
-              'Accept': 'text/event-stream',
-            };
-            headers2.addAll(_customHeaders(config, modelId));
-            if (extraHeaders != null && extraHeaders.isNotEmpty) {
-              headers2.addAll(extraHeaders);
-            }
+            final headers2 = _customHeaders(
+              config,
+              modelId,
+              baseHeaders: <String, String>{
+                'Authorization': 'Bearer ${_apiKeyForRequest(config, modelId)}',
+                'Content-Type': 'application/json',
+                'Accept': 'text/event-stream',
+              },
+              assistantHeaders: extraHeaders,
+            );
             req2.headers.addAll(headers2);
             req2.body = jsonEncode(body2);
             final http.StreamedResponse resp2;
@@ -3907,7 +4081,11 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                 final name = m['__name'] as String;
                 final id = m['__id'] as String;
                 final args = (m['__args'] as Map<String, dynamic>);
-                final res = await onToolCall(name, args, toolCallId: id);
+                final res = await effectiveOnToolCall(
+                  name,
+                  args,
+                  toolCallId: id,
+                );
                 results2.add({'tool_call_id': id, 'content': res});
                 resultsInfo2.add(
                   ToolResultInfo(
@@ -3975,7 +4153,7 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
           if (hasPendingToolCalls) {
             // Some providers (like XinLiu/iflow.cn) may return tool_calls with finish_reason='stop'
             // and may not send a [DONE] marker. Execute tools immediately in this case.
-            if (onToolCall != null && toolAcc.isNotEmpty) {
+            if (effectiveOnToolCall != null && toolAcc.isNotEmpty) {
               final calls = <Map<String, dynamic>>[];
               final callInfos = <ToolCallInfo>[];
               final toolMsgs = <Map<String, dynamic>>[];
@@ -4018,7 +4196,11 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                 final name = m['__name'] as String;
                 final id = m['__id'] as String;
                 final args = (m['__args'] as Map<String, dynamic>);
-                final res = await onToolCall(name, args, toolCallId: id);
+                final res = await effectiveOnToolCall(
+                  name,
+                  args,
+                  toolCallId: id,
+                );
                 results.add({'tool_call_id': id, 'content': res});
                 resultsInfo.add(
                   ToolResultInfo(
@@ -4070,24 +4252,25 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
               var currentMessages = mm2;
               while (true) {
                 final Map<String, dynamic> body2 = {
-                        'model': upstreamModelId,
-                        'messages': await _buildOpenAIChatCompletionMessages(
-                          currentMessages,
-                          userMediaPaths: userImagePaths,
-                          canImageInput: canImageInput,
-                          allowRemoteImages: allowRemoteImages,
-                          stripUnsignedReasoningContent: isClaudeUpstream,
-                        ),
-                        'stream': true,
-                        if (temperature != null) 'temperature': temperature,
-                        if (topP != null) 'top_p': topP,
-                        if (isReasoning && effort != 'off' && effort != 'auto')
-                          'reasoning_effort': effort,
-                        if (tools != null && tools.isNotEmpty)
-                          'tools': _cleanToolsForCompatibility(tools),
-                        if (tools != null && tools.isNotEmpty)
-                          'tool_choice': 'auto',
-                      };
+                  'model': upstreamModelId,
+                  'messages': await _buildOpenAIChatCompletionMessages(
+                    currentMessages,
+                    userMediaPaths: userImagePaths,
+                    canImageInput: canImageInput,
+                    allowRemoteImages: allowRemoteImages,
+                    reasoningContentReplayPolicy:
+                        info.reasoningContentReplayPolicy,
+                    stripUnsignedReasoningContent: isClaudeUpstream,
+                  ),
+                  'stream': true,
+                  if (temperature != null) 'temperature': temperature,
+                  if (topP != null) 'top_p': topP,
+                  if (isReasoning && effort != 'off' && effort != 'auto')
+                    'reasoning_effort': effort,
+                  if (tools != null && tools.isNotEmpty)
+                    'tools': _cleanToolsForCompatibility(tools),
+                  if (tools != null && tools.isNotEmpty) 'tool_choice': 'auto',
+                };
                 setMaxTokens(body2);
                 _applyVendorReasoningKnobs(
                   body2,
@@ -4110,11 +4293,6 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                 if (extraBodyCfg.isNotEmpty) {
                   body2.addAll(extraBodyCfg);
                 }
-                if (extraBody != null && extraBody.isNotEmpty) {
-                  extraBody.forEach((k, v) {
-                    body2[k] = (v is String) ? _parseOverrideValue(v) : v;
-                  });
-                }
                 _sanitizeOpenAIGpt5SamplingParams(
                   body2,
                   upstreamModelId,
@@ -4128,16 +4306,17 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                   thinkingBudget: thinkingBudget,
                 );
                 final req2 = http.Request('POST', url);
-                final headers2 = <String, String>{
-                  'Authorization':
-                      'Bearer ${_apiKeyForRequest(config, modelId)}',
-                  'Content-Type': 'application/json',
-                  'Accept': 'text/event-stream',
-                };
-                headers2.addAll(_customHeaders(config, modelId));
-                if (extraHeaders != null && extraHeaders.isNotEmpty) {
-                  headers2.addAll(extraHeaders);
-                }
+                final headers2 = _customHeaders(
+                  config,
+                  modelId,
+                  baseHeaders: <String, String>{
+                    'Authorization':
+                        'Bearer ${_apiKeyForRequest(config, modelId)}',
+                    'Content-Type': 'application/json',
+                    'Accept': 'text/event-stream',
+                  },
+                  assistantHeaders: extraHeaders,
+                );
                 req2.headers.addAll(headers2);
                 req2.body = jsonEncode(body2);
                 final http.StreamedResponse resp2;
@@ -4390,7 +4569,11 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                     final name = m['__name'] as String;
                     final id = m['__id'] as String;
                     final args = (m['__args'] as Map<String, dynamic>);
-                    final res = await onToolCall(name, args, toolCallId: id);
+                    final res = await effectiveOnToolCall(
+                      name,
+                      args,
+                      toolCallId: id,
+                    );
                     results2.add({'tool_call_id': id, 'content': res});
                     resultsInfo2.add(
                       ToolResultInfo(

@@ -18,6 +18,7 @@ import '../../../core/providers/skill_provider.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/services/chat/chat_service.dart';
 import '../../../core/services/chat/document_text_extractor.dart';
+import '../../../utils/sandbox_path_resolver.dart';
 import '../../../core/services/chat/prompt_transformer.dart';
 import '../../../core/services/memory/memory_block_builder.dart';
 import '../../../core/services/memory/memory_prompts.dart';
@@ -186,9 +187,10 @@ class MessageBuilderService {
     final out = <Map<String, dynamic>>[];
 
     for (final m in source) {
-      String? toolContinuationReasoningContent;
+      String? assistantReasoningContent;
       dynamic reasoningDetails;
       if (m.role == 'assistant') {
+        assistantReasoningContent = _reasoningContentForToolContinuation(m);
         reasoningDetails = _reasoningDetailsForApi(m);
       }
       if (includeToolMessages && m.role == 'assistant') {
@@ -197,8 +199,6 @@ class MessageBuilderService {
           // Tool-call history is only valid once every call has a result.
           final hasPendingToolEvent = events.any((e) => e['content'] == null);
           if (!hasPendingToolEvent) {
-            toolContinuationReasoningContent =
-                _reasoningContentForToolContinuation(m);
             final calls = <Map<String, dynamic>>[];
             final toolMessages = <Map<String, dynamic>>[];
 
@@ -246,9 +246,9 @@ class MessageBuilderService {
                 'content': '\n\n',
                 'tool_calls': calls,
               };
-              if (toolContinuationReasoningContent.isNotEmpty) {
+              if (assistantReasoningContent?.isNotEmpty == true) {
                 assistantToolMessage['reasoning_content'] =
-                    toolContinuationReasoningContent;
+                    assistantReasoningContent;
               }
               // The persisted reasoning_details belong to the final round of
               // this message; attaching them to this synthetic pre-tool
@@ -284,8 +284,8 @@ class MessageBuilderService {
       if (mediaRefs.isNotEmpty) {
         message[internalMediaPathsKey] = mediaRefs;
       }
-      if (toolContinuationReasoningContent?.isNotEmpty == true) {
-        message['reasoning_content'] = toolContinuationReasoningContent;
+      if (assistantReasoningContent?.isNotEmpty == true) {
+        message['reasoning_content'] = assistantReasoningContent;
       }
       if (reasoningDetails != null) {
         message['reasoning_details'] = reasoningDetails;
@@ -612,15 +612,19 @@ class MessageBuilderService {
     }
 
     Future<String?> readDocument(DocumentAttachment d) async {
+      // Resolve once so cache key and extractor share the same absolute path.
+      // null means rejected (UNC/SMB) — never fall back to the raw path.
+      final resolvedPath = SandboxPathResolver.resolveForIo(d.path);
+      if (resolvedPath == null) return null;
       // Use file stat to detect content changes without hashing.
       FileStat? stat;
       try {
-        stat = await File(d.path).stat();
+        stat = await File(resolvedPath).stat();
       } catch (_) {
         stat = null;
       }
       if (stat != null) {
-        final cached = _docTextCache[d.path];
+        final cached = _docTextCache[resolvedPath];
         if (cached != null &&
             cached.modifiedMs == stat.modified.millisecondsSinceEpoch &&
             cached.size == stat.size) {
@@ -628,13 +632,13 @@ class MessageBuilderService {
         }
       }
       try {
-        final text = await DocumentTextExtractor.extract(
-          path: d.path,
+        final text = await DocumentTextExtractor.extractResolved(
+          path: resolvedPath,
           mime: d.mime,
         );
         // Cache only when stat is available; otherwise avoid staleness.
         if (stat != null) {
-          _docTextCache[d.path] = _DocTextCacheEntry(
+          _docTextCache[resolvedPath] = _DocTextCacheEntry(
             text: text,
             modifiedMs: stat.modified.millisecondsSinceEpoch,
             size: stat.size,
@@ -643,7 +647,7 @@ class MessageBuilderService {
         return text;
       } catch (_) {
         if (stat != null) {
-          _docTextCache[d.path] = _DocTextCacheEntry(
+          _docTextCache[resolvedPath] = _DocTextCacheEntry(
             text: null,
             modifiedMs: stat.modified.millisecondsSinceEpoch,
             size: stat.size,

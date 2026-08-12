@@ -125,6 +125,7 @@ class DefaultModelPage extends StatelessWidget {
             modelProvider: settings.suggestionModelProvider,
             modelId: settings.suggestionModelId,
             disabledWhenUnset: true,
+            resetIcon: Lucide.Ban,
             onReset: () async {
               await settings.resetSuggestionModel();
             },
@@ -270,11 +271,7 @@ class DefaultModelPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    _TitleThinkingSwitchRow(
-                      settings: settings,
-                      l10n: l10n,
-                      cs: cs,
-                    ),
+                    _ThinkingSwitchRow(task: _BackgroundModelTask.title),
                     const SizedBox(height: 18),
                     Text(
                       l10n.defaultModelPagePromptLabel,
@@ -389,7 +386,9 @@ class DefaultModelPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
+                _ThinkingSwitchRow(task: _BackgroundModelTask.translate),
+                const SizedBox(height: 18),
                 Text(
                   l10n.defaultModelPagePromptLabel,
                   style: TextStyle(
@@ -431,6 +430,8 @@ class DefaultModelPage extends StatelessWidget {
                     TextButton(
                       onPressed: () async {
                         await settings.resetTranslatePrompt();
+                        await settings
+                            .resetTranslateGenerationThinkingEnabled();
                         controller.text = settings.translatePrompt;
                       },
                       child: Text(l10n.defaultModelPageResetDefault),
@@ -502,7 +503,9 @@ class DefaultModelPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
+                _ThinkingSwitchRow(task: _BackgroundModelTask.summary),
+                const SizedBox(height: 18),
                 Text(
                   l10n.defaultModelPagePromptLabel,
                   style: TextStyle(
@@ -544,6 +547,7 @@ class DefaultModelPage extends StatelessWidget {
                     TextButton(
                       onPressed: () async {
                         await settings.resetSummaryPrompt();
+                        await settings.resetSummaryGenerationThinkingEnabled();
                         controller.text = settings.summaryPrompt;
                       },
                       child: Text(l10n.defaultModelPageResetDefault),
@@ -613,7 +617,9 @@ class DefaultModelPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
+                _ThinkingSwitchRow(task: _BackgroundModelTask.compress),
+                const SizedBox(height: 18),
                 Text(
                   l10n.defaultModelPagePromptLabel,
                   style: TextStyle(
@@ -655,6 +661,7 @@ class DefaultModelPage extends StatelessWidget {
                     TextButton(
                       onPressed: () async {
                         await settings.resetCompressPrompt();
+                        await settings.resetCompressGenerationThinkingEnabled();
                         controller.text = settings.compressPrompt;
                       },
                       child: Text(l10n.defaultModelPageResetDefault),
@@ -723,7 +730,9 @@ class DefaultModelPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
+                _ThinkingSwitchRow(task: _BackgroundModelTask.suggestion),
+                const SizedBox(height: 18),
                 Text(
                   l10n.defaultModelPagePromptLabel,
                   style: TextStyle(
@@ -765,6 +774,8 @@ class DefaultModelPage extends StatelessWidget {
                     TextButton(
                       onPressed: () async {
                         await settings.resetSuggestionPrompt();
+                        await settings
+                            .resetSuggestionGenerationThinkingEnabled();
                         controller.text = settings.suggestionPrompt;
                       },
                       child: Text(l10n.defaultModelPageResetDefault),
@@ -810,6 +821,7 @@ class _ModelCard extends StatelessWidget {
     this.fallbackProvider,
     this.fallbackModelId,
     this.disabledWhenUnset = false,
+    this.resetIcon = Lucide.RotateCcw,
     this.configAction,
   });
 
@@ -821,6 +833,7 @@ class _ModelCard extends StatelessWidget {
   final String? fallbackProvider;
   final String? fallbackModelId;
   final bool disabledWhenUnset;
+  final IconData resetIcon;
   final VoidCallback onPick;
   final VoidCallback? onReset;
   final VoidCallback? configAction;
@@ -902,7 +915,7 @@ class _ModelCard extends StatelessWidget {
                   Tooltip(
                     message: l10n.defaultModelPageResetDefault,
                     child: _TactileIconButton(
-                      icon: Lucide.RotateCcw,
+                      icon: resetIcon,
                       color: cs.onSurface,
                       size: 20,
                       onTap: onReset!,
@@ -932,7 +945,9 @@ class _ModelCard extends StatelessWidget {
               onTap: onPick,
               builder: (pressed) {
                 final bg = context.appColors.surfaceFill;
-                final overlay = cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05);
+                final overlay = cs.onSurface.withValues(
+                  alpha: isDark ? 0.06 : 0.05,
+                );
                 final pressedBg = Color.alphaBlend(overlay, bg);
                 return AnimatedScale(
                   scale: pressed ? 0.98 : 1.0,
@@ -1035,48 +1050,71 @@ class _BrandAvatar extends StatelessWidget {
   }
 }
 
-class _TitleThinkingSwitchRow extends StatelessWidget {
-  const _TitleThinkingSwitchRow({
-    required this.settings,
-    required this.l10n,
-    required this.cs,
-  });
+enum _BackgroundModelTask { title, summary, suggestion, compress, translate }
 
-  final SettingsProvider settings;
-  final AppLocalizations l10n;
-  final ColorScheme cs;
+class _ThinkingSwitchRow extends StatelessWidget {
+  const _ThinkingSwitchRow({required this.task});
+
+  final _BackgroundModelTask task;
 
   @override
   Widget build(BuildContext context) {
-    final value = settings.titleGenerationThinkingEnabled;
-    return _TactileRow(
-      onTap: () => settings.setTitleGenerationThinkingEnabled(!value),
-      builder: (_) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  l10n.titleModelThinkingTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: AppFontWeights.medium,
-                    color: cs.onSurface.withValues(alpha: 0.92),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              IosSwitch(
-                value: value,
-                semanticLabel: l10n.titleModelThinkingTitle,
-                onChanged: settings.setTitleGenerationThinkingEnabled,
-              ),
-            ],
+    final l10n = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, _) {
+        final (value, setValue) = switch (task) {
+          _BackgroundModelTask.title => (
+            settings.titleGenerationThinkingEnabled,
+            settings.setTitleGenerationThinkingEnabled,
           ),
+          _BackgroundModelTask.summary => (
+            settings.summaryGenerationThinkingEnabled,
+            settings.setSummaryGenerationThinkingEnabled,
+          ),
+          _BackgroundModelTask.suggestion => (
+            settings.suggestionGenerationThinkingEnabled,
+            settings.setSuggestionGenerationThinkingEnabled,
+          ),
+          _BackgroundModelTask.compress => (
+            settings.compressGenerationThinkingEnabled,
+            settings.setCompressGenerationThinkingEnabled,
+          ),
+          _BackgroundModelTask.translate => (
+            settings.translateGenerationThinkingEnabled,
+            settings.setTranslateGenerationThinkingEnabled,
+          ),
+        };
+        return _TactileRow(
+          onTap: () => setValue(!value),
+          builder: (_) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.titleModelThinkingTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: AppFontWeights.medium,
+                        color: cs.onSurface.withValues(alpha: 0.92),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  IosSwitch(
+                    value: value,
+                    semanticLabel: l10n.titleModelThinkingTitle,
+                    onChanged: setValue,
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );

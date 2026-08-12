@@ -1,4 +1,6 @@
 import 'package:Kelivo/core/models/message_part.dart';
+import 'package:Kelivo/core/models/chat_message.dart';
+import 'package:Kelivo/core/models/conversation.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -11,6 +13,7 @@ import 'package:sqlite3/sqlite3.dart' as sqlite;
 import 'package:Kelivo/core/database/app_database.dart';
 import 'package:Kelivo/core/database/generation_run.dart';
 import 'package:Kelivo/core/services/chat/chat_service.dart';
+import 'package:Kelivo/utils/sandbox_path_resolver.dart';
 
 class _FakePathProviderPlatform extends PathProviderPlatform {
   _FakePathProviderPlatform(this.path);
@@ -41,6 +44,10 @@ void main() {
       'kelivo_chat_service_test_',
     );
     PathProviderPlatform.instance = _FakePathProviderPlatform(tempDir.path);
+    SandboxPathResolver.debugSetDirs(
+      docsDir: tempDir.path,
+      supportDir: tempDir.path,
+    );
   });
 
   tearDown(() async {
@@ -49,6 +56,7 @@ void main() {
     }
     services.clear();
     await Hive.close();
+    SandboxPathResolver.debugSetDirs(docsDir: null, supportDir: null);
     if (await tempDir.exists()) {
       await tempDir.delete(recursive: true);
     }
@@ -146,11 +154,7 @@ void main() {
         conversationId: conversation.id,
         role: 'user',
         parts: [
-          FilePart(
-            uri: upload.path,
-            name: 'spec.pdf',
-            mime: 'application/pdf',
-          ),
+          FilePart(uri: upload.path, name: 'spec.pdf', mime: 'application/pdf'),
         ],
       );
 
@@ -179,11 +183,7 @@ void main() {
         conversationId: conversation.id,
         role: 'user',
         parts: [
-          ImagePart(
-            uri: missing.path,
-            mime: 'image/png',
-            unavailable: true,
-          ),
+          ImagePart(uri: missing.path, mime: 'image/png', unavailable: true),
         ],
       );
 
@@ -207,11 +207,7 @@ void main() {
         conversationId: conversation.id,
         role: 'user',
         parts: [
-          FilePart(
-            uri: upload.path,
-            name: 'legacy.txt',
-            mime: 'text/plain',
-          ),
+          FilePart(uri: upload.path, name: 'legacy.txt', mime: 'text/plain'),
         ],
       );
       await first.close();
@@ -250,6 +246,222 @@ void main() {
       );
 
       expect(await upload.exists(), isFalse);
+    },
+  );
+
+  test(
+    'asset backfill skips malformed attachment without clearing its references',
+    () async {
+      final first = createService();
+      await first.init();
+      final repository = first.chatRepositoryOrNull!;
+      final now = DateTime.utc(2026, 8, 10);
+      const conversationId = 'conversation-malformed-backfill';
+      const messageIds = ['a-healthy', 'b-malformed', 'c-healthy'];
+      final files = <String, File>{
+        for (final id in messageIds)
+          id: File('${tempDir.path}/upload/$id.txt'),
+      };
+      for (final file in files.values) {
+        await file.parent.create(recursive: true);
+        await file.writeAsString('payload:${file.path}');
+      }
+      final messages = [
+        for (final id in messageIds)
+          ChatMessage(
+            id: id,
+            role: 'user',
+            conversationId: conversationId,
+            timestamp: now,
+            parts: [
+              FilePart(
+                uri: files[id]!.path,
+                name: '$id.txt',
+                mime: 'text/plain',
+              ),
+            ],
+          ),
+      ];
+      await repository.putMigrationBatch(
+        conversations: [
+          Conversation(
+            id: conversationId,
+            title: 'Malformed backfill',
+            createdAt: now,
+            updatedAt: now,
+            messageIds: messageIds,
+          ),
+        ],
+        messages: [
+          for (var i = 0; i < messages.length; i++)
+            (message: messages[i], messageOrder: i),
+        ],
+        toolEventsByMessageId: const {},
+        geminiSignaturesByMessageId: const {},
+      );
+      for (var i = 0; i < messageIds.length; i++) {
+        await repository.registerAsset(
+          id: 'legacy-asset-$i',
+          contentHash: List.filled(64, '${i + 1}').join(),
+          path: files[messageIds[i]]!.path,
+          byteSize: await files[messageIds[i]]!.length(),
+          createdAt: now,
+        );
+        await repository.linkMessageAsset(
+          conversationId: conversationId,
+          revisionId: messageIds[i],
+          assetId: 'legacy-asset-$i',
+          kind: 'file',
+        );
+      }
+      await first.close();
+      services.remove(first);
+
+      final database = sqlite.sqlite3.open(
+        '${tempDir.path}/${AppDatabase.databaseFileName}',
+      );
+      try {
+        database.execute(
+          'DELETE FROM message_asset_rows '
+          "WHERE revision_id IN ('a-healthy', 'c-healthy');",
+        );
+        database.execute(
+          'UPDATE message_part_rows SET payload = ? '
+          "WHERE revision_id = 'b-malformed' AND kind = 'file';",
+          ['{"uri":"${files['b-malformed']!.path}"}'],
+        );
+        database.execute(
+          'INSERT OR IGNORE INTO asset_reference_dirty_rows(revision_id) '
+          "VALUES ('a-healthy'), ('b-malformed'), ('c-healthy');",
+        );
+        database.execute(
+          "DELETE FROM chat_storage_meta_rows "
+          "WHERE key = 'sandbox_path_migration_version';",
+        );
+      } finally {
+        database.close();
+      }
+
+      final restarted = createService();
+      await restarted.init().timeout(const Duration(seconds: 2));
+      await restarted.runAssetReferenceMaintenance();
+
+      final verify = sqlite.sqlite3.open(
+        '${tempDir.path}/${AppDatabase.databaseFileName}',
+      );
+      try {
+        expect(
+          verify.select(
+            "SELECT 1 FROM message_asset_rows WHERE revision_id = 'a-healthy';",
+          ),
+          isNotEmpty,
+        );
+        expect(
+          verify.select(
+            "SELECT 1 FROM message_asset_rows WHERE revision_id = 'c-healthy';",
+          ),
+          isNotEmpty,
+        );
+        final malformedRefs = verify.select(
+          "SELECT asset_id FROM message_asset_rows "
+          "WHERE revision_id = 'b-malformed';",
+        );
+        expect(malformedRefs, hasLength(1));
+        expect(malformedRefs.single['asset_id'], 'legacy-asset-1');
+        expect(
+          verify.select(
+            "SELECT revision_id FROM asset_reference_dirty_rows "
+            'ORDER BY revision_id;',
+          ).map((row) => row['revision_id']),
+          ['b-malformed'],
+        );
+        expect(
+          verify.select(
+            "SELECT 1 FROM chat_storage_meta_rows "
+            "WHERE key = 'sandbox_path_migration_version';",
+          ),
+          hasLength(1),
+        );
+      } finally {
+        verify.close();
+      }
+    },
+  );
+
+  test(
+    'editing malformed attachment preserves live asset references and dirty state',
+    () async {
+      final first = createService();
+      await first.init();
+      final conversation = await first.createConversation(title: 'Malformed');
+      final upload = File('${tempDir.path}/upload/live.txt');
+      await upload.parent.create(recursive: true);
+      await upload.writeAsString('live attachment');
+      final message = await first.addMessage(
+        conversationId: conversation.id,
+        role: 'user',
+        parts: [
+          FilePart(uri: upload.path, name: 'live.txt', mime: 'text/plain'),
+        ],
+      );
+      await first.close();
+      services.remove(first);
+
+      final databasePath =
+          '${tempDir.path}/${AppDatabase.databaseFileName}';
+      final corrupt = sqlite.sqlite3.open(databasePath);
+      late final String originalAssetId;
+      const secret = '/private/attachment-metadata';
+      final malformedPayload =
+          '{"uri":"${upload.path}","name":"live.txt","mime":["$secret"]}';
+      try {
+        originalAssetId = corrupt
+            .select(
+              'SELECT asset_id FROM message_asset_rows WHERE revision_id = ?;',
+              [message.id],
+            )
+            .single['asset_id'] as String;
+        corrupt.execute(
+          'UPDATE message_part_rows SET payload = ? '
+          'WHERE revision_id = ? AND kind = ?;',
+          [malformedPayload, message.id, 'file'],
+        );
+        corrupt.execute(
+          'DELETE FROM asset_reference_dirty_rows WHERE revision_id = ?;',
+          [message.id],
+        );
+      } finally {
+        corrupt.close();
+      }
+
+      final restarted = createService();
+      await restarted.init();
+      final loaded = await restarted.loadMessages(conversation.id);
+      final malformed = loaded.single.parts.single as MalformedPart;
+      expect(malformed.parseError, 'invalid_mime');
+      expect(malformed.parseError, isNot(contains(secret)));
+
+      await restarted.updateMessage(message.id, content: 'edited');
+
+      final verify = sqlite.sqlite3.open(databasePath);
+      try {
+        final references = verify.select(
+          'SELECT asset_id FROM message_asset_rows WHERE revision_id = ?;',
+          [message.id],
+        );
+        expect(references, hasLength(1));
+        expect(references.single['asset_id'], originalAssetId);
+        expect(
+          verify.select(
+            'SELECT 1 FROM asset_reference_dirty_rows WHERE revision_id = ?;',
+            [message.id],
+          ),
+          hasLength(1),
+        );
+      } finally {
+        verify.close();
+      }
+      expect(await upload.exists(), isTrue);
     },
   );
 
@@ -392,6 +604,9 @@ void main() {
         role: 'assistant',
         content: 'second',
       );
+      await service.updateConversationSuggestions(conversation.id, const [
+        'stale suggestion',
+      ]);
 
       final deleted = await service.deleteMessages(
         conversationId: conversation.id,
@@ -403,6 +618,10 @@ void main() {
       expect(deleted, {second.id});
       expect(page!.slots.map((slot) => slot.identity.revisionId), [first.id]);
       expect(await service.loadMessages(conversation.id), [first]);
+      expect(
+        service.getConversation(conversation.id)!.chatSuggestions,
+        isEmpty,
+      );
     });
 
     test(
@@ -655,12 +874,19 @@ void main() {
         role: 'user',
         content: 'secret',
       );
+      await service.updateConversationSuggestions(conversation.id, const [
+        'stale suggestion',
+      ]);
 
       await service.deleteMessage(message.id);
 
       expect(service.getAllConversations(), isEmpty);
       expect(service.getMessages(conversation.id), isEmpty);
       expect(service.getConversation(conversation.id)?.messageIds, isEmpty);
+      expect(
+        service.getConversation(conversation.id)?.chatSuggestions,
+        isEmpty,
+      );
     });
 
     test('temporary message editing appends an in-memory version', () async {

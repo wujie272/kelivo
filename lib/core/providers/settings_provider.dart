@@ -73,6 +73,7 @@ class SettingsProvider extends ChangeNotifier {
     'Tensdaq',
     'DeepSeek',
     'AIhubmix',
+    '随想AI中转站',
     'Aliyun',
     'Zhipu AI',
     'Claude',
@@ -109,6 +110,16 @@ class SettingsProvider extends ChangeNotifier {
   static const String _thinkingBudgetKey = 'thinking_budget_v1';
   static const String _titleGenerationThinkingEnabledKey =
       'title_generation_thinking_enabled_v1';
+  static const String _summaryGenerationThinkingEnabledKey =
+      'summary_generation_thinking_enabled_v1';
+  static const String _suggestionGenerationThinkingEnabledKey =
+      'suggestion_generation_thinking_enabled_v1';
+  static const String _compressGenerationThinkingEnabledKey =
+      'compress_generation_thinking_enabled_v1';
+  static const String _translateGenerationThinkingEnabledKey =
+      'translate_generation_thinking_enabled_v1';
+  static const String _ocrGenerationThinkingEnabledKey =
+      'ocr_generation_thinking_enabled_v1';
   static const String _memoryModelKey = 'memory_model_v1';
   static const String _memoryModelThinkingEnabledKey =
       'memory_model_thinking_enabled_v1';
@@ -315,6 +326,8 @@ class SettingsProvider extends ChangeNotifier {
       'localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1';
   // TTS services (network)
   static const String _ttsServicesKey = 'tts_services_v1';
+  static const String _ttsSelectedServiceIdKey = 'tts_selected_service_id_v1';
+  // Legacy index key, read once during migration.
   static const String _ttsSelectedKey = 'tts_selected_v1';
   static const String _ttsAutoPlayAssistantRepliesKey =
       'tts_auto_play_assistant_replies_v1';
@@ -329,18 +342,28 @@ class SettingsProvider extends ChangeNotifier {
 
   // ===== Network TTS services =====
   List<TtsServiceOptions> _ttsServices = const <TtsServiceOptions>[];
-  int _ttsServiceSelected = -1; // -1 => use System TTS
+  String? _selectedTtsServiceId; // null => use System TTS
   bool _ttsAutoPlayAssistantReplies = false;
   TtsTextSelectionMode _ttsTextSelectionMode = TtsTextSelectionMode.fullText;
   List<TtsServiceOptions> get ttsServices => _ttsServices;
-  int get ttsServiceSelected => _ttsServiceSelected;
-  bool get usingSystemTts => _ttsServiceSelected < 0;
+  String? get selectedTtsServiceId => _selectedTtsServiceId;
+  int get ttsServiceSelected {
+    final selectedId = _selectedTtsServiceId;
+    if (selectedId == null) return -1;
+    return _ttsServices.indexWhere((service) => service.id == selectedId);
+  }
+
+  bool get usingSystemTts => _selectedTtsServiceId == null;
   bool get ttsAutoPlayAssistantReplies => _ttsAutoPlayAssistantReplies;
   TtsTextSelectionMode get ttsTextSelectionMode => _ttsTextSelectionMode;
-  TtsServiceOptions? get selectedTtsService =>
-      (_ttsServiceSelected >= 0 && _ttsServiceSelected < _ttsServices.length)
-      ? _ttsServices[_ttsServiceSelected]
-      : null;
+  TtsServiceOptions? get selectedTtsService {
+    final selectedId = _selectedTtsServiceId;
+    if (selectedId == null) return null;
+    for (final service in _ttsServices) {
+      if (service.id == selectedId) return service;
+    }
+    return null;
+  }
 
   // ASR is opt-in. An empty list intentionally keeps voice input hidden.
   List<AsrServiceOptions> _asrServices = const <AsrServiceOptions>[];
@@ -846,7 +869,17 @@ class SettingsProvider extends ChangeNotifier {
     // load thinking budget (reasoning strength)
     _thinkingBudget = prefs.getInt(_thinkingBudgetKey);
     _titleGenerationThinkingEnabled =
-        prefs.getBool(_titleGenerationThinkingEnabledKey) ?? true;
+        prefs.getBool(_titleGenerationThinkingEnabledKey) ?? false;
+    _summaryGenerationThinkingEnabled =
+        prefs.getBool(_summaryGenerationThinkingEnabledKey) ?? false;
+    _suggestionGenerationThinkingEnabled =
+        prefs.getBool(_suggestionGenerationThinkingEnabledKey) ?? false;
+    _compressGenerationThinkingEnabled =
+        prefs.getBool(_compressGenerationThinkingEnabledKey) ?? false;
+    _translateGenerationThinkingEnabled =
+        prefs.getBool(_translateGenerationThinkingEnabledKey) ?? false;
+    _ocrGenerationThinkingEnabled =
+        prefs.getBool(_ocrGenerationThinkingEnabledKey) ?? false;
 
     // memory system v1 (§4.2)
     final memorySel = prefs.getString(_memoryModelKey);
@@ -1223,24 +1256,50 @@ class SettingsProvider extends ChangeNotifier {
       final ttsStr = prefs.getString(_ttsServicesKey) ?? '';
       if (ttsStr.isNotEmpty) {
         final list = jsonDecode(ttsStr) as List;
+        var generatedMissingIds = false;
         _ttsServices = [
-          for (final e in list)
-            if (e is Map<String, dynamic>)
-              TtsServiceOptions.fromJson(e)
-            else
-              TtsServiceOptions.fromJson(Map<String, dynamic>.from(e as Map)),
+          for (final value in list)
+            TtsServiceOptions.fromJson(() {
+              final map = value is Map<String, dynamic>
+                  ? value
+                  : Map<String, dynamic>.from(value as Map);
+              if ((map['id'] ?? '').toString().trim().isEmpty) {
+                generatedMissingIds = true;
+              }
+              return map;
+            }()),
         ];
+        // Legacy rows had no stable identifier. Persist generated IDs before
+        // migrating the selected index so the UUID remains valid next launch.
+        if (generatedMissingIds) {
+          await prefs.setString(
+            _ttsServicesKey,
+            jsonEncode(
+              _ttsServices.map((service) => service.toJson()).toList(),
+            ),
+          );
+        }
       } else {
         _ttsServices = const <TtsServiceOptions>[];
       }
     } catch (_) {
       _ttsServices = const <TtsServiceOptions>[];
     }
-    _ttsServiceSelected = prefs.getInt(_ttsSelectedKey) ?? -1;
-    if (_ttsServiceSelected >= _ttsServices.length) {
-      _ttsServiceSelected = _ttsServices.isEmpty ? -1 : 0;
-      await prefs.setInt(_ttsSelectedKey, _ttsServiceSelected);
+    final storedTtsId = prefs.getString(_ttsSelectedServiceIdKey);
+    if (storedTtsId != null) {
+      _selectedTtsServiceId =
+          _ttsServices.any((service) => service.id == storedTtsId)
+          ? storedTtsId
+          : (_ttsServices.isEmpty ? null : _ttsServices.first.id);
+    } else {
+      final legacyIndex = prefs.getInt(_ttsSelectedKey) ?? -1;
+      _selectedTtsServiceId =
+          legacyIndex >= 0 && legacyIndex < _ttsServices.length
+          ? _ttsServices[legacyIndex].id
+          : null;
     }
+    await _persistSelectedTtsServiceId(prefs);
+    await prefs.remove(_ttsSelectedKey);
     _ttsAutoPlayAssistantReplies =
         prefs.getBool(_ttsAutoPlayAssistantRepliesKey) ?? false;
     _ttsTextSelectionMode = TtsTextSelectionModeStorage.fromStorageValue(
@@ -1431,21 +1490,43 @@ class SettingsProvider extends ChangeNotifier {
 
   Future<void> setTtsServices(List<TtsServiceOptions> v) async {
     _ttsServices = List.unmodifiable(v);
-    notifyListeners();
     final prefs = _preferences;
     final list = v.map((e) => e.toJson()).toList();
     await prefs.setString(_ttsServicesKey, jsonEncode(list));
-    if (_ttsServiceSelected >= _ttsServices.length) {
-      _ttsServiceSelected = _ttsServices.isEmpty ? -1 : 0;
-      await prefs.setInt(_ttsSelectedKey, _ttsServiceSelected);
+    if (_selectedTtsServiceId != null &&
+        !_ttsServices.any((service) => service.id == _selectedTtsServiceId)) {
+      _selectedTtsServiceId = _ttsServices.isEmpty
+          ? null
+          : _ttsServices.first.id;
+      await _persistSelectedTtsServiceId(prefs);
     }
+    notifyListeners();
   }
 
   Future<void> setTtsServiceSelected(int index) async {
-    _ttsServiceSelected = index;
+    await setSelectedTtsServiceId(
+      index >= 0 && index < _ttsServices.length ? _ttsServices[index].id : null,
+    );
+  }
+
+  Future<void> setSelectedTtsServiceId(String? id) async {
+    final normalized =
+        id != null && _ttsServices.any((service) => service.id == id)
+        ? id
+        : null;
+    if (_selectedTtsServiceId == normalized) return;
+    _selectedTtsServiceId = normalized;
+    await _persistSelectedTtsServiceId(_preferences);
     notifyListeners();
-    final prefs = _preferences;
-    await prefs.setInt(_ttsSelectedKey, _ttsServiceSelected);
+  }
+
+  Future<void> _persistSelectedTtsServiceId(BusinessPreferences prefs) async {
+    final selectedId = _selectedTtsServiceId;
+    if (selectedId == null) {
+      await prefs.remove(_ttsSelectedServiceIdKey);
+    } else {
+      await prefs.setString(_ttsSelectedServiceIdKey, selectedId);
+    }
   }
 
   Future<void> setTtsAutoPlayAssistantReplies(bool value) async {
@@ -3501,8 +3582,9 @@ Requirements:
     }
   }
 
-  // Title generation thinking toggle. Defaults to true for backward compatibility.
-  bool _titleGenerationThinkingEnabled = true;
+  // Background model thinking toggles. All default to off to keep these
+  // latency-sensitive utility requests fast.
+  bool _titleGenerationThinkingEnabled = false;
   bool get titleGenerationThinkingEnabled => _titleGenerationThinkingEnabled;
   Future<void> setTitleGenerationThinkingEnabled(bool enabled) async {
     if (_titleGenerationThinkingEnabled == enabled) return;
@@ -3513,7 +3595,74 @@ Requirements:
   }
 
   Future<void> resetTitleGenerationThinkingEnabled() async =>
-      setTitleGenerationThinkingEnabled(true);
+      setTitleGenerationThinkingEnabled(false);
+
+  bool _summaryGenerationThinkingEnabled = false;
+  bool get summaryGenerationThinkingEnabled =>
+      _summaryGenerationThinkingEnabled;
+  Future<void> setSummaryGenerationThinkingEnabled(bool enabled) async {
+    if (_summaryGenerationThinkingEnabled == enabled) return;
+    _summaryGenerationThinkingEnabled = enabled;
+    notifyListeners();
+    await _preferences.setBool(_summaryGenerationThinkingEnabledKey, enabled);
+  }
+
+  Future<void> resetSummaryGenerationThinkingEnabled() async =>
+      setSummaryGenerationThinkingEnabled(false);
+
+  bool _suggestionGenerationThinkingEnabled = false;
+  bool get suggestionGenerationThinkingEnabled =>
+      _suggestionGenerationThinkingEnabled;
+  Future<void> setSuggestionGenerationThinkingEnabled(bool enabled) async {
+    if (_suggestionGenerationThinkingEnabled == enabled) return;
+    _suggestionGenerationThinkingEnabled = enabled;
+    notifyListeners();
+    await _preferences.setBool(
+      _suggestionGenerationThinkingEnabledKey,
+      enabled,
+    );
+  }
+
+  Future<void> resetSuggestionGenerationThinkingEnabled() async =>
+      setSuggestionGenerationThinkingEnabled(false);
+
+  bool _compressGenerationThinkingEnabled = false;
+  bool get compressGenerationThinkingEnabled =>
+      _compressGenerationThinkingEnabled;
+  Future<void> setCompressGenerationThinkingEnabled(bool enabled) async {
+    if (_compressGenerationThinkingEnabled == enabled) return;
+    _compressGenerationThinkingEnabled = enabled;
+    notifyListeners();
+    await _preferences.setBool(_compressGenerationThinkingEnabledKey, enabled);
+  }
+
+  Future<void> resetCompressGenerationThinkingEnabled() async =>
+      setCompressGenerationThinkingEnabled(false);
+
+  bool _translateGenerationThinkingEnabled = false;
+  bool get translateGenerationThinkingEnabled =>
+      _translateGenerationThinkingEnabled;
+  Future<void> setTranslateGenerationThinkingEnabled(bool enabled) async {
+    if (_translateGenerationThinkingEnabled == enabled) return;
+    _translateGenerationThinkingEnabled = enabled;
+    notifyListeners();
+    await _preferences.setBool(_translateGenerationThinkingEnabledKey, enabled);
+  }
+
+  Future<void> resetTranslateGenerationThinkingEnabled() async =>
+      setTranslateGenerationThinkingEnabled(false);
+
+  bool _ocrGenerationThinkingEnabled = false;
+  bool get ocrGenerationThinkingEnabled => _ocrGenerationThinkingEnabled;
+  Future<void> setOcrGenerationThinkingEnabled(bool enabled) async {
+    if (_ocrGenerationThinkingEnabled == enabled) return;
+    _ocrGenerationThinkingEnabled = enabled;
+    notifyListeners();
+    await _preferences.setBool(_ocrGenerationThinkingEnabledKey, enabled);
+  }
+
+  Future<void> resetOcrGenerationThinkingEnabled() async =>
+      setOcrGenerationThinkingEnabled(false);
 
   // Memory system v1 (§4.2)
   String? _memoryModelProvider;
@@ -3768,7 +3917,44 @@ Requirements:
       setMemoryProfileDistillPromptEn(MemoryPrompts.profileDistillEn);
 
   int? titleGenerationThinkingBudgetFor(int? assistantBudget) {
-    if (!_titleGenerationThinkingEnabled) return 0;
+    return _backgroundThinkingBudgetFor(
+      _titleGenerationThinkingEnabled,
+      assistantBudget,
+    );
+  }
+
+  int? summaryGenerationThinkingBudgetFor(int? assistantBudget) =>
+      _backgroundThinkingBudgetFor(
+        _summaryGenerationThinkingEnabled,
+        assistantBudget,
+      );
+
+  int? suggestionGenerationThinkingBudgetFor(int? assistantBudget) =>
+      _backgroundThinkingBudgetFor(
+        _suggestionGenerationThinkingEnabled,
+        assistantBudget,
+      );
+
+  int? compressGenerationThinkingBudgetFor(int? assistantBudget) =>
+      _backgroundThinkingBudgetFor(
+        _compressGenerationThinkingEnabled,
+        assistantBudget,
+      );
+
+  int? translateGenerationThinkingBudgetFor(int? assistantBudget) =>
+      _backgroundThinkingBudgetFor(
+        _translateGenerationThinkingEnabled,
+        assistantBudget,
+      );
+
+  int? ocrGenerationThinkingBudgetFor(int? assistantBudget) =>
+      _backgroundThinkingBudgetFor(
+        _ocrGenerationThinkingEnabled,
+        assistantBudget,
+      );
+
+  int? _backgroundThinkingBudgetFor(bool enabled, int? assistantBudget) {
+    if (!enabled) return 0;
     return assistantBudget ?? _thinkingBudget;
   }
 
@@ -4714,7 +4900,7 @@ Requirements:
     copy._searchAutoTestOnLaunch =
         searchAutoTestOnLaunch ?? _searchAutoTestOnLaunch;
     copy._ttsServices = _ttsServices;
-    copy._ttsServiceSelected = _ttsServiceSelected;
+    copy._selectedTtsServiceId = _selectedTtsServiceId;
     copy._ttsAutoPlayAssistantReplies = _ttsAutoPlayAssistantReplies;
     copy._ttsTextSelectionMode = _ttsTextSelectionMode;
     copy._asrServices = _asrServices;
@@ -4753,6 +4939,14 @@ Requirements:
     copy._ocrEnabled = _ocrEnabled;
     copy._thinkingBudget = _thinkingBudget;
     copy._titleGenerationThinkingEnabled = _titleGenerationThinkingEnabled;
+    copy._summaryGenerationThinkingEnabled = _summaryGenerationThinkingEnabled;
+    copy._suggestionGenerationThinkingEnabled =
+        _suggestionGenerationThinkingEnabled;
+    copy._compressGenerationThinkingEnabled =
+        _compressGenerationThinkingEnabled;
+    copy._translateGenerationThinkingEnabled =
+        _translateGenerationThinkingEnabled;
+    copy._ocrGenerationThinkingEnabled = _ocrGenerationThinkingEnabled;
     copy._memoryModelProvider = _memoryModelProvider;
     copy._memoryModelId = _memoryModelId;
     copy._memoryModelThinkingEnabled = _memoryModelThinkingEnabled;
@@ -5082,6 +5276,9 @@ class ProviderConfig {
   // multiple logical models can share the same backend model with different params.
   // {'<key>': {'apiModelId': String?, 'name': String?, 'type': 'chat'|'embedding', 'input': ['text','image'], 'output': [...], 'abilities': ['tool','reasoning']}}
   final Map<String, dynamic> modelOverrides;
+  // Per-provider custom request overrides.
+  final List<Map<String, String>> customHeaders;
+  final List<Map<String, String>> customBody;
   // Per-provider proxy
   final bool? proxyEnabled;
   final String? proxyType; // http|https|socks5
@@ -5155,6 +5352,8 @@ class ProviderConfig {
     this.serviceAccountJson,
     this.models = const [],
     this.modelOverrides = const {},
+    this.customHeaders = const <Map<String, String>>[],
+    this.customBody = const <Map<String, String>>[],
     this.proxyEnabled,
     this.proxyType,
     this.proxyHost,
@@ -5193,6 +5392,8 @@ class ProviderConfig {
     String? serviceAccountJson,
     List<String>? models,
     Map<String, dynamic>? modelOverrides,
+    List<Map<String, String>>? customHeaders,
+    List<Map<String, String>>? customBody,
     bool? proxyEnabled,
     String? proxyType,
     String? proxyHost,
@@ -5226,6 +5427,8 @@ class ProviderConfig {
     serviceAccountJson: serviceAccountJson ?? this.serviceAccountJson,
     models: models ?? this.models,
     modelOverrides: modelOverrides ?? this.modelOverrides,
+    customHeaders: customHeaders ?? this.customHeaders,
+    customBody: customBody ?? this.customBody,
     proxyEnabled: proxyEnabled ?? this.proxyEnabled,
     proxyType: proxyType ?? this.proxyType,
     proxyHost: proxyHost ?? this.proxyHost,
@@ -5268,6 +5471,8 @@ class ProviderConfig {
     'serviceAccountJson': serviceAccountJson,
     'models': models,
     'modelOverrides': modelOverrides,
+    'customHeaders': customHeaders,
+    'customBody': customBody,
     'proxyEnabled': proxyEnabled,
     'proxyType': proxyType,
     'proxyHost': proxyHost,
@@ -5316,6 +5521,16 @@ class ProviderConfig {
           (k, v) => MapEntry(k.toString(), v),
         ) ??
         const {},
+    customHeaders: _customRequestRowsFromJson(
+      json['customHeaders'],
+      keyName: 'name',
+      fallbackKeyName: 'key',
+    ),
+    customBody: _customRequestRowsFromJson(
+      json['customBody'],
+      keyName: 'key',
+      fallbackKeyName: 'name',
+    ),
     proxyEnabled: json['proxyEnabled'] as bool?,
     proxyType: json['proxyType'] as String?,
     proxyHost: json['proxyHost'] as String?,
@@ -5352,6 +5567,24 @@ class ProviderConfig {
     return id.trim().toLowerCase() == 'kelivoin' ? _kelivoInPublicApiKey : '';
   }
 
+  static List<Map<String, String>> _customRequestRowsFromJson(
+    Object? raw, {
+    required String keyName,
+    required String fallbackKeyName,
+  }) {
+    if (raw is! List) return const <Map<String, String>>[];
+    return raw
+        .whereType<Map>()
+        .map(
+          (entry) => <String, String>{
+            keyName: (entry[keyName] ?? entry[fallbackKeyName] ?? '')
+                .toString(),
+            'value': (entry['value'] ?? '').toString(),
+          },
+        )
+        .toList();
+  }
+
   static ProviderKind classify(String key, {ProviderKind? explicitType}) {
     // If an explicit type is provided, use it
     if (explicitType != null) return explicitType;
@@ -5373,6 +5606,7 @@ class ProviderConfig {
     if (k.contains('kelivoin')) return 'https://text.pollinations.ai/openai';
     if (k.contains('openrouter')) return 'https://openrouter.ai/api/v1';
     if (k.contains('aihubmix')) return 'https://aihubmix.com/v1';
+    if (k.contains('随想')) return 'https://sui-xiang.com/v1';
     if (RegExp(r'qwen|aliyun|dashscope').hasMatch(k)) {
       return 'https://dashscope.aliyuncs.com/compatible-mode/v1';
     }

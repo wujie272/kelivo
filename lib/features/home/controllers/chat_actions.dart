@@ -426,6 +426,15 @@ class ChatActions {
     );
   }
 
+  /// Elapsed milliseconds since [start], or null when unknown or when a
+  /// device clock rollback made the difference negative (the message_rows
+  /// CHECK constraint rejects negative durations).
+  int? _elapsedMsFrom(DateTime? start) {
+    if (start == null) return null;
+    final elapsed = DateTime.now().difference(start).inMilliseconds;
+    return elapsed < 0 ? null : elapsed;
+  }
+
   ChatMessage _streamingMessageSnapshot(stream_ctrl.StreamingState state) {
     final messageId = state.messageId;
     final index = _messages.indexWhere((message) => message.id == messageId);
@@ -438,9 +447,8 @@ class ChatActions {
       promptTokens: state.usage?.promptTokens,
       completionTokens: state.usage?.completionTokens,
       cachedTokens: state.usage?.cachedTokens,
-      durationMs: state.streamStartedAt == null
-          ? base.durationMs
-          : DateTime.now().difference(state.streamStartedAt!).inMilliseconds,
+      // copyWith keeps base.durationMs when this resolves to null.
+      durationMs: _elapsedMsFrom(state.streamStartedAt),
     );
   }
 
@@ -454,12 +462,25 @@ class ChatActions {
 
   _StreamingCheckpoint _createStreamingCheckpoint(ChatMessage message) {
     final cursor = _generationCheckpointCursors[message.id];
-    final checkpointSeq = cursor?.nextSeq;
-    if (cursor != null) cursor.nextSeq += 1;
+    // While the run is still `preparing` the checkpoint CAS (which only
+    // matches requesting/streaming/waiting_tool) would raise a conflict and,
+    // through the writer, kill the just-started generation. Persist a plain
+    // message snapshot without a run id/seq until the run reaches
+    // `requesting`, mirroring _finalizeStreamingCheckpoint's preparing case.
+    if (cursor == null || cursor.state == GenerationRunState.preparing) {
+      return _StreamingCheckpoint(
+        message: message,
+        toolEvents: _copyToolEvents(message.id),
+        generationRunId: null,
+        checkpointSeq: null,
+      );
+    }
+    final checkpointSeq = cursor.nextSeq;
+    cursor.nextSeq += 1;
     return _StreamingCheckpoint(
       message: message,
       toolEvents: _copyToolEvents(message.id),
-      generationRunId: cursor?.runId,
+      generationRunId: cursor.runId,
       checkpointSeq: checkpointSeq,
     );
   }
@@ -922,7 +943,7 @@ class ChatActions {
     final existingContextMessages = await chatController
         .messagesForGenerationContext(
           conversation,
-          maxMessages: _contextReadLimit(assistant, conversation),
+          maxMessages: await _contextReadLimit(assistant, conversation),
         );
     if (_hasUnsupportedAudioAttachments(
       messages: existingContextMessages,
@@ -1046,11 +1067,33 @@ class ChatActions {
     }
   }
 
-  int _contextReadLimit(Assistant? assistant, Conversation conversation) {
-    return contextReadLimit(
+  Future<int> _contextReadLimit(
+    Assistant? assistant,
+    Conversation conversation,
+  ) {
+    return resolveContextReadLimit(
       assistant: assistant,
-      persistedMessageCount: chatService.getMessageCount(conversation.id),
+      resolvePersistedCount: () =>
+          chatService.resolveMessageCount(conversation.id),
     );
+  }
+
+  /// Resolves the generation context window size.
+  ///
+  /// When the assistant limits context, [resolvePersistedCount] is not called.
+  /// Otherwise the real persisted count is awaited so unknown (-1) never
+  /// silently clamps to [Assistant.maxContextMessageSize].
+  @visibleForTesting
+  static Future<int> resolveContextReadLimit({
+    required Assistant? assistant,
+    required Future<int> Function() resolvePersistedCount,
+  }) async {
+    if ((assistant?.limitContextMessages ?? false) &&
+        (assistant?.contextMessageSize ?? 0) > 0) {
+      return contextReadLimit(assistant: assistant, persistedMessageCount: 0);
+    }
+    final count = await resolvePersistedCount();
+    return contextReadLimit(assistant: assistant, persistedMessageCount: count);
   }
 
   @visibleForTesting
@@ -1058,6 +1101,11 @@ class ChatActions {
     required Assistant? assistant,
     required int persistedMessageCount,
   }) {
+    assert(
+      persistedMessageCount >= 0,
+      'contextReadLimit requires a known message count; got '
+      '$persistedMessageCount',
+    );
     if ((assistant?.limitContextMessages ?? false) &&
         (assistant?.contextMessageSize ?? 0) > 0) {
       return assistant!.contextMessageSize.clamp(
@@ -1141,7 +1189,7 @@ class ChatActions {
         ? await chatController.messagesForCompleteHistoryContext(conversation)
         : await chatController.messagesForGenerationContext(
             conversation,
-            maxMessages: _contextReadLimit(assistant, conversation),
+            maxMessages: await _contextReadLimit(assistant, conversation),
             throughRevisionId: message.id,
             includeFollowingAssistant: true,
           );
@@ -1377,7 +1425,7 @@ class ChatActions {
     }
     final completeMessages = await chatController.messagesForGenerationContext(
       conversation,
-      maxMessages: _contextReadLimit(assistant, conversation),
+      maxMessages: await _contextReadLimit(assistant, conversation),
       throughRevisionId: message.id,
     );
     final contextIndex = completeMessages.indexWhere(
@@ -1943,9 +1991,7 @@ class ChatActions {
         promptTokens: state.usage?.promptTokens,
         completionTokens: state.usage?.completionTokens,
         cachedTokens: state.usage?.cachedTokens,
-        durationMs: state.streamStartedAt != null
-            ? DateTime.now().difference(state.streamStartedAt!).inMilliseconds
-            : null,
+        durationMs: _elapsedMsFrom(state.streamStartedAt),
         updateMessageInList: (id, content, tokens) {
           onContentUpdated?.call(id, content, tokens);
         },
@@ -2084,9 +2130,7 @@ class ChatActions {
     final processedContent = _transformAssistantContent(state);
 
     // Compute final duration
-    final finalDurationMs = state.streamStartedAt != null
-        ? DateTime.now().difference(state.streamStartedAt!).inMilliseconds
-        : null;
+    final finalDurationMs = _elapsedMsFrom(state.streamStartedAt);
     final finalPromptTokens = state.usage?.promptTokens;
     final finalCompletionTokens = state.usage?.completionTokens;
     final finalCachedTokens = state.usage?.cachedTokens;

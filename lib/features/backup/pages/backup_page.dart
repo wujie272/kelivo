@@ -644,6 +644,8 @@ class _BackupPageState extends State<BackupPage> {
                                             }
                                             await showBackupRestartRequiredDialog(
                                               context,
+                                              skippedConversations:
+                                                  vm.skippedConversations,
                                             );
                                           },
                                         ),
@@ -709,6 +711,8 @@ class _BackupPageState extends State<BackupPage> {
                                     }
                                     await showBackupRestartRequiredDialog(
                                       context,
+                                      skippedConversations:
+                                          vm.skippedConversations,
                                     );
                                   },
                                 ),
@@ -1047,6 +1051,8 @@ class _BackupPageState extends State<BackupPage> {
                                             }
                                             await showBackupRestartRequiredDialog(
                                               context,
+                                              skippedConversations:
+                                                  s3Vm.skippedConversations,
                                             );
                                           },
                                         ),
@@ -1110,6 +1116,8 @@ class _BackupPageState extends State<BackupPage> {
                                     }
                                     await showBackupRestartRequiredDialog(
                                       context,
+                                      skippedConversations:
+                                          s3Vm.skippedConversations,
                                     );
                                   },
                                 ),
@@ -1217,40 +1225,44 @@ class _BackupPageState extends State<BackupPage> {
                   await showDialog(
                     context: context,
                     barrierDismissible: false,
-                    builder: (dctx) => AlertDialog(
-                      title: Text(l10n.backupPageRestartRequired),
-                      content: Text(
-                        '${l10n.backupPageImportFromCherryStudio}:\n'
-                        ' • Providers: ${res.providers}\n'
-                        ' • Assistants: ${res.assistants}\n'
-                        ' • Conversations: ${res.conversations}\n'
-                        ' • Messages: ${res.messages}\n'
-                        ' • Files: ${res.files}\n\n'
-                        '${l10n.backupPageRestartContent}',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () async {
-                            if (await requestAppRestart(
-                                  dctx,
-                                  PlatformUtils.restartApp,
-                                ) &&
-                                dctx.mounted) {
-                              Navigator.of(dctx).pop();
-                            }
-                          },
-                          child: Text(l10n.backupPageOK),
+                    builder: (dctx) => PopScope(
+                      canPop: false,
+                      child: AlertDialog(
+                        title: Text(l10n.backupPageRestartRequired),
+                        content: Text(
+                          '${l10n.backupPageImportFromCherryStudio}:\n'
+                          ' • Providers: ${res.providers}\n'
+                          ' • Assistants: ${res.assistants}\n'
+                          ' • Conversations: ${res.conversations}\n'
+                          ' • Messages: ${res.messages}\n'
+                          ' • Files: ${res.files}\n\n'
+                          '${l10n.backupPageRestartContent}',
                         ),
-                      ],
+                        actions: [
+                          TextButton(
+                            onPressed: () async {
+                              if (await requestAppRestart(
+                                    dctx,
+                                    PlatformUtils.restartApp,
+                                  ) &&
+                                  dctx.mounted) {
+                                Navigator.of(dctx).pop();
+                              }
+                            },
+                            child: Text(l10n.backupPageOK),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 } on CherryUnsupportedBackupVersionException catch (e) {
                   if (!context.mounted) return;
                   showAppSnackBar(
                     context,
-                    message: l10n.backupPageCherryStudioUnsupportedBackupVersion(
-                      '${e.version}',
-                    ),
+                    message: l10n
+                        .backupPageCherryStudioUnsupportedBackupVersion(
+                          '${e.version}',
+                        ),
                     type: NotificationType.error,
                   );
                 } catch (e) {
@@ -1297,30 +1309,33 @@ class _BackupPageState extends State<BackupPage> {
                   await showDialog(
                     context: context,
                     barrierDismissible: false,
-                    builder: (dctx) => AlertDialog(
-                      title: Text(l10n.backupPageRestartRequired),
-                      content: Text(
-                        '${l10n.backupPageImportFromChatbox}:\n'
-                        ' • Providers: ${res.providers}\n'
-                        ' • Assistants: ${res.assistants}\n'
-                        ' • Conversations: ${res.conversations}\n'
-                        ' • Messages: ${res.messages}\n\n'
-                        '${l10n.backupPageRestartContent}',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () async {
-                            if (await requestAppRestart(
-                                  dctx,
-                                  PlatformUtils.restartApp,
-                                ) &&
-                                dctx.mounted) {
-                              Navigator.of(dctx).pop();
-                            }
-                          },
-                          child: Text(l10n.backupPageOK),
+                    builder: (dctx) => PopScope(
+                      canPop: false,
+                      child: AlertDialog(
+                        title: Text(l10n.backupPageRestartRequired),
+                        content: Text(
+                          '${l10n.backupPageImportFromChatbox}:\n'
+                          ' • Providers: ${res.providers}\n'
+                          ' • Assistants: ${res.assistants}\n'
+                          ' • Conversations: ${res.conversations}\n'
+                          ' • Messages: ${res.messages}\n\n'
+                          '${l10n.backupPageRestartContent}',
                         ),
-                      ],
+                        actions: [
+                          TextButton(
+                            onPressed: () async {
+                              if (await requestAppRestart(
+                                    dctx,
+                                    PlatformUtils.restartApp,
+                                  ) &&
+                                  dctx.mounted) {
+                                Navigator.of(dctx).pop();
+                              }
+                            },
+                            child: Text(l10n.backupPageOK),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 } catch (e) {
@@ -1384,7 +1399,16 @@ class _BackupPageState extends State<BackupPage> {
                   .read<BackupReminderProvider>()
                   .recordBackupCompleted();
             }
-          } catch (_) {}
+          } catch (e) {
+            // A full disk or unwritable target must not look like a
+            // successful export.
+            if (!context.mounted) return;
+            showAppSnackBar(
+              context,
+              message: e.toString(),
+              type: NotificationType.error,
+            );
+          }
         }
       }
     } finally {
@@ -1423,7 +1447,10 @@ class _BackupPageState extends State<BackupPage> {
       return;
     }
     if (!context.mounted) return;
-    await showBackupRestartRequiredDialog(context);
+    await showBackupRestartRequiredDialog(
+      context,
+      skippedConversations: vm.skippedConversations,
+    );
   }
 
   Future<void> _showWebDavSettingsPage(
@@ -2197,8 +2224,7 @@ class _RemoteListSheet extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(vertical: 6),
                             child: Container(
                               decoration: BoxDecoration(
-                                color:
-                                    context.appColors.surfaceFill,
+                                color: context.appColors.surfaceFill,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: cs.outlineVariant.withValues(

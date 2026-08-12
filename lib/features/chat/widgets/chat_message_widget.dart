@@ -41,6 +41,7 @@ import '../../../shared/widgets/ios_tactile.dart';
 import '../../../desktop/desktop_context_menu.dart';
 import '../../../desktop/menu_anchor.dart';
 import '../../../shared/widgets/emoji_text.dart';
+import '../../../utils/platform_utils.dart';
 import '../../home/services/ask_user_interaction_service.dart';
 import '../../home/services/local_tools_service.dart';
 import '../../home/services/tool_approval_service.dart';
@@ -48,8 +49,9 @@ import '../utils/thinking_tag_parser.dart';
 import 'citation_sources_sheet.dart';
 import 'chat_suggestion_bubbles.dart';
 import 'token_display_widget.dart';
+import 'screen_time_tool_ui.dart';
+import 'tool_detail_text_section.dart';
 import '../../../theme/app_font_weights.dart';
-import 'package:Kelivo/theme/app_semantic_colors.dart';
 
 final RegExp _urlSchemeRe = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*:');
 
@@ -142,6 +144,47 @@ String _resolveAttachmentImageUri(String uri) {
   return SandboxPathResolver.fix(path);
 }
 
+/// Decoded `data:` image bytes, keyed by the full data URI.
+///
+/// Reusing the same [Uint8List] keeps [MemoryImage] cache keys stable across
+/// rebuilds, so the image is decoded once instead of on every frame. Entries
+/// are evicted least-recently-used first, bounded by both entry count and
+/// total decoded bytes so a few large images cannot pin unbounded memory.
+final Map<String, Uint8List?> _dataUriBytesCache = <String, Uint8List?>{};
+const int _dataUriBytesCacheLimit = 24;
+const int _dataUriBytesCacheMaxBytes = 16 << 20;
+int _dataUriBytesCacheBytes = 0;
+
+Uint8List? _decodeDataUriBytes(String path) {
+  if (_dataUriBytesCache.containsKey(path)) {
+    // Re-insert to mark as most recently used (LinkedHashMap keeps order).
+    final cached = _dataUriBytesCache.remove(path);
+    _dataUriBytesCache[path] = cached;
+    return cached;
+  }
+
+  Uint8List? bytes;
+  try {
+    const marker = 'base64,';
+    final idx = path.indexOf(marker);
+    if (idx != -1) bytes = base64Decode(path.substring(idx + marker.length));
+  } catch (_) {
+    bytes = null;
+  }
+
+  _dataUriBytesCache[path] = bytes;
+  _dataUriBytesCacheBytes += bytes?.length ?? 0;
+  // Evict oldest entries first. The entry just added is always kept (even if
+  // it alone exceeds the byte budget) so its MemoryImage key stays stable.
+  while (_dataUriBytesCache.length > 1 &&
+      (_dataUriBytesCache.length > _dataUriBytesCacheLimit ||
+          _dataUriBytesCacheBytes > _dataUriBytesCacheMaxBytes)) {
+    final evicted = _dataUriBytesCache.remove(_dataUriBytesCache.keys.first);
+    _dataUriBytesCacheBytes -= evicted?.length ?? 0;
+  }
+  return bytes;
+}
+
 /// Shared image widget for tool thumbnails and message attachment previews.
 ///
 /// `http(s)` → [Image.network], `data:` → [Image.memory], otherwise local
@@ -183,21 +226,15 @@ Widget _buildResolvedImage(
   }
 
   if (path.startsWith('data:')) {
-    try {
-      const marker = 'base64,';
-      final idx = path.indexOf(marker);
-      if (idx != -1) {
-        final bytes = base64Decode(path.substring(idx + marker.length));
-        return Image.memory(
-          bytes,
-          width: width,
-          height: height,
-          fit: fit,
-          errorBuilder: (_, __, ___) => errorWidget(),
-        );
-      }
-    } catch (_) {}
-    return errorWidget();
+    final bytes = _decodeDataUriBytes(path);
+    if (bytes == null) return errorWidget();
+    return Image.memory(
+      bytes,
+      width: width,
+      height: height,
+      fit: fit,
+      errorBuilder: (_, __, ___) => errorWidget(),
+    );
   }
 
   final fixed = SandboxPathResolver.fix(path);
@@ -247,8 +284,11 @@ IconData? _localToolIconFor(String name, Map<String, dynamic> args) {
       'write' => Lucide.ClipboardPen,
       _ => Lucide.Clipboard,
     },
-    LocalToolNames.textToSpeech => Lucide.Volume2,
-    LocalToolNames.calculate => Lucide.Calculator,
+     LocalToolNames.textToSpeech => Lucide.Volume2,
+     LocalToolNames.calculate => Lucide.Calculator,
+     LocalToolNames.screenTime => Lucide.Smartphone,
+     LocalToolNames.calendarQuery => Lucide.Calendar,
+     LocalToolNames.calendarCreate => Lucide.CalendarPlus,
     _ => null,
   };
 }
@@ -268,8 +308,13 @@ String? _localToolTitleFor(
       'write' => l10n.chatMessageWidgetWriteClipboard,
       _ => l10n.assistantEditLocalToolClipboardTitle,
     },
-    LocalToolNames.textToSpeech => l10n.chatMessageWidgetSpeakingTitle,
-    LocalToolNames.calculate => l10n.assistantEditLocalToolCalculateTitle,
+     LocalToolNames.textToSpeech => l10n.chatMessageWidgetSpeakingTitle,
+     LocalToolNames.calculate => l10n.assistantEditLocalToolCalculateTitle,
+     LocalToolNames.screenTime => l10n.assistantEditLocalToolScreenTimeTitle,
+     LocalToolNames.calendarQuery =>
+       l10n.assistantEditLocalToolCalendarQueryTitle,
+     LocalToolNames.calendarCreate =>
+       l10n.assistantEditLocalToolCalendarCreateTitle,
     _ => null,
   };
 }
@@ -460,104 +505,268 @@ void _showToolDetail(BuildContext context, ToolUIPart part) {
     part.arguments,
     isResult: !part.loading,
   );
+  final closeSemanticLabel = l10n.mcpPageClose;
+  final screenTime = part.toolName == LocalToolNames.screenTime
+      ? ScreenTimeResult.tryParse(cleanText)
+      : null;
+  final useScreenTimeDetail = screenTime != null && screenTime.hasApps;
+
+  if (PlatformUtils.isDesktopTarget) {
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) => _ToolDetailDesktopDialog(
+          title: title,
+          closeSemanticLabel: closeSemanticLabel,
+          argsPretty: argsPretty,
+          resultText: resultText,
+          images: images,
+          argumentsLabel: l10n.chatMessageWidgetArguments,
+          resultLabel: l10n.chatMessageWidgetResult,
+          imagesLabel: l10n.chatMessageWidgetImages,
+          screenTimeResult: useScreenTimeDetail ? screenTime : null,
+        ),
+      ),
+    );
+    return;
+  }
 
   unawaited(
     showCustomBottomSheet<void>(
       context: context,
       title: title,
-      closeSemanticLabel: l10n.mcpPageClose,
+      closeSemanticLabel: closeSemanticLabel,
       builder: (sheetContext, scrollController) {
-        final theme = Theme.of(sheetContext);
-        final cs = theme.colorScheme;
-        return ListView(
-          controller: scrollController,
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            Text(
-              l10n.chatMessageWidgetArguments,
-              style: TextStyle(
-                fontSize: 12,
-                color: cs.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: sheetContext.appColors.surfaceFill,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: cs.outlineVariant.withValues(alpha: 0.2),
-                ),
-              ),
-              child: SelectableText(
-                argsPretty,
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              l10n.chatMessageWidgetResult,
-              style: TextStyle(
-                fontSize: 12,
-                color: cs.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: sheetContext.appColors.surfaceFill,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: cs.outlineVariant.withValues(alpha: 0.2),
-                ),
-              ),
-              child: SelectableText(
-                resultText,
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-            if (images.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                l10n.chatMessageWidgetImages,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: cs.onSurface.withValues(alpha: 0.6),
-                ),
-              ),
-              const SizedBox(height: 6),
-              SizedBox(
-                height: 220,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: images.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final path = images[index];
-                    return GestureDetector(
-                      onTap: () => _showToolFullImage(sheetContext, path),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: _buildToolImageFromPath(
-                          sheetContext,
-                          path,
-                          height: 220,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ],
+        if (useScreenTimeDetail) {
+          return ScreenTimeToolDetailBody(
+            result: screenTime,
+            scrollController: scrollController,
+          );
+        }
+        return _ToolDetailBody(
+          scrollController: scrollController,
+          argsPretty: argsPretty,
+          resultText: resultText,
+          images: images,
+          argumentsLabel: l10n.chatMessageWidgetArguments,
+          resultLabel: l10n.chatMessageWidgetResult,
+          imagesLabel: l10n.chatMessageWidgetImages,
         );
       },
     ),
   );
+}
+
+class _ToolDetailDesktopDialog extends StatefulWidget {
+  const _ToolDetailDesktopDialog({
+    required this.title,
+    required this.closeSemanticLabel,
+    required this.argsPretty,
+    required this.resultText,
+    required this.images,
+    required this.argumentsLabel,
+    required this.resultLabel,
+    required this.imagesLabel,
+    this.screenTimeResult,
+  });
+
+  static const dialogKey = ValueKey('tool_detail_desktop_dialog');
+  static const closeButtonKey = ValueKey('tool_detail_desktop_dialog_close');
+
+  final String title;
+  final String closeSemanticLabel;
+  final String argsPretty;
+  final String resultText;
+  final List<String> images;
+  final String argumentsLabel;
+  final String resultLabel;
+  final String imagesLabel;
+  final ScreenTimeResult? screenTimeResult;
+
+  @override
+  State<_ToolDetailDesktopDialog> createState() =>
+      _ToolDetailDesktopDialogState();
+}
+
+class _ToolDetailDesktopDialogState extends State<_ToolDetailDesktopDialog> {
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Dialog(
+      key: _ToolDetailDesktopDialog.dialogKey,
+      elevation: 12,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minWidth: 420,
+          maxWidth: 640,
+          maxHeight: 680,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Material(
+            color: cs.surface,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          widget.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: cs.onSurface,
+                            fontSize: 16,
+                            fontWeight: AppFontWeights.emphasis,
+                            height: 1.2,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        key: _ToolDetailDesktopDialog.closeButtonKey,
+                        width: 28,
+                        height: 28,
+                        child: IosIconButton(
+                          icon: Lucide.X,
+                          size: 20,
+                          padding: EdgeInsets.zero,
+                          color: cs.onSurface.withValues(alpha: 0.62),
+                          semanticLabel: widget.closeSemanticLabel,
+                          onTap: () => Navigator.of(context).maybePop(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Scrollbar(
+                    controller: _scrollController,
+                    child: widget.screenTimeResult != null
+                        ? ScreenTimeToolDetailBody(
+                            result: widget.screenTimeResult!,
+                            scrollController: _scrollController,
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                          )
+                        : _ToolDetailBody(
+                            scrollController: _scrollController,
+                            argsPretty: widget.argsPretty,
+                            resultText: widget.resultText,
+                            images: widget.images,
+                            argumentsLabel: widget.argumentsLabel,
+                            resultLabel: widget.resultLabel,
+                            imagesLabel: widget.imagesLabel,
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ToolDetailBody extends StatelessWidget {
+  const _ToolDetailBody({
+    required this.scrollController,
+    required this.argsPretty,
+    required this.resultText,
+    required this.images,
+    required this.argumentsLabel,
+    required this.resultLabel,
+    required this.imagesLabel,
+    this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 24),
+  });
+
+  final ScrollController scrollController;
+  final String argsPretty;
+  final String resultText;
+  final List<String> images;
+  final String argumentsLabel;
+  final String resultLabel;
+  final String imagesLabel;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SelectionArea(
+      child: CustomScrollView(
+        controller: scrollController,
+        slivers: [
+          SliverPadding(
+            padding: padding,
+            sliver: SliverMainAxisGroup(
+              slivers: [
+                ToolDetailTextSection(label: argumentsLabel, text: argsPretty),
+                const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                ToolDetailTextSection(label: resultLabel, text: resultText),
+                if (images.isNotEmpty) ...[
+                  const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                  SliverToBoxAdapter(
+                    child: Text(
+                      imagesLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 6)),
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 220,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: images.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          final path = images[index];
+                          return GestureDetector(
+                            onTap: () => _showToolFullImage(context, path),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: _buildToolImageFromPath(
+                                context,
+                                path,
+                                height: 220,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class ChatMessageWidget extends StatefulWidget {
@@ -1584,7 +1793,10 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
   }) {
     final attachmentEntries = <({int index, MessagePart part})>[
       for (var i = 0; i < parts.length; i++)
-        if (parts[i] is ImagePart || parts[i] is FilePart)
+        if (parts[i] is ImagePart ||
+            parts[i] is FilePart ||
+            (parts[i] is MalformedPart &&
+                (parts[i] as MalformedPart).isAttachmentKind))
           (index: i, part: parts[i]),
     ];
     if (attachmentEntries.isEmpty) return null;
@@ -1616,6 +1828,63 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     for (final entry in attachmentEntries) {
       final part = entry.part;
       final partIndex = entry.index;
+      if (part is MalformedPart) {
+        if (part.rawKind == 'image') {
+          items.add(
+            IosCardPress(
+              key: ValueKey(
+                '$roleKey-message-attachment:${widget.message.id}:$partIndex',
+              ),
+              baseColor: Colors.transparent,
+              pressedScale: 0.985,
+              borderRadius: BorderRadius.circular(10),
+              padding: EdgeInsets.zero,
+              onTap: null,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: unavailableImagePlaceholder(),
+              ),
+            ),
+          );
+        } else {
+          items.add(
+            IosCardPress(
+              key: ValueKey(
+                '$roleKey-message-attachment:${widget.message.id}:$partIndex',
+              ),
+              baseColor: isDark
+                  ? cs.onSurface.withValues(alpha: 0.08)
+                  : cs.surface.withValues(alpha: 0.92),
+              pressedScale: 0.99,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.18),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              onTap: null,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.insert_drive_file,
+                    size: 16,
+                    color: cs.onSurface.withValues(alpha: 0.45),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    l10n.chatMessageWidgetAttachmentUnavailable,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: cs.onSurface.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        continue;
+      }
       if (part is ImagePart) {
         final path = part.uri.trim();
         final fixed = path.isEmpty ? '' : _resolveAttachmentImageUri(path);
@@ -3920,8 +4189,18 @@ class _ChainOfThoughtToolStepState extends State<_ChainOfThoughtToolStep> {
   bool get _isAskUser => widget.part.toolName == LocalToolNames.askUser;
   bool? _askUserExpanded;
 
+  String? _cachedContent;
+  String _cleanText = '';
+  List<String> _imagePaths = const [];
+
   bool get _askUserAnswered =>
       widget.part.content?.trim().isNotEmpty == true && !widget.part.loading;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateContentCache();
+  }
 
   @override
   void didUpdateWidget(covariant _ChainOfThoughtToolStep oldWidget) {
@@ -3932,6 +4211,18 @@ class _ChainOfThoughtToolStepState extends State<_ChainOfThoughtToolStep> {
     if (_isAskUser && !wasAnswered && _askUserAnswered) {
       _askUserExpanded = true;
     }
+    if (oldWidget.part.content != widget.part.content) {
+      _updateContentCache();
+    }
+  }
+
+  void _updateContentCache() {
+    final content = widget.part.content;
+    if (content == _cachedContent) return;
+    _cachedContent = content;
+    final (cleanText, paths) = _parseMcpImagePaths(content);
+    _cleanText = cleanText;
+    _imagePaths = paths;
   }
 
   IconData _iconFor(String name, Map<String, dynamic> args) {
@@ -4055,7 +4346,11 @@ class _ChainOfThoughtToolStepState extends State<_ChainOfThoughtToolStep> {
       ),
     );
 
-    final (cleanText, imagePaths) = _parseMcpImagePaths(widget.part.content);
+    final cleanText = _cleanText;
+    final imagePaths = _imagePaths;
+    final screenTimeResult = widget.part.toolName == LocalToolNames.screenTime
+        ? ScreenTimeResult.tryParse(cleanText)
+        : null;
     final String summaryText = approvalRequest != null
         ? _argsSummary(approvalRequest.arguments)
         : cleanText.isNotEmpty
@@ -4082,6 +4377,14 @@ class _ChainOfThoughtToolStepState extends State<_ChainOfThoughtToolStep> {
             text: ttsText,
             textColor: fg.body,
             buttonColor: fg.accent,
+          )
+        : screenTimeResult != null &&
+              (screenTimeResult.isNoPermission || screenTimeResult.hasApps)
+        ? ScreenTimeToolSummary(
+            result: screenTimeResult,
+            textColor: fg.body,
+            secondaryColor: fg.muted,
+            errorColor: cs.error,
           )
         : !shouldShowSummary || summaryText.trim().isEmpty
         ? null
@@ -4394,6 +4697,30 @@ class _ToolCallItemState extends State<_ToolCallItem> {
                 text: ttsText,
                 textColor: fg.body,
                 buttonColor: fg.accent,
+              ),
+            ],
+            if (!widget.part.loading &&
+                !isPendingApproval &&
+                widget.part.toolName == LocalToolNames.screenTime) ...[
+              Builder(
+                builder: (context) {
+                  final screenTime = ScreenTimeResult.tryParse(
+                    widget.part.content,
+                  );
+                  if (screenTime == null ||
+                      (!screenTime.isNoPermission && !screenTime.hasApps)) {
+                    return const SizedBox.shrink();
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: ScreenTimeToolSummary(
+                      result: screenTime,
+                      textColor: fg.body,
+                      secondaryColor: fg.muted,
+                      errorColor: cs.error,
+                    ),
+                  );
+                },
               ),
             ],
             // Argument summary so users know what the tool is about to do

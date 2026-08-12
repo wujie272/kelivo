@@ -36,6 +36,10 @@ void main() {
           BusinessKeyDisposition.preference,
         );
         expect(
+          BusinessKeyRegistry.classify('tts_selected_service_id_v1'),
+          BusinessKeyDisposition.preference,
+        );
+        expect(
           BusinessKeyRegistry.classify('providers_order_v1'),
           BusinessKeyDisposition.providerOrder,
         );
@@ -72,6 +76,12 @@ void main() {
               'id': 'first',
               'apiKey': 'first-secret',
               'proxyPassword': 'proxy-secret',
+              'customHeaders': [
+                {'name': 'X-Provider', 'value': 'header-value'},
+              ],
+              'customBody': [
+                {'key': 'metadata', 'value': '{"source":"provider"}'},
+              ],
             },
           }),
           // The order-only entry is retained; the configured provider omitted
@@ -115,6 +125,12 @@ void main() {
           jsonDecode(providers.first.payload)['proxyPassword'],
           'proxy-secret',
         );
+        expect(jsonDecode(providers.first.payload)['customHeaders'], [
+          {'name': 'X-Provider', 'value': 'header-value'},
+        ]);
+        expect(jsonDecode(providers.first.payload)['customBody'], [
+          {'key': 'metadata', 'value': '{"source":"provider"}'},
+        ]);
       },
     );
 
