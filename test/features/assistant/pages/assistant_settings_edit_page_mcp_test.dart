@@ -195,7 +195,7 @@ void main() {
       find.byWidgetPredicate(
         (widget) => widget is Icon && widget.icon == Lucide.Calendar,
       ),
-      findsNothing,
+      findsOneWidget,
     );
   });
 
