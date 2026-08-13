@@ -493,6 +493,18 @@ class ChatScrollController {
     });
   }
 
+  /// After generation ends, pin to bottom if the user was still following.
+  ///
+  /// Layout-phase auto-follow requires [isGenerating], which is already false
+  /// when the terminal message widget is swapped in and typically grows.
+  void stickToBottomAfterGeneration() {
+    if (!_getAutoScrollEnabled()) return;
+    if (!_autoStickToBottom || _isUserScrolling) return;
+    // Animate: the user is watching this spot, so an instant jump reads as a
+    // flash while a short eased scroll reads as the reply settling in.
+    scrollToBottomSoon(animate: true);
+  }
+
   /// Ensure scroll reaches bottom even after widget tree transitions.
   void scrollToBottomSoon({bool animate = true}) {
     final request = ++_deferredBottomRequest;
@@ -502,7 +514,11 @@ class ChatScrollController {
       }
     });
     Future.delayed(const Duration(milliseconds: 120), () {
-      if (request == _deferredBottomRequest) {
+      // The retry exists for widget-tree transitions that invalidate the
+      // post-frame attempt; restarting a live animation here would cause a
+      // visible velocity discontinuity instead.
+      if (request == _deferredBottomRequest &&
+          !_explicitBottomAnimationInProgress) {
         scrollToBottom(animate: animate);
       }
     });

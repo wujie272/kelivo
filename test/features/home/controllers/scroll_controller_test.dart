@@ -323,6 +323,97 @@ void main() {
       scrollController.dispose();
     });
 
+    testWidgets('generation finish pins again after the terminal widget grows', (
+      tester,
+    ) async {
+      var generating = true;
+      var itemCount = 30;
+      final scrollController = ChatAutoFollowScrollController();
+      final chatScrollController = ChatScrollController(
+        scrollController: scrollController,
+        onStateChanged: () {},
+        getAutoScrollEnabled: () => true,
+        getAutoScrollIdleSeconds: () => 8,
+        isGenerating: () => generating,
+      );
+      await tester.pumpWidget(
+        _ScrollHarness(
+          scrollController: scrollController,
+          itemCount: itemCount,
+        ),
+      );
+      scrollController.jumpTo(scrollController.position.maxScrollExtent);
+      expect(chatScrollController.autoStickToBottom, isTrue);
+
+      generating = false;
+      chatScrollController.stickToBottomAfterGeneration();
+      itemCount = 34;
+      await tester.pumpWidget(
+        _ScrollHarness(
+          scrollController: scrollController,
+          itemCount: itemCount,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 120));
+      // The pin animates instead of jumping; partway through it should be
+      // strictly between the old offset and the bottom.
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(
+        scrollController.offset,
+        lessThan(scrollController.position.maxScrollExtent),
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump();
+      expect(
+        scrollController.offset,
+        scrollController.position.maxScrollExtent,
+      );
+
+      chatScrollController.dispose();
+      scrollController.dispose();
+    });
+
+    testWidgets('generation finish does not pin after the user scrolls up', (
+      tester,
+    ) async {
+      var generating = true;
+      var itemCount = 30;
+      final scrollController = ChatAutoFollowScrollController();
+      final chatScrollController = ChatScrollController(
+        scrollController: scrollController,
+        onStateChanged: () {},
+        getAutoScrollEnabled: () => true,
+        getAutoScrollIdleSeconds: () => 8,
+        isGenerating: () => generating,
+      );
+      await tester.pumpWidget(
+        _ScrollHarness(
+          scrollController: scrollController,
+          itemCount: itemCount,
+        ),
+      );
+      scrollController.jumpTo(scrollController.position.maxScrollExtent);
+      chatScrollController.handleUserScrollIntent();
+      scrollController.jumpTo(0);
+
+      generating = false;
+      itemCount = 34;
+      await tester.pumpWidget(
+        _ScrollHarness(
+          scrollController: scrollController,
+          itemCount: itemCount,
+        ),
+      );
+      chatScrollController.stickToBottomAfterGeneration();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(scrollController.offset, 0);
+
+      chatScrollController.dispose();
+      scrollController.dispose();
+    });
+
     testWidgets('indexed bottom command uses a continuous scroll animation', (
       tester,
     ) async {
